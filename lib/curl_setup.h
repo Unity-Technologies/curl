@@ -82,6 +82,10 @@
 #  include "config-lumin.h"
 #endif
 
+#ifdef RELISH
+#  include "config-relish.h"
+#endif
+
 #ifdef __ANDROID__
 #  if defined(__arm__)
 #    include "config-android-arm32.h"

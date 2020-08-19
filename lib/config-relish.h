@@ -8,7 +8,7 @@
 #define PACKAGE "curl"
 #define VERSION "-"
 
-#define OS "aarch64-none-linux-android"
+#define OS "x86_64-none-linux-android"
 
 #define HAVE_SYS_TYPES_H 1
 #define HAVE_STDINT_H 1
