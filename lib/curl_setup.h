@@ -78,16 +78,12 @@
 #  include "config-vxworks.h"
 #endif
 
-#ifdef LUMIN
-#  include "config-lumin.h"
-#endif
-
-#ifdef RELISH
-#  include "config-relish.h"
-#endif
-
 #ifdef __ANDROID__
-#  if defined(__arm__)
+#  if LUMIN
+#    include "config-lumin.h"
+#  elif RELISH
+#    include "config-relish.h"
+#  elif defined(__arm__)
 #    include "config-android-arm32.h"
 #  elif defined(__aarch64__)
 #    include "config-android-arm64.h"
