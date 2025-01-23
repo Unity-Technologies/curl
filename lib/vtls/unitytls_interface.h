@@ -264,6 +264,9 @@ typedef void                        (*unitytls_tlsctx_set_certificate_callback_t
 
 typedef void                        (*unitytls_random_generate_bytes_t)(UInt8* buffer, size_t bufferLen, unitytls_errorstate* errorState);
 
+typedef int                         (*unitytls_tlsctx_set_alpn_protocols_t)(unitytls_tlsctx* ctx, const char **protocols);
+typedef const char*                 (*unitytls_tlsctx_get_alpn_protocol_t)(unitytls_tlsctx* ctx);
+
 /* Interface struct used to integrate UnityTLS into external libraries. */
 /* See InterfaceStruct.cpp in UnityTLS. */
 typedef struct unitytls_interface_struct
@@ -311,6 +314,9 @@ typedef struct unitytls_interface_struct
 
     unitytls_x509verify_result_to_string_t unitytls_x509verify_result_to_string;
     unitytls_tlsctx_set_trace_level_t unitytls_tlsctx_set_trace_level;
+
+    unitytls_tlsctx_set_alpn_protocols_t unitytls_tlsctx_set_alpn_protocols;
+    unitytls_tlsctx_get_alpn_protocol_t unitytls_tlsctx_get_alpn_protocol;
 } unitytls_interface_struct;
 
 

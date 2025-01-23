@@ -26,12 +26,20 @@
 #include "curl_memory.h"
 #include "memdebug.h"
 
+/* ALPN for http2 */
+#ifdef USE_HTTP2
+#define HAS_ALPN
+#endif
+
 /* struct for data related to each SSL connection */
 struct ssl_backend_data {
   unitytls_x509list* cacert;
   unitytls_x509list* clicert;
   unitytls_key* pk;
   unitytls_tlsctx* ctx;
+#ifdef HAS_ALPN
+  const char *protocols[3];
+#endif
 };
 
 /*
@@ -455,6 +463,28 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
     return CURLE_SSL_CONNECT_ERROR;
   }
 
+#ifdef HAS_ALPN
+  if (connssl->alpn)
+  {
+    struct alpn_proto_buf proto;
+    size_t i;
+
+    for (int i = 0; i < connssl->alpn->count; ++i)
+    {
+      backend->protocols[i] = connssl->alpn->entries[i];
+      // this function does not clone the protocols array, which is why we need to keep it around */
+      // if (mbedtls_ssl_conf_alpn_protocols(&backend->config, &backend->protocols[0]))
+      if (unitytls->unitytls_tlsctx_set_alpn_protocols(backend->ctx, &backend->protocols[0]))
+      {
+        failf(data, "Failed setting APLN protocols");
+        return CURLE_SSL_CONNECT_ERROR;
+      }
+      Curl_alpn_to_proto_str(&proto, connssl->alpn);
+      infof(data, VTLS_INFOF_ALPN_OFFER_1STR, proto.data);
+    }
+  }
+#endif
+
   /* give application a chance to interfere with SSL set up. */
   if(data->set.ssl.fsslctx) {
     CURLcode result = (*data->set.ssl.fsslctx)(data, backend->ctx, data->set.ssl.fsslctxp);
@@ -469,7 +499,7 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
   return CURLE_OK;
 }
 
-static CURLcode unitytls_connect_step2(struct Curl_easy* data, struct ssl_connect_data* connssl)
+static CURLcode unitytls_connect_step2(struct Curl_cfilter* cf, struct Curl_easy* data, struct ssl_connect_data* connssl)
 {
   struct ssl_backend_data* backend = connssl->backend;
 
@@ -509,6 +539,14 @@ static CURLcode unitytls_connect_step2(struct Curl_easy* data, struct ssl_connec
         return CURLE_PEER_FAILED_VERIFICATION;
     }
   }
+
+#ifdef HAS_ALPN
+  if (connssl->alpn) {
+    //const char *proto = mbedtls_ssl_get_alpn_protocol(backend->ctx);
+    const char *proto = unitytls->unitytls_tlsctx_get_alpn_protocol(backend->ctx);
+    Curl_alpn_set_negotiated(cf, data, (const unsigned char *)proto, proto ? strlen(proto) : 0);
+  }
+#endif
 
   /* We almost certainly have a verifyresult!=UNITYTLS_X509VERIFY_SUCCESS as well, but in theory it is still possible to hit this code. */
   if (err.code == UNITYTLS_SUCCESS) {
@@ -567,7 +605,7 @@ static CURLcode unitytls_connect_common(struct Curl_cfilter *cf, struct Curl_eas
       return CURLE_OPERATION_TIMEDOUT;
     }
 
-    retcode = unitytls_connect_step2(data, connssl);
+    retcode = unitytls_connect_step2(cf, data, connssl);
     if(retcode != CURLE_OK || (nonblocking && ssl_connect_2 == connssl->connecting_state))
       return retcode;
   } /* repeat step2 until all transactions are done. */
