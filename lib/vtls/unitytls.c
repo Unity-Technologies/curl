@@ -38,7 +38,7 @@ struct ssl_backend_data {
   unitytls_key* pk;
   unitytls_tlsctx* ctx;
 #ifdef HAS_ALPN
-  const char *protocols[3];
+  const char *protocols[ALPN_ENTRIES_MAX];
 #endif
 };
 
@@ -468,20 +468,18 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
   {
     struct alpn_proto_buf proto;
     size_t i;
-
-    for (int i = 0; i < connssl->alpn->count; ++i)
+    for (i = 0; i < connssl->alpn->count; ++i)
     {
       backend->protocols[i] = connssl->alpn->entries[i];
-      // this function does not clone the protocols array, which is why we need to keep it around */
-      // if (mbedtls_ssl_conf_alpn_protocols(&backend->config, &backend->protocols[0]))
-      if (unitytls->unitytls_tlsctx_set_alpn_protocols(backend->ctx, &backend->protocols[0]))
-      {
-        failf(data, "Failed setting APLN protocols");
-        return CURLE_SSL_CONNECT_ERROR;
-      }
-      Curl_alpn_to_proto_str(&proto, connssl->alpn);
-      infof(data, VTLS_INFOF_ALPN_OFFER_1STR, proto.data);
     }
+    // this function does not clone the protocols array, which is why we need to keep it around
+    if (unitytls->unitytls_tlsctx_set_alpn_protocols(backend->ctx, &backend->protocols[0]))
+    {
+      failf(data, "Failed setting APLN protocols");
+      return CURLE_SSL_CONNECT_ERROR;
+    }
+    Curl_alpn_to_proto_str(&proto, connssl->alpn);
+    infof(data, VTLS_INFOF_ALPN_OFFER_1STR, proto.data);
   }
 #endif
 
@@ -542,7 +540,6 @@ static CURLcode unitytls_connect_step2(struct Curl_cfilter* cf, struct Curl_easy
 
 #ifdef HAS_ALPN
   if (connssl->alpn) {
-    //const char *proto = mbedtls_ssl_get_alpn_protocol(backend->ctx);
     const char *proto = unitytls->unitytls_tlsctx_get_alpn_protocol(backend->ctx);
     Curl_alpn_set_negotiated(cf, data, (const unsigned char *)proto, proto ? strlen(proto) : 0);
   }
