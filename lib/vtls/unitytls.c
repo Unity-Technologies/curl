@@ -464,18 +464,16 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
   }
 
 #ifdef HAS_ALPN
-  if (connssl->alpn)
-  {
+  if (connssl->alpn) {
     struct alpn_proto_buf proto;
     size_t i;
-    for (i = 0; i < connssl->alpn->count; ++i)
-    {
+    for (i = 0; i < connssl->alpn->count; ++i) {
       backend->protocols[i] = connssl->alpn->entries[i];
     }
     // this function does not clone the protocols array, which is why we need to keep it around
-    if (unitytls->unitytls_tlsctx_set_alpn_protocols(backend->ctx, &backend->protocols[0]))
-    {
-      failf(data, "Failed setting APLN protocols");
+    unitytls->unitytls_tlsctx_set_alpn_protocols(backend->ctx, &backend->protocols[0], &err);
+    if(err.code != UNITYTLS_SUCCESS) {
+      failf(data, "Failed setting APLN protocols: %i", err.code);
       return CURLE_SSL_CONNECT_ERROR;
     }
     Curl_alpn_to_proto_str(&proto, connssl->alpn);
