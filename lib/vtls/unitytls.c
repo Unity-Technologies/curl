@@ -26,11 +26,6 @@
 #include "curl_memory.h"
 #include "memdebug.h"
 
-/* ALPN for http2 */
-#ifdef USE_HTTP2
-#define HAS_ALPN
-#endif
-
 /* struct for data related to each SSL connection */
 struct ssl_backend_data {
   unitytls_x509list* cacert;
