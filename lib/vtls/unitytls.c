@@ -33,7 +33,7 @@ struct ssl_backend_data {
   unitytls_key* pk;
   unitytls_tlsctx* ctx;
 #ifdef HAS_ALPN
-  const char *protocols[ALPN_ENTRIES_MAX];
+  const char *protocols[ALPN_ENTRIES_MAX + 1];
 #endif
 };
 
@@ -461,11 +461,13 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
 #ifdef HAS_ALPN
   if (connssl->alpn) {
     struct alpn_proto_buf proto;
+    // mbedtls_ssl_conf_alpn_protocols does not clone the protocols array, which is why we need to keep it inside backend struct
     size_t i;
+    DEBUGASSERT(connssl->alpn->count <= ALPN_ENTRIES_MAX);
     for (i = 0; i < connssl->alpn->count; ++i) {
       backend->protocols[i] = connssl->alpn->entries[i];
     }
-    // this function does not clone the protocols array, which is why we need to keep it around
+    backend->protocols[connssl->alpn->count] = NULL; // the protocols array must be null-terminated
     unitytls->unitytls_tlsctx_set_alpn_protocols(backend->ctx, &backend->protocols[0], &err);
     if(err.code != UNITYTLS_SUCCESS) {
       failf(data, "Failed setting APLN protocols: %i", err.code);
