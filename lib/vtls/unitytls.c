@@ -356,6 +356,64 @@ static ssize_t unitytls_recv(struct Curl_cfilter *cf, struct Curl_easy *data,
   return read;
 }
 
+typedef struct {
+    FILE *file;
+    int in_client_random : 1;
+    int in_master_secret : 1;
+    int hexdump_lines_to_process;
+} keylog_debug_ctx;
+static FILE *debug_log_file = NULL;
+
+static void unitytls_keylog_debug_callback (void* userData, unitytls_tlsctx* ctx, int level, char const* fileName, size_t lineNumber, const char* str)
+{
+    keylog_debug_ctx *c = (keylog_debug_ctx *) userData;
+
+    if (strstr(str, "dumping 'client hello, random bytes' (32 bytes)")) {
+        c->in_client_random = 1;
+        c->hexdump_lines_to_process = 2;
+        fputs("CLIENT_RANDOM ", c->file);
+        return;
+    } else if (strstr(str, "dumping 'master secret' (48 bytes)")) {
+        c->in_master_secret = 1;
+        c->hexdump_lines_to_process = 3;
+        fputc(' ', c->file);
+        return;
+    } else if ((!c->in_client_random && !c->in_master_secret) ||
+               c->hexdump_lines_to_process == 0) {
+        return;
+    }
+
+    /* Parse "0000:  64 df 18 71 ca 4a 4b e4 63 87 2a ef 5f 29 ca ff  ..." */
+    str = strstr(str, ":  ");
+    if (!str || strlen(str) < 3 + 3*16) {
+        goto reset;         /* not the expected hex buffer */
+    }
+    str += 3;               /* skip over ":  " */
+
+    /* Process sequences of "hh " */
+    for (int i = 0; i < 3 * 16; i += 3) {
+        char c1 = str[i], c2 = str[i + 1], c3 = str[i + 2];
+        if ((('0' <= c1 && c1 <= '9') || ('a' <= c1 && c1 <= 'f')) &&
+            (('0' <= c2 && c2 <= '9') || ('a' <= c2 && c2 <= 'f')) &&
+            c3 == ' ') {
+            fputc(c1, c->file);
+            fputc(c2, c->file);
+        } else {
+            goto reset;     /* unexpected non-hex char */
+        }
+    }
+
+    if (--c->hexdump_lines_to_process != 0 || !c->in_master_secret) {
+        return;             /* line is not yet finished. */
+    }
+
+reset:
+    c->hexdump_lines_to_process = 0;
+    c->in_client_random = c->in_master_secret = 0;
+    fputc('\n', c->file);   /* finish key log line */
+    fflush(c->file);
+}
+
 static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy *data)
 {
   struct ssl_connect_data *connssl = cf->ctx;
@@ -450,7 +508,23 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
       return CURLE_SSL_CONNECT_ERROR;
   }
 
+  keylog_debug_ctx *debug_ctx = NULL;
+  char* ssl_keylog_filename = curl_getenv("UNITY_CURL_SSL_KEYLOG");
+  if (ssl_keylog_filename != NULL) {
+    debug_ctx = malloc(sizeof(keylog_debug_ctx));
+    memset(debug_ctx, 0, sizeof(keylog_debug_ctx));
+    if (debug_log_file == NULL) {
+      debug_log_file = fopen(ssl_keylog_filename, "a");
+    }
+    debug_ctx->file = debug_log_file;
+    curl_free(ssl_keylog_filename);
+  }
+
   backend->ctx = unitytls->unitytls_tlsctx_create_client(protocol_range, callbacks, hostname, strlen(hostname), &err);
+  if (debug_ctx != NULL) {
+    unitytls->unitytls_tlsctx_set_trace_level(backend->ctx, UNITYTLS_LOGLEVEL_TRACE);
+    unitytls->unitytls_tlsctx_set_trace_callback(backend->ctx, unitytls_keylog_debug_callback, debug_ctx, &err);
+  }
   unitytls->unitytls_tlsctx_set_certificate_callback(backend->ctx, unitytls_on_cert_request, connssl, &err);
   unitytls->unitytls_tlsctx_set_x509verify_callback(backend->ctx, unitytls_on_verify, cf, &err);
   if(err.code != UNITYTLS_SUCCESS) {
