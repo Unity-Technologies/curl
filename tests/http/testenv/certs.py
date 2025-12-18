@@ -24,6 +24,7 @@
 #
 ###########################################################################
 #
+import base64
 import ipaddress
 import os
 import re
@@ -33,6 +34,7 @@ from typing import List, Any, Optional
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives._serialization import PublicFormat
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
@@ -126,6 +128,7 @@ class Credentials:
         self._cert_file = None
         self._pkey_file = None
         self._store = None
+        self._combined_file = None
 
     @property
     def name(self) -> str:
@@ -147,6 +150,15 @@ class Credentials:
     @property
     def private_key(self) -> Any:
         return self._pkey
+
+    def pub_sha256_b64(self) -> Any:
+        pubkey = self._pkey.public_key()
+        sha256 = hashes.Hash(algorithm=hashes.SHA256())
+        sha256.update(pubkey.public_bytes(
+            encoding=Encoding.DER,
+            format=PublicFormat.SubjectPublicKeyInfo
+        ))
+        return base64.b64encode(sha256.finalize()).decode('utf8')
 
     @property
     def certificate(self) -> Any:
@@ -352,7 +364,9 @@ class TestCA:
                            valid_from: timedelta = timedelta(days=-1),
                            valid_to: timedelta = timedelta(days=89),
                            ) -> Credentials:
-        """Create a certificate signed by this CA for the given domains.
+        """
+        Create a certificate signed by this CA for the given domains.
+
         :returns: the certificate and private key PEM file paths
         """
         if spec.domains and len(spec.domains):
@@ -372,7 +386,7 @@ class TestCA:
         return creds
 
     @staticmethod
-    def _make_x509_name(org_name: str = None, common_name: str = None, parent: x509.Name = None) -> x509.Name:
+    def _make_x509_name(org_name: Optional[str] = None, common_name: Optional[str] = None, parent: x509.Name = None) -> x509.Name:
         name_pieces = []
         if org_name:
             oid = NameOID.ORGANIZATIONAL_UNIT_NAME if parent else NameOID.ORGANIZATION_NAME
@@ -380,7 +394,7 @@ class TestCA:
         elif common_name:
             name_pieces.append(x509.NameAttribute(NameOID.COMMON_NAME, common_name))
         if parent:
-            name_pieces.extend([rdn for rdn in parent])
+            name_pieces.extend(list(parent))
         return x509.Name(name_pieces)
 
     @staticmethod
@@ -388,9 +402,9 @@ class TestCA:
             subject: x509.Name,
             pkey: Any,
             issuer_subject: Optional[Credentials],
-            valid_from_delta: timedelta = None,
-            valid_until_delta: timedelta = None
-    ):
+            valid_from_delta: Optional[timedelta] = None,
+            valid_until_delta: Optional[timedelta] = None
+    ) -> x509.CertificateBuilder:
         pubkey = pkey.public_key()
         issuer_subject = issuer_subject if issuer_subject is not None else subject
 
@@ -445,10 +459,15 @@ class TestCA:
     def _add_leaf_usages(csr: Any, domains: List[str], issuer: Credentials) -> Any:
         names = []
         for name in domains:
-            try:
-                names.append(x509.IPAddress(ipaddress.ip_address(name)))
-            except:
-                names.append(x509.DNSName(name))
+            m = re.match(r'dns:(.+)', name)
+            if m:
+                names.append(x509.DNSName(m.group(1)))
+            else:
+                try:
+                    names.append(x509.IPAddress(ipaddress.ip_address(name)))
+                # TODO: specify specific exceptions here
+                except:  # noqa: E722
+                    names.append(x509.DNSName(name))
 
         return csr.add_extension(
             x509.BasicConstraints(ca=False, path_length=None),
@@ -468,7 +487,7 @@ class TestCA:
         )
 
     @staticmethod
-    def _add_client_usages(csr: Any, issuer: Credentials, rfc82name: str = None) -> Any:
+    def _add_client_usages(csr: Any, issuer: Credentials, rfc82name: Optional[str] = None) -> Any:
         cert = csr.add_extension(
             x509.BasicConstraints(ca=False, path_length=None),
             critical=True,
@@ -493,7 +512,7 @@ class TestCA:
 
     @staticmethod
     def _make_ca_credentials(name, key_type: Any,
-                             issuer: Credentials = None,
+                             issuer: Optional[Credentials] = None,
                              valid_from: timedelta = timedelta(days=-1),
                              valid_to: timedelta = timedelta(days=89),
                              ) -> Credentials:
@@ -520,7 +539,6 @@ class TestCA:
                                  valid_from: timedelta = timedelta(days=-1),
                                  valid_to: timedelta = timedelta(days=89),
                                  ) -> Credentials:
-        name = name
         pkey = _private_key(key_type=key_type)
         subject = TestCA._make_x509_name(common_name=name, parent=issuer.subject)
         csr = TestCA._make_csr(subject=subject,

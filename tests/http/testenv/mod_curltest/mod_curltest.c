@@ -51,7 +51,7 @@ AP_DECLARE_MODULE(curltest) =
   NULL,  /* func to merge per server config */
   NULL,              /* command handlers */
   curltest_hooks,
-#if defined(AP_MODULE_FLAG_NONE)
+#ifdef AP_MODULE_FLAG_NONE
   AP_MODULE_FLAG_ALWAYS_MERGE
 #endif
 };
@@ -188,6 +188,7 @@ static int curltest_echo_handler(request_rec *r)
   char buffer[8192];
   const char *ct;
   apr_off_t die_after_len = -1, total_read_len = 0;
+  apr_time_t read_delay = 0;
   int just_die = 0, die_after_100 = 0;
   long l;
 
@@ -221,6 +222,12 @@ static int curltest_echo_handler(request_rec *r)
           die_after_100 = 1;
           continue;
         }
+        else if(!strcmp("read_delay", arg)) {
+          rv = duration_parse(&read_delay, val, "s");
+          if(APR_SUCCESS == rv) {
+            continue;
+          }
+        }
       }
     }
   }
@@ -252,7 +259,17 @@ static int curltest_echo_handler(request_rec *r)
   apr_table_setn(r->subprocess_env, "no-gzip", "1");
 
   ct = apr_table_get(r->headers_in, "content-type");
-  ap_set_content_type(r, ct? ct : "application/octet-stream");
+  ap_set_content_type(r, ct ? ct : "application/octet-stream");
+
+  if(apr_table_get(r->headers_in, "TE"))
+    apr_table_setn(r->headers_out, "Request-TE",
+                   apr_table_get(r->headers_in, "TE"));
+
+  if(read_delay) {
+    ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r,
+                  "put_handler: read_delay");
+    apr_sleep(read_delay);
+  }
 
   bb = apr_brigade_create(r->pool, c->bucket_alloc);
   /* copy any request body into the response */
@@ -335,6 +352,7 @@ static int curltest_tweak_handler(request_rec *r)
   int http_status = 200;
   apr_status_t error = APR_SUCCESS, body_error = APR_SUCCESS;
   int close_conn = 0, with_cl = 0;
+  int x_hd_len = 0, x_hd1_len = 0;
 
   if(strcmp(r->handler, "curltest-tweak")) {
     return DECLINED;
@@ -418,6 +436,14 @@ static int curltest_tweak_handler(request_rec *r)
             continue;
           }
         }
+        else if(!strcmp("x-hd", arg)) {
+          x_hd_len = (int)apr_atoi64(val);
+          continue;
+        }
+        else if(!strcmp("x-hd1", arg)) {
+          x_hd1_len = (int)apr_atoi64(val);
+          continue;
+        }
       }
       else if(!strcmp("close", arg)) {
         /* we are asked to close the connection */
@@ -439,7 +465,7 @@ static int curltest_tweak_handler(request_rec *r)
   ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "error_handler: processing "
                 "request, %s", r->args? r->args : "(no args)");
   r->status = http_status;
-  r->clength = with_cl? (chunks * chunk_size) : -1;
+  r->clength = with_cl ? (chunks * chunk_size) : -1;
   r->chunked = (r->proto_num >= HTTP_VERSION(1, 1)) && !with_cl;
   apr_table_setn(r->headers_out, "request-id", request_id);
   if(r->clength >= 0) {
@@ -450,9 +476,31 @@ static int curltest_tweak_handler(request_rec *r)
     apr_table_unset(r->headers_out, "Content-Length");
   /* Discourage content-encodings */
   apr_table_unset(r->headers_out, "Content-Encoding");
+  if(x_hd_len > 0) {
+    int i, hd_len = (16 * 1024);
+    int n = (x_hd_len / hd_len);
+    char *hd_val = apr_palloc(r->pool, x_hd_len);
+    memset(hd_val, 'X', hd_len);
+    hd_val[hd_len - 1] = 0;
+    for(i = 0; i < n; ++i) {
+      apr_table_setn(r->headers_out,
+                     apr_psprintf(r->pool, "X-Header-%d", i), hd_val);
+    }
+    if(x_hd_len % hd_len) {
+      hd_val[(x_hd_len % hd_len)] = 0;
+      apr_table_setn(r->headers_out,
+                     apr_psprintf(r->pool, "X-Header-%d", i), hd_val);
+    }
+  }
+  if(x_hd1_len > 0) {
+    char *hd_val = apr_palloc(r->pool, x_hd1_len);
+    memset(hd_val, 'Y', x_hd1_len);
+    hd_val[x_hd1_len - 1] = 0;
+    apr_table_setn(r->headers_out, "X-Mega-Header", hd_val);
+  }
+
   apr_table_setn(r->subprocess_env, "no-brotli", "1");
   apr_table_setn(r->subprocess_env, "no-gzip", "1");
-
   ap_set_content_type(r, "application/octet-stream");
   bb = apr_brigade_create(r->pool, c->bucket_alloc);
 
@@ -534,6 +582,7 @@ static int curltest_put_handler(request_rec *r)
   char buffer[128*1024];
   const char *ct;
   apr_off_t rbody_len = 0;
+  apr_off_t rbody_max_len = -1;
   const char *s_rbody_len;
   const char *request_id = "none";
   apr_time_t read_delay = 0, chunk_delay = 0;
@@ -573,6 +622,10 @@ static int curltest_put_handler(request_rec *r)
             continue;
           }
         }
+        else if(!strcmp("max_upload", arg)) {
+          rbody_max_len = (apr_off_t)apr_atoi64(val);
+          continue;
+        }
       }
       ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "query parameter not "
                     "understood: '%s' in %s",
@@ -589,13 +642,16 @@ static int curltest_put_handler(request_rec *r)
   apr_table_unset(r->headers_out, "Content-Length");
   /* Discourage content-encodings */
   apr_table_unset(r->headers_out, "Content-Encoding");
+  apr_table_setn(r->headers_out, "request-id", request_id);
   apr_table_setn(r->subprocess_env, "no-brotli", "1");
   apr_table_setn(r->subprocess_env, "no-gzip", "1");
 
   ct = apr_table_get(r->headers_in, "content-type");
-  ap_set_content_type(r, ct? ct : "text/plain");
+  ap_set_content_type(r, ct ? ct : "text/plain");
 
   if(read_delay) {
+    ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r,
+                  "put_handler: read_delay");
     apr_sleep(read_delay);
   }
   bb = apr_brigade_create(r->pool, c->bucket_alloc);
@@ -611,6 +667,10 @@ static int curltest_put_handler(request_rec *r)
         apr_sleep(chunk_delay);
       }
       rbody_len += l;
+      if((rbody_max_len > 0) && (rbody_len > rbody_max_len)) {
+        r->status = 413;
+        break;
+      }
     }
   }
   /* we are done */
@@ -625,10 +685,14 @@ static int curltest_put_handler(request_rec *r)
 
   rv = ap_pass_brigade(r->output_filters, bb);
 
+  if(r->status == 413) {
+    apr_sleep(apr_time_from_sec(1));
+  }
+
 cleanup:
-  if(rv == APR_SUCCESS
-     || r->status != HTTP_OK
-     || c->aborted) {
+  if(rv == APR_SUCCESS ||
+     r->status != HTTP_OK ||
+     c->aborted) {
     ap_log_rerror(APLOG_MARK, APLOG_TRACE1, rv, r, "put_handler: done");
     return OK;
   }
@@ -646,13 +710,7 @@ static int curltest_1_1_required(request_rec *r)
   apr_bucket_brigade *bb;
   apr_bucket *b;
   apr_status_t rv;
-  char buffer[16*1024];
   const char *ct;
-  const char *request_id = "none";
-  apr_time_t chunk_delay = 0;
-  apr_array_header_t *args = NULL;
-  long l;
-  int i;
 
   if(strcmp(r->handler, "curltest-1_1-required")) {
     return DECLINED;
@@ -675,7 +733,7 @@ static int curltest_1_1_required(request_rec *r)
   apr_table_setn(r->subprocess_env, "no-gzip", "1");
 
   ct = apr_table_get(r->headers_in, "content-type");
-  ap_set_content_type(r, ct? ct : "text/plain");
+  ap_set_content_type(r, ct ? ct : "text/plain");
 
   bb = apr_brigade_create(r->pool, c->bucket_alloc);
   /* flush response */
@@ -696,9 +754,9 @@ static int curltest_1_1_required(request_rec *r)
   rv = ap_pass_brigade(r->output_filters, bb);
 
 cleanup:
-  if(rv == APR_SUCCESS
-     || r->status != HTTP_OK
-     || c->aborted) {
+  if(rv == APR_SUCCESS ||
+     r->status != HTTP_OK ||
+     c->aborted) {
     ap_log_rerror(APLOG_MARK, APLOG_TRACE1, rv, r, "1_1_handler: done");
     return OK;
   }
@@ -726,10 +784,8 @@ static int curltest_sslinfo_handler(request_rec *r)
   apr_bucket_brigade *bb;
   apr_bucket *b;
   apr_status_t rv;
-  apr_array_header_t *args = NULL;
   const char *request_id = NULL;
   int close_conn = 0;
-  long l;
   int i;
 
   if(strcmp(r->handler, "curltest-sslinfo")) {
@@ -773,6 +829,8 @@ static int curltest_sslinfo_handler(request_rec *r)
   apr_table_unset(r->headers_out, "Content-Length");
   /* Discourage content-encodings */
   apr_table_unset(r->headers_out, "Content-Encoding");
+  if(request_id)
+    apr_table_setn(r->headers_out, "request-id", request_id);
   apr_table_setn(r->subprocess_env, "no-brotli", "1");
   apr_table_setn(r->subprocess_env, "no-gzip", "1");
 
@@ -808,9 +866,9 @@ static int curltest_sslinfo_handler(request_rec *r)
 cleanup:
   if(close_conn)
     r->connection->keepalive = AP_CONN_CLOSE;
-  if(rv == APR_SUCCESS
-     || r->status != HTTP_OK
-     || c->aborted) {
+  if(rv == APR_SUCCESS ||
+     r->status != HTTP_OK ||
+     c->aborted) {
     ap_log_rerror(APLOG_MARK, APLOG_TRACE1, rv, r, "1_1_handler: done");
     return OK;
   }

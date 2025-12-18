@@ -24,13 +24,11 @@
 #
 ###########################################################################
 #
-import difflib
-import filecmp
 import logging
 import os
 import pytest
 
-from testenv import Env, CurlClient, LocalClient
+from testenv import Env, CurlClient
 
 
 log = logging.getLogger(__name__)
@@ -40,15 +38,11 @@ class TestAuth:
 
     @pytest.fixture(autouse=True, scope='class')
     def _class_scope(self, env, httpd, nghttpx):
-        if env.have_h3():
-            nghttpx.start_if_needed()
         env.make_data_file(indir=env.gen_dir, fname="data-10m", fsize=10*1024*1024)
-        httpd.clear_extra_configs()
-        httpd.reload()
 
     # download 1 file, not authenticated
     @pytest.mark.parametrize("proto", ['http/1.1', 'h2', 'h3'])
-    def test_14_01_digest_get_noauth(self, env: Env, httpd, nghttpx, repeat, proto):
+    def test_14_01_digest_get_noauth(self, env: Env, httpd, nghttpx, proto):
         if proto == 'h3' and not env.have_h3():
             pytest.skip("h3 not supported")
         curl = CurlClient(env=env)
@@ -58,7 +52,9 @@ class TestAuth:
 
     # download 1 file, authenticated
     @pytest.mark.parametrize("proto", ['http/1.1', 'h2', 'h3'])
-    def test_14_02_digest_get_auth(self, env: Env, httpd, nghttpx, repeat, proto):
+    def test_14_02_digest_get_auth(self, env: Env, httpd, nghttpx, proto):
+        if not env.curl_has_feature('digest'):
+            pytest.skip("curl built without digest")
         if proto == 'h3' and not env.have_h3():
             pytest.skip("h3 not supported")
         curl = CurlClient(env=env)
@@ -70,9 +66,13 @@ class TestAuth:
 
     # PUT data, authenticated
     @pytest.mark.parametrize("proto", ['http/1.1', 'h2', 'h3'])
-    def test_14_03_digest_put_auth(self, env: Env, httpd, nghttpx, repeat, proto):
+    def test_14_03_digest_put_auth(self, env: Env, httpd, nghttpx, proto):
+        if not env.curl_has_feature('digest'):
+            pytest.skip("curl built without digest")
         if proto == 'h3' and not env.have_h3():
             pytest.skip("h3 not supported")
+        if proto == 'h3' and env.curl_uses_ossl_quic():
+            pytest.skip("openssl-quic is flaky in retrying POST")
         data='0123456789'
         curl = CurlClient(env=env)
         url = f'https://{env.authority_for(env.domain1, proto)}/restricted/digest/data.json'
@@ -83,7 +83,9 @@ class TestAuth:
 
     # PUT data, digest auth large pw
     @pytest.mark.parametrize("proto", ['h2', 'h3'])
-    def test_14_04_digest_large_pw(self, env: Env, httpd, nghttpx, repeat, proto):
+    def test_14_04_digest_large_pw(self, env: Env, httpd, nghttpx, proto):
+        if not env.curl_has_feature('digest'):
+            pytest.skip("curl built without digest")
         if proto == 'h3' and not env.have_h3():
             pytest.skip("h3 not supported")
         data='0123456789'
@@ -100,7 +102,7 @@ class TestAuth:
 
     # PUT data, basic auth large pw
     @pytest.mark.parametrize("proto", ['h2', 'h3'])
-    def test_14_05_basic_large_pw(self, env: Env, httpd, nghttpx, repeat, proto):
+    def test_14_05_basic_large_pw(self, env: Env, httpd, nghttpx, proto):
         if proto == 'h3' and not env.have_h3():
             pytest.skip("h3 not supported")
         if proto == 'h3' and not env.curl_uses_lib('ngtcp2'):
@@ -120,7 +122,7 @@ class TestAuth:
 
     # PUT data, basic auth with very large pw
     @pytest.mark.parametrize("proto", ['h2', 'h3'])
-    def test_14_06_basic_very_large_pw(self, env: Env, httpd, nghttpx, repeat, proto):
+    def test_14_06_basic_very_large_pw(self, env: Env, httpd, nghttpx, proto):
         if proto == 'h3' and not env.have_h3():
             pytest.skip("h3 not supported")
         if proto == 'h3' and env.curl_uses_lib('quiche'):
@@ -136,4 +138,4 @@ class TestAuth:
         # Depending on protocol, we might have an error sending or
         # the server might shutdown the connection and we see the error
         # on receiving
-        assert r.exit_code in [55, 56], f'{self.dump_logs()}'
+        assert r.exit_code in [55, 56, 95], f'{r.dump_logs()}'

@@ -37,7 +37,7 @@ BEGIN {
         runclient
         runclientoutput
         setlogfunc
-        shell_quote
+        exerunner
         subbase64
         subnewlines
         subsha256base64file
@@ -56,7 +56,8 @@ use MIME::Base64;
 use globalconfig qw(
     $torture
     $verbose
-);
+    $dev_null
+    );
 
 my $logfunc;      # optional reference to function for logging
 my @logmessages;  # array holding logged messages
@@ -135,6 +136,20 @@ sub subbase64 {
         $$thing =~ s/%%REPEAT%%/$all/;
     }
 
+    # days
+    while($$thing =~ s/%days\[(.*?)\]/%%DAYS%%/i) {
+        # convert to now + given days in epoch seconds, align to a 60 second
+        # boundary. Then provide two alternatives.
+        my $now = time();
+        my $d = ($1 * 24 * 3600) + $now + 30;
+        $d = int($d/60) * 60;
+        my $d2 = $d + 60;
+        $$thing =~ s/%%DAYS%%/%alternatives[$d,$d2]/;
+    }
+
+    $$thing =~ s/%spc%/ /g;   # space
+    $$thing =~ s/%tab%/\t/g;  # horizontal tab
+
     # include a file
     $$thing =~ s/%include ([^%]*)%[\n\r]+/includefile($1)/ge;
 }
@@ -149,15 +164,9 @@ sub subnewlines {
         return;
     }
 
-    # When curl is built with Hyper, it gets all response headers delivered as
-    # name/value pairs and curl "invents" the newlines when it saves the
-    # headers. Therefore, curl will always save headers with CRLF newlines
-    # when built to use Hyper. By making sure we deliver all tests using CRLF
-    # as well, all test comparisons will survive without knowing about this
-    # little quirk.
-
-    if(($$thing =~ /^HTTP\/(1.1|1.0|2|3) [1-5][^\x0d]*\z/) ||
-       ($$thing =~ /^(GET|POST|PUT|DELETE) \S+ HTTP\/\d+(\.\d+)?/) ||
+    if(($$thing =~ /^HTTP\/(1.1|1.0|2|3) ([1-5]|9)[^\x0d]*\z/) ||
+       ($$thing =~ /^(GET|HEAD|POST|PUT|DELETE|CONNECT) \S+ HTTP\/\d+(\.\d+)?/) ||
+       ($$thing =~ /^(SETUP|GET_PARAMETER|OPTIONS|ANNOUNCE|DESCRIBE) \S+ RTSP\/\d+(\.\d+)?/) ||
        (($$thing =~ /^[a-z0-9_-]+: [^\x0d]*\z/i) &&
         # skip curl error messages
         ($$thing !~ /^curl: \(\d+\) /))) {
@@ -195,7 +204,7 @@ sub runclient {
 #
 sub runclientoutput {
     my ($cmd)=@_;
-    return `$cmd 2>/dev/null`;
+    return `$cmd 2>$dev_null`;
 
 # This is one way to test curl on a remote machine
 #    my @out = `ssh $CLIENTIP cd \'$pwd\' \\; \'$cmd\'`;
@@ -203,19 +212,14 @@ sub runclientoutput {
 #    return @out;
 }
 
-
 #######################################################################
-# Quote an argument for passing safely to a Bourne shell
-# This does the same thing as String::ShellQuote but doesn't need a package.
+# Return custom tool (e.g. wine or qemu) to run curl binaries.
 #
-sub shell_quote {
-    my ($s)=@_;
-    if($s !~ m/^[-+=.,_\/:a-zA-Z0-9]+$/) {
-        # string contains a "dangerous" character--quote it
-        $s =~ s/'/'"'"'/g;
-        $s = "'" . $s . "'";
+sub exerunner {
+    if($ENV{'CURL_TEST_EXE_RUNNER'}) {
+        return $ENV{'CURL_TEST_EXE_RUNNER'} . ' ';
     }
-    return $s;
+    return '';
 }
 
 sub get_sha256_base64 {
@@ -227,7 +231,7 @@ sub subsha256base64file {
     my ($thing) = @_;
 
     # SHA-256 base64
-    while ($$thing =~ s/%sha256b64file\[(.*?)\]sha256b64file%/%%SHA256B64FILE%%/i) {
+    while($$thing =~ s/%sha256b64file\[(.*?)\]sha256b64file%/%%SHA256B64FILE%%/i) {
         my $file_path = $1;
         $file_path =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/eg;
         my $hash_b64 = get_sha256_base64($file_path);
@@ -248,7 +252,7 @@ sub substrippemfile {
     my ($thing) = @_;
 
     # File content substitution
-    while ($$thing =~ s/%strippemfile\[(.*?)\]strippemfile%/%%FILE%%/i) {
+    while($$thing =~ s/%strippemfile\[(.*?)\]strippemfile%/%%FILE%%/i) {
         my $file_path = $1;
         $file_path =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/eg;
         my $file_content = get_file_content($file_path);

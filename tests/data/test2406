@@ -11,7 +11,7 @@ HTTPS
 #
 # Server-side
 <reply>
-<data nocheck="yes">
+<data crlf="headers" nocheck="yes">
 HTTP/1.1 404 nope
 Date: Tue, 09 Nov 2010 14:49:00 GMT
 Content-Length: 6
@@ -28,20 +28,19 @@ Funny-head: yesyes
 <client>
 <features>
 Debug
-h2c
+http/2
 SSL
 </features>
 <server>
-http
 http/2
 </server>
 <name>
-HTTP/2 with -f
+HTTP/2 over HTTPS with -f
 </name>
 <setenv>
 </setenv>
 <command>
--k --http2 -f "https://%HOSTIP:%HTTP2TLSPORT/%TESTNUMBER"
+--insecure --http2 -f "https://%HOSTIP:%HTTP2TLSPORT/%TESTNUMBER"
 </command>
 
 </client>
@@ -49,8 +48,8 @@ HTTP/2 with -f
 #
 # Verify data after the test has been "shot"
 <verify>
-<stdout crlf="yes">
-HTTP/2 404 
+<stdout crlf="headers">
+HTTP/2 404%spc%
 date: Tue, 09 Nov 2010 14:49:00 GMT
 content-length: 6
 content-type: text/html

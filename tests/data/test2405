@@ -29,7 +29,6 @@ Funny-head: yesyes
 # Client-side
 <client>
 <server>
-http
 http/2
 </server>
 <tool>
@@ -45,7 +44,5 @@ http://%HOSTIP:%HTTP2PORT/%TESTNUMBER
 
 # Verify data after the test has been "shot"
 <verify>
-<protocol>
-</protocol>
 </verify>
 </testcase>

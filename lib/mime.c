@@ -26,15 +26,21 @@
 
 #include <curl/curl.h>
 
+struct Curl_easy;
+
 #include "mime.h"
-#include "warnless.h"
+#include "curlx/warnless.h"
 #include "urldata.h"
 #include "sendf.h"
+#include "transfer.h"
 #include "strdup.h"
+#include "curlx/fopen.h"
+#include "curlx/base64.h"
 
-#if !defined(CURL_DISABLE_MIME) && (!defined(CURL_DISABLE_HTTP) ||      \
-                                    !defined(CURL_DISABLE_SMTP) ||      \
-                                    !defined(CURL_DISABLE_IMAP))
+#if !defined(CURL_DISABLE_MIME) && \
+  (!defined(CURL_DISABLE_HTTP) || \
+   !defined(CURL_DISABLE_SMTP) || \
+   !defined(CURL_DISABLE_IMAP))
 
 #if defined(HAVE_LIBGEN_H) && defined(HAVE_BASENAME)
 #include <libgen.h>
@@ -42,34 +48,32 @@
 
 #include "rand.h"
 #include "slist.h"
-#include "strcase.h"
-#include "dynbuf.h"
-/* The last 3 #include files should be in this order */
-#include "curl_printf.h"
+#include "curlx/dynbuf.h"
+
+/* The last 2 #include files should be in this order */
 #include "curl_memory.h"
 #include "memdebug.h"
 
 #ifdef _WIN32
-# ifndef R_OK
+#  ifndef R_OK
 #  define R_OK 4
-# endif
+#  endif
 #endif
 
-
-#define READ_ERROR                      ((size_t) -1)
-#define STOP_FILLING                    ((size_t) -2)
+#define READ_ERROR    ((size_t) -1)
+#define STOP_FILLING  ((size_t) -2)
 
 static size_t mime_subparts_read(char *buffer, size_t size, size_t nitems,
                                  void *instream, bool *hasread);
 
 /* Encoders. */
 static size_t encoder_nop_read(char *buffer, size_t size, bool ateof,
-                                curl_mimepart *part);
+                               curl_mimepart *part);
 static curl_off_t encoder_nop_size(curl_mimepart *part);
 static size_t encoder_7bit_read(char *buffer, size_t size, bool ateof,
                                 curl_mimepart *part);
 static size_t encoder_base64_read(char *buffer, size_t size, bool ateof,
-                                curl_mimepart *part);
+                                  curl_mimepart *part);
 static curl_off_t encoder_base64_size(curl_mimepart *part);
 static size_t encoder_qp_read(char *buffer, size_t size, bool ateof,
                               curl_mimepart *part);
@@ -85,10 +89,6 @@ static const struct mime_encoder encoders[] = {
   {ZERO_NULL, ZERO_NULL, ZERO_NULL}
 };
 
-/* Base64 encoding table */
-static const char base64enc[] =
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
 /* Quoted-printable character class table.
  *
  * We cannot rely on ctype functions since quoted-printable input data
@@ -98,30 +98,30 @@ static const char base64enc[] =
 #define QP_CR           3       /* Carriage return. */
 #define QP_LF           4       /* Line-feed. */
 static const unsigned char qp_class[] = {
- 0,     0,     0,     0,     0,     0,     0,     0,            /* 00 - 07 */
- 0,     QP_SP, QP_LF, 0,     0,     QP_CR, 0,     0,            /* 08 - 0F */
- 0,     0,     0,     0,     0,     0,     0,     0,            /* 10 - 17 */
- 0,     0,     0,     0,     0,     0,     0,     0,            /* 18 - 1F */
- QP_SP, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 20 - 27 */
- QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 28 - 2F */
- QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 30 - 37 */
- QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, 0    , QP_OK, QP_OK,        /* 38 - 3F */
- QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 40 - 47 */
- QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 48 - 4F */
- QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 50 - 57 */
- QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 58 - 5F */
- QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 60 - 67 */
- QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 68 - 6F */
- QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 70 - 77 */
- QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, 0,            /* 78 - 7F */
- 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,                /* 80 - 8F */
- 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,                /* 90 - 9F */
- 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,                /* A0 - AF */
- 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,                /* B0 - BF */
- 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,                /* C0 - CF */
- 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,                /* D0 - DF */
- 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,                /* E0 - EF */
- 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0                 /* F0 - FF */
+  0,     0,     0,     0,     0,     0,     0,     0,            /* 00 - 07 */
+  0,     QP_SP, QP_LF, 0,     0,     QP_CR, 0,     0,            /* 08 - 0F */
+  0,     0,     0,     0,     0,     0,     0,     0,            /* 10 - 17 */
+  0,     0,     0,     0,     0,     0,     0,     0,            /* 18 - 1F */
+  QP_SP, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 20 - 27 */
+  QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 28 - 2F */
+  QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 30 - 37 */
+  QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, 0    , QP_OK, QP_OK,        /* 38 - 3F */
+  QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 40 - 47 */
+  QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 48 - 4F */
+  QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 50 - 57 */
+  QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 58 - 5F */
+  QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 60 - 67 */
+  QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 68 - 6F */
+  QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK,        /* 70 - 77 */
+  QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, QP_OK, 0,            /* 78 - 7F */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,                /* 80 - 8F */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,                /* 90 - 9F */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,                /* A0 - AF */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,                /* B0 - BF */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,                /* C0 - CF */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,                /* D0 - DF */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,                /* E0 - EF */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0                 /* F0 - FF */
 };
 
 
@@ -130,10 +130,9 @@ static const char aschex[] =
   "\x30\x31\x32\x33\x34\x35\x36\x37\x38\x39\x41\x42\x43\x44\x45\x46";
 
 
-
 #ifndef __VMS
 #define filesize(name, stat_data) (stat_data.st_size)
-#define fopen_read fopen
+#define fopen_read curlx_fopen
 
 #else
 
@@ -156,7 +155,7 @@ curl_off_t VmsRealFileSize(const char *name,
   int ret_stat;
   FILE * file;
 
-  file = fopen(name, FOPEN_READTEXT); /* VMS */
+  file = curlx_fopen(name, FOPEN_READTEXT); /* VMS */
   if(!file)
     return 0;
 
@@ -167,7 +166,7 @@ curl_off_t VmsRealFileSize(const char *name,
     if(ret_stat)
       count += ret_stat;
   }
-  fclose(file);
+  curlx_fclose(file);
 
   return count;
 }
@@ -206,16 +205,16 @@ static FILE * vmsfopenread(const char *file, const char *mode)
   struct_stat statbuf;
   int result;
 
-  result = stat(file, &statbuf);
+  result = curlx_stat(file, &statbuf);
 
   switch(statbuf.st_fab_rfm) {
   case FAB$C_VAR:
   case FAB$C_VFC:
   case FAB$C_STMCR:
-    return fopen(file, FOPEN_READTEXT); /* VMS */
+    return curlx_fopen(file, FOPEN_READTEXT); /* VMS */
     break;
   default:
-    return fopen(file, FOPEN_READTEXT, "rfm=stmlf", "ctx=stm");
+    return curlx_fopen(file, FOPEN_READTEXT, "rfm=stmlf", "ctx=stm");
   }
 }
 
@@ -259,7 +258,7 @@ static char *Curl_basename(char *path)
   s2 = strrchr(path, '\\');
 
   if(s1 && s2) {
-    path = (s1 > s2? s1 : s2) + 1;
+    path = (s1 > s2 ? s1 : s2) + 1;
   }
   else if(s1)
     path = s1 + 1;
@@ -316,19 +315,19 @@ static char *escape_string(struct Curl_easy *data,
   if(strategy == MIMESTRATEGY_MAIL || (data && (data->set.mime_formescape)))
     table = mimetable;
 
-  Curl_dyn_init(&db, CURL_MAX_INPUT_LENGTH);
+  curlx_dyn_init(&db, CURL_MAX_INPUT_LENGTH);
 
-  for(result = Curl_dyn_addn(&db, STRCONST("")); !result && *src; src++) {
+  for(result = curlx_dyn_addn(&db, STRCONST("")); !result && *src; src++) {
     for(p = table; *p && **p != *src; p++)
       ;
 
     if(*p)
-      result = Curl_dyn_add(&db, *p + 1);
+      result = curlx_dyn_add(&db, *p + 1);
     else
-      result = Curl_dyn_addn(&db, src, 1);
+      result = curlx_dyn_addn(&db, src, 1);
   }
 
-  return Curl_dyn_ptr(&db);
+  return curlx_dyn_ptr(&db);
 }
 
 /* Check if header matches. */
@@ -336,7 +335,7 @@ static char *match_header(struct curl_slist *hdr, const char *lbl, size_t len)
 {
   char *value = NULL;
 
-  if(strncasecompare(hdr->data, lbl, len) && hdr->data[len] == ':')
+  if(curl_strnequal(hdr->data, lbl, len) && hdr->data[len] == ':')
     for(value = hdr->data + len + 1; *value == ' '; value++)
       ;
   return value;
@@ -385,7 +384,7 @@ static size_t encoder_nop_read(char *buffer, size_t size, bool ateof,
   struct mime_encoder_state *st = &part->encstate;
   size_t insize = st->bufend - st->bufbeg;
 
-  (void) ateof;
+  (void)ateof;
 
   if(!size)
     return STOP_FILLING;
@@ -413,7 +412,7 @@ static size_t encoder_7bit_read(char *buffer, size_t size, bool ateof,
   struct mime_encoder_state *st = &part->encstate;
   size_t cursize = st->bufend - st->bufbeg;
 
-  (void) ateof;
+  (void)ateof;
 
   if(!size)
     return STOP_FILLING;
@@ -424,7 +423,7 @@ static size_t encoder_7bit_read(char *buffer, size_t size, bool ateof,
   for(cursize = 0; cursize < size; cursize++) {
     *buffer = st->buf[st->bufbeg];
     if(*buffer++ & 0x80)
-      return cursize? cursize: READ_ERROR;
+      return cursize ? cursize : READ_ERROR;
     st->bufbeg++;
   }
 
@@ -434,7 +433,7 @@ static size_t encoder_7bit_read(char *buffer, size_t size, bool ateof,
 
 /* Base64 content encoder. */
 static size_t encoder_base64_read(char *buffer, size_t size, bool ateof,
-                                curl_mimepart *part)
+                                  curl_mimepart *part)
 {
   struct mime_encoder_state *st = &part->encstate;
   size_t cursize = 0;
@@ -470,10 +469,10 @@ static size_t encoder_base64_read(char *buffer, size_t size, bool ateof,
     i = st->buf[st->bufbeg++] & 0xFF;
     i = (i << 8) | (st->buf[st->bufbeg++] & 0xFF);
     i = (i << 8) | (st->buf[st->bufbeg++] & 0xFF);
-    *ptr++ = base64enc[(i >> 18) & 0x3F];
-    *ptr++ = base64enc[(i >> 12) & 0x3F];
-    *ptr++ = base64enc[(i >> 6) & 0x3F];
-    *ptr++ = base64enc[i & 0x3F];
+    *ptr++ = Curl_base64encdec[(i >> 18) & 0x3F];
+    *ptr++ = Curl_base64encdec[(i >> 12) & 0x3F];
+    *ptr++ = Curl_base64encdec[(i >> 6) & 0x3F];
+    *ptr++ = Curl_base64encdec[i & 0x3F];
     cursize += 4;
     st->pos += 4;
     size -= 4;
@@ -497,10 +496,10 @@ static size_t encoder_base64_read(char *buffer, size_t size, bool ateof,
           i = (st->buf[st->bufbeg + 1] & 0xFF) << 8;
 
         i |= (st->buf[st->bufbeg] & 0xFF) << 16;
-        ptr[0] = base64enc[(i >> 18) & 0x3F];
-        ptr[1] = base64enc[(i >> 12) & 0x3F];
+        ptr[0] = Curl_base64encdec[(i >> 18) & 0x3F];
+        ptr[1] = Curl_base64encdec[(i >> 12) & 0x3F];
         if(++st->bufbeg != st->bufend) {
-          ptr[2] = base64enc[(i >> 6) & 0x3F];
+          ptr[2] = Curl_base64encdec[(i >> 6) & 0x3F];
           st->bufbeg++;
         }
         cursize += 4;
@@ -538,7 +537,7 @@ static int qp_lookahead_eol(struct mime_encoder_state *st, int ateof, size_t n)
   if(n >= st->bufend && ateof)
     return 1;
   if(n + 2 > st->bufend)
-    return ateof? 0: -1;
+    return ateof ? 0 : -1;
   if(qp_class[st->buf[n] & 0xFF] == QP_CR &&
      qp_class[st->buf[n + 1] & 0xFF] == QP_LF)
     return 1;
@@ -651,7 +650,7 @@ static curl_off_t encoder_qp_size(curl_mimepart *part)
 {
   /* Determining the size can only be done by reading the data: unless the
      data size is 0, we return it as unknown (-1). */
-  return part->datasize? -1: 0;
+  return part->datasize ? -1 : 0;
 }
 
 
@@ -662,7 +661,7 @@ static size_t mime_mem_read(char *buffer, size_t size, size_t nitems,
 {
   curl_mimepart *part = (curl_mimepart *) instream;
   size_t sz = curlx_sotouz(part->datasize - part->state.offset);
-  (void) size;   /* Always 1.*/
+  (void)size;  /* Always 1 */
 
   if(!nitems)
     return STOP_FILLING;
@@ -704,14 +703,14 @@ static void mime_mem_free(void *ptr)
 
 /* Named file callbacks. */
 /* Argument is a pointer to the mime part. */
-static int mime_open_file(curl_mimepart *part)
+static bool mime_open_file(curl_mimepart *part)
 {
   /* Open a MIMEKIND_FILE part. */
 
   if(part->fp)
-    return 0;
+    return FALSE;
   part->fp = fopen_read(part->data, "rb");
-  return part->fp? 0: -1;
+  return part->fp ? FALSE : TRUE;
 }
 
 static size_t mime_file_read(char *buffer, size_t size, size_t nitems,
@@ -738,8 +737,8 @@ static int mime_file_seek(void *instream, curl_off_t offset, int whence)
   if(mime_open_file(part))
     return CURL_SEEKFUNC_FAIL;
 
-  return fseek(part->fp, (long) offset, whence)?
-               CURL_SEEKFUNC_CANTSEEK: CURL_SEEKFUNC_OK;
+  return curlx_fseek(part->fp, offset, whence) ?
+    CURL_SEEKFUNC_CANTSEEK : CURL_SEEKFUNC_OK;
 }
 
 static void mime_file_free(void *ptr)
@@ -747,7 +746,7 @@ static void mime_file_free(void *ptr)
   curl_mimepart *part = (curl_mimepart *) ptr;
 
   if(part->fp) {
-    fclose(part->fp);
+    curlx_fclose(part->fp);
     part->fp = NULL;
   }
   Curl_safefree(part->data);
@@ -871,7 +870,7 @@ static size_t read_encoded_part_content(curl_mimepart *part, char *buffer,
         break;
       case READ_ERROR:
       case STOP_FILLING:
-        return cursize? cursize: sz;
+        return cursize ? cursize : sz;
       default:
         cursize += sz;
         buffer += sz;
@@ -890,7 +889,7 @@ static size_t read_encoded_part_content(curl_mimepart *part, char *buffer,
       st->bufend = len;
     }
     if(st->bufend >= sizeof(st->buf))
-      return cursize? cursize: READ_ERROR;    /* Buffer full. */
+      return cursize ? cursize : READ_ERROR;    /* Buffer full. */
     sz = read_part_content(part, st->buf + st->bufend,
                            sizeof(st->buf) - st->bufend, hasread);
     switch(sz) {
@@ -901,7 +900,7 @@ static size_t read_encoded_part_content(curl_mimepart *part, char *buffer,
     case CURL_READFUNC_PAUSE:
     case READ_ERROR:
     case STOP_FILLING:
-      return cursize? cursize: sz;
+      return cursize ? cursize : sz;
     default:
       st->bufend += sz;
       break;
@@ -925,8 +924,8 @@ static size_t readback_part(curl_mimepart *part,
     switch(part->state.state) {
     case MIMESTATE_BEGIN:
       mimesetstate(&part->state,
-                   (part->flags & MIME_BODY_ONLY)?
-                     MIMESTATE_BODY: MIMESTATE_CURLHEADERS,
+                   (part->flags & MIME_BODY_ONLY) ?
+                   MIMESTATE_BODY : MIMESTATE_CURLHEADERS,
                    part->curlheaders);
       break;
     case MIMESTATE_USERHEADERS:
@@ -969,7 +968,7 @@ static size_t readback_part(curl_mimepart *part,
         mimesetstate(&part->state, MIMESTATE_END, NULL);
         /* Try sparing open file descriptors. */
         if(part->kind == MIMEKIND_FILE && part->fp) {
-          fclose(part->fp);
+          curlx_fclose(part->fp);
           part->fp = NULL;
         }
         FALLTHROUGH();
@@ -977,7 +976,7 @@ static size_t readback_part(curl_mimepart *part,
       case CURL_READFUNC_PAUSE:
       case READ_ERROR:
       case STOP_FILLING:
-        return cursize? cursize: sz;
+        return cursize ? cursize : sz;
       }
       break;
     case MIMESTATE_END:
@@ -1001,7 +1000,7 @@ static size_t mime_subparts_read(char *buffer, size_t size, size_t nitems,
 {
   curl_mime *mime = (curl_mime *) instream;
   size_t cursize = 0;
-  (void) size;   /* Always 1. */
+  (void)size;  /* Always 1 */
 
   while(nitems) {
     size_t sz = 0;
@@ -1043,7 +1042,7 @@ static size_t mime_subparts_read(char *buffer, size_t size, size_t nitems,
       case CURL_READFUNC_PAUSE:
       case READ_ERROR:
       case STOP_FILLING:
-        return cursize? cursize: sz;
+        return cursize ? cursize : sz;
       case 0:
         mimesetstate(&mime->state, MIMESTATE_BOUNDARY1, part->nextpart);
         break;
@@ -1228,12 +1227,12 @@ CURLcode Curl_mime_duppart(struct Curl_easy *data,
     /* No one knows about the cloned subparts, thus always attach ownership
        to the part. */
     mime = curl_mime_init(data);
-    res = mime? curl_mime_subparts(dst, mime): CURLE_OUT_OF_MEMORY;
+    res = mime ? curl_mime_subparts(dst, mime) : CURLE_OUT_OF_MEMORY;
 
     /* Duplicate subparts. */
     for(s = ((curl_mime *) src->arg)->firstpart; !res && s; s = s->nextpart) {
       d = curl_mime_addpart(mime);
-      res = d? Curl_mime_duppart(data, d, s): CURLE_OUT_OF_MEMORY;
+      res = d ? Curl_mime_duppart(data, d, s) : CURLE_OUT_OF_MEMORY;
     }
     break;
   default:  /* Invalid kind: should not occur. */
@@ -1279,7 +1278,7 @@ CURLcode Curl_mime_duppart(struct Curl_easy *data,
  */
 
 /* Create a mime handle. */
-curl_mime *curl_mime_init(struct Curl_easy *easy)
+curl_mime *curl_mime_init(void *easy)
 {
   curl_mime *mime;
 
@@ -1413,7 +1412,7 @@ CURLcode curl_mime_filedata(curl_mimepart *part, const char *filename)
     char *base;
     struct_stat sbuf;
 
-    if(stat(filename, &sbuf))
+    if(curlx_stat(filename, &sbuf))
       result = CURLE_READ_ERROR;
     else {
       part->data = strdup(filename);
@@ -1479,7 +1478,7 @@ CURLcode curl_mime_encoder(curl_mimepart *part, const char *encoding)
     return CURLE_OK;    /* Removing current encoder. */
 
   for(mep = encoders; mep->name; mep++)
-    if(strcasecompare(encoding, mep->name)) {
+    if(curl_strequal(encoding, mep->name)) {
       part->encoder = mep;
       result = CURLE_OK;
     }
@@ -1559,10 +1558,19 @@ CURLcode Curl_mime_set_subparts(curl_mimepart *part,
       }
     }
 
+    /* If subparts have already been used as a top-level MIMEPOST,
+       they might not be positioned at start. Rewind them now, as
+       a future check while rewinding the parent may cause this
+       content to be skipped. */
+    if(mime_subparts_seek(subparts, (curl_off_t) 0, SEEK_SET) !=
+       CURL_SEEKFUNC_OK)
+      return CURLE_SEND_FAIL_REWIND;
+
     subparts->parent = part;
     /* Subparts are processed internally: no read callback. */
     part->seekfunc = mime_subparts_seek;
-    part->freefunc = take_ownership? mime_subparts_free: mime_subparts_unbind;
+    part->freefunc = take_ownership ? mime_subparts_free :
+      mime_subparts_unbind;
     part->arg = subparts;
     part->datasize = -1;
     part->kind = MIMEKIND_MULTIPART;
@@ -1585,10 +1593,10 @@ size_t Curl_mime_read(char *buffer, size_t size, size_t nitems, void *instream)
   size_t ret;
   bool hasread;
 
-  (void) size;   /* Always 1. */
+  (void)size;  /* Always 1 */
 
-  /* TODO: this loop is broken. If `nitems` is <= 4, some encoders will
-   * return STOP_FILLING without adding any data and this loops infinitely. */
+  /* If `nitems` is <= 4, some encoders will return STOP_FILLING without
+   * adding any data and this loops infinitely. */
   do {
     hasread = FALSE;
     ret = readback_part(part, buffer, nitems, &hasread);
@@ -1606,8 +1614,8 @@ size_t Curl_mime_read(char *buffer, size_t size, size_t nitems, void *instream)
 /* Rewind mime stream. */
 static CURLcode mime_rewind(curl_mimepart *part)
 {
-  return mime_part_rewind(part) == CURL_SEEKFUNC_OK?
-         CURLE_OK: CURLE_SEND_FAIL_REWIND;
+  return mime_part_rewind(part) == CURL_SEEKFUNC_OK ?
+         CURLE_OK : CURLE_SEND_FAIL_REWIND;
 }
 
 /* Compute header list size. */
@@ -1680,7 +1688,7 @@ CURLcode Curl_mime_add_header(struct curl_slist **slp, const char *fmt, ...)
   va_list ap;
 
   va_start(ap, fmt);
-  s = vaprintf(fmt, ap);
+  s = curl_mvaprintf(fmt, ap);
   va_end(ap);
 
   if(s) {
@@ -1691,7 +1699,7 @@ CURLcode Curl_mime_add_header(struct curl_slist **slp, const char *fmt, ...)
       free(s);
   }
 
-  return hdr? CURLE_OK: CURLE_OUT_OF_MEMORY;
+  return hdr ? CURLE_OK : CURLE_OUT_OF_MEMORY;
 }
 
 /* Add a content type header. */
@@ -1699,8 +1707,8 @@ static CURLcode add_content_type(struct curl_slist **slp,
                                  const char *type, const char *boundary)
 {
   return Curl_mime_add_header(slp, "Content-Type: %s%s%s", type,
-                              boundary? "; boundary=": "",
-                              boundary? boundary: "");
+                              boundary ? "; boundary=" : "",
+                              boundary ? boundary : "");
 }
 
 const char *Curl_mime_contenttype(const char *filename)
@@ -1731,10 +1739,10 @@ const char *Curl_mime_contenttype(const char *filename)
     const char *nameend = filename + len1;
     unsigned int i;
 
-    for(i = 0; i < sizeof(ctts) / sizeof(ctts[0]); i++) {
+    for(i = 0; i < CURL_ARRAYSIZE(ctts); i++) {
       size_t len2 = strlen(ctts[i].extension);
 
-      if(len1 >= len2 && strcasecompare(nameend - len2, ctts[i].extension))
+      if(len1 >= len2 && curl_strequal(nameend - len2, ctts[i].extension))
         return ctts[i].type;
     }
   }
@@ -1744,7 +1752,7 @@ const char *Curl_mime_contenttype(const char *filename)
 static bool content_type_match(const char *contenttype,
                                const char *target, size_t len)
 {
-  if(contenttype && strncasecompare(contenttype, target, len))
+  if(contenttype && curl_strnequal(contenttype, target, len))
     switch(contenttype[len]) {
     case '\0':
     case '\t':
@@ -1817,7 +1825,7 @@ CURLcode Curl_mime_prepare_headers(struct Curl_easy *data,
   if(!search_header(part->userheaders, STRCONST("Content-Disposition"))) {
     if(!disposition)
       if(part->filename || part->name ||
-        (contenttype && !strncasecompare(contenttype, "multipart/", 10)))
+        (contenttype && !curl_strnequal(contenttype, "multipart/", 10)))
           disposition = DISPOSITION_DEFAULT;
     if(disposition && curl_strequal(disposition, "attachment") &&
      !part->name && !part->filename)
@@ -1840,12 +1848,12 @@ CURLcode Curl_mime_prepare_headers(struct Curl_easy *data,
         ret = Curl_mime_add_header(&part->curlheaders,
                                    "Content-Disposition: %s%s%s%s%s%s%s",
                                    disposition,
-                                   name? "; name=\"": "",
-                                   name? name: "",
-                                   name? "\"": "",
-                                   filename? "; filename=\"": "",
-                                   filename? filename: "",
-                                   filename? "\"": "");
+                                   name ? "; name=\"" : "",
+                                   name ? name : "",
+                                   name ? "\"" : "",
+                                   filename ? "; filename=\"" : "",
+                                   filename ? filename : "",
+                                   filename ? "\"" : "");
       Curl_safefree(name);
       Curl_safefree(filename);
       if(ret)
@@ -1923,6 +1931,7 @@ struct cr_mime_ctx {
   curl_off_t total_len;
   curl_off_t read_len;
   CURLcode error_result;
+  struct bufq tmpbuf;
   BIT(seen_eos);
   BIT(errored);
 };
@@ -1934,7 +1943,16 @@ static CURLcode cr_mime_init(struct Curl_easy *data,
   (void)data;
   ctx->total_len = -1;
   ctx->read_len = 0;
+  Curl_bufq_init2(&ctx->tmpbuf, 1024, 1, BUFQ_OPT_NO_SPARES);
   return CURLE_OK;
+}
+
+static void cr_mime_close(struct Curl_easy *data,
+                          struct Curl_creader *reader)
+{
+  struct cr_mime_ctx *ctx = reader->ctx;
+  (void)data;
+  Curl_bufq_free(&ctx->tmpbuf);
 }
 
 /* Real client reader to installed client callbacks. */
@@ -1944,7 +1962,9 @@ static CURLcode cr_mime_read(struct Curl_easy *data,
                              size_t *pnread, bool *peos)
 {
   struct cr_mime_ctx *ctx = reader->ctx;
+  CURLcode result = CURLE_OK;
   size_t nread;
+  char tmp[256];
 
 
   /* Once we have errored, we will return the same error forever */
@@ -1970,18 +1990,41 @@ static CURLcode cr_mime_read(struct Curl_easy *data,
       blen = (size_t)remain;
   }
 
-  if(blen <= 4) {
-    /* TODO: Curl_mime_read() may go into an infinite loop when reading
-     * such small lengths. Returning 0 bytes read is a fix that only works
-     * as request upload buffers will get flushed eventually and larger
-     * reads will happen again. */
-    CURL_TRC_READ(data, "cr_mime_read(len=%zu), too small, return", blen);
-    *pnread = 0;
-    *peos = FALSE;
-    goto out;
+  if(!Curl_bufq_is_empty(&ctx->tmpbuf)) {
+    result = Curl_bufq_read(&ctx->tmpbuf, (unsigned char *)buf, blen, &nread);
+    if(result) {
+      ctx->errored = TRUE;
+      ctx->error_result = result;
+      return result;
+    }
   }
+  else if(blen <= 4) {
+    /* Curl_mime_read() may go into an infinite loop when reading
+     * via a base64 encoder, as it stalls when the read buffer is too small
+     * to contain a complete 3 byte encoding. Read into a larger buffer
+     * and use that until empty. */
+    CURL_TRC_READ(data, "cr_mime_read(len=%zu), small read, using tmp", blen);
+    nread = Curl_mime_read(tmp, 1, sizeof(tmp), ctx->part);
+    if(nread <= sizeof(tmp)) {
+      size_t n;
+      result = Curl_bufq_write(&ctx->tmpbuf, (unsigned char *)tmp, nread, &n);
+      if(result) {
+        ctx->errored = TRUE;
+        ctx->error_result = result;
+        return result;
+      }
+      /* stored it, read again */
+      result = Curl_bufq_cread(&ctx->tmpbuf, buf, blen, &nread);
+      if(result) {
+        ctx->errored = TRUE;
+        ctx->error_result = result;
+        return result;
+      }
+    }
+  }
+  else
+    nread = Curl_mime_read(buf, 1, blen, ctx->part);
 
-  nread = Curl_mime_read(buf, 1, blen, ctx->part);
   CURL_TRC_READ(data, "cr_mime_read(len=%zu), mime_read() -> %zd",
                 blen, nread);
 
@@ -2004,14 +2047,15 @@ static CURLcode cr_mime_read(struct Curl_easy *data,
     *peos = FALSE;
     ctx->errored = TRUE;
     ctx->error_result = CURLE_ABORTED_BY_CALLBACK;
-    return CURLE_ABORTED_BY_CALLBACK;
+    result = CURLE_ABORTED_BY_CALLBACK;
+    break;
 
   case CURL_READFUNC_PAUSE:
     /* CURL_READFUNC_PAUSE pauses read callbacks that feed socket writes */
     CURL_TRC_READ(data, "cr_mime_read(len=%zu), paused by callback", blen);
-    data->req.keepon |= KEEP_SEND_PAUSE; /* mark socket send as paused */
     *pnread = 0;
     *peos = FALSE;
+    result = Curl_xfer_pause_send(data, TRUE);
     break; /* nothing was read */
 
   case STOP_FILLING:
@@ -2021,7 +2065,8 @@ static CURLcode cr_mime_read(struct Curl_easy *data,
     *peos = FALSE;
     ctx->errored = TRUE;
     ctx->error_result = CURLE_READ_ERROR;
-    return CURLE_READ_ERROR;
+    result = CURLE_READ_ERROR;
+    break;
 
   default:
     if(nread > blen) {
@@ -2041,11 +2086,10 @@ static CURLcode cr_mime_read(struct Curl_easy *data,
     break;
   }
 
-out:
   CURL_TRC_READ(data, "cr_mime_read(len=%zu, total=%" FMT_OFF_T
                 ", read=%"FMT_OFF_T") -> %d, %zu, %d",
-                blen, ctx->total_len, ctx->read_len, CURLE_OK, *pnread, *peos);
-  return CURLE_OK;
+                blen, ctx->total_len, ctx->read_len, result, *pnread, *peos);
+  return result;
 }
 
 static bool cr_mime_needs_rewind(struct Curl_easy *data,
@@ -2106,22 +2150,27 @@ static CURLcode cr_mime_resume_from(struct Curl_easy *data,
   return CURLE_OK;
 }
 
-static CURLcode cr_mime_rewind(struct Curl_easy *data,
-                               struct Curl_creader *reader)
+static CURLcode cr_mime_cntrl(struct Curl_easy *data,
+                              struct Curl_creader *reader,
+                              Curl_creader_cntrl opcode)
 {
   struct cr_mime_ctx *ctx = reader->ctx;
-  CURLcode result = mime_rewind(ctx->part);
-  if(result)
-    failf(data, "Cannot rewind mime/post data");
-  return result;
-}
-
-static CURLcode cr_mime_unpause(struct Curl_easy *data,
-                                struct Curl_creader *reader)
-{
-  struct cr_mime_ctx *ctx = reader->ctx;
-  (void)data;
-  mime_unpause(ctx->part);
+  switch(opcode) {
+  case CURL_CRCNTRL_REWIND: {
+    CURLcode result = mime_rewind(ctx->part);
+    if(result)
+      failf(data, "Cannot rewind mime/post data");
+    return result;
+  }
+  case CURL_CRCNTRL_UNPAUSE:
+    mime_unpause(ctx->part);
+    break;
+  case CURL_CRCNTRL_CLEAR_EOS:
+    ctx->seen_eos = FALSE;
+    break;
+  default:
+    break;
+  }
   return CURLE_OK;
 }
 
@@ -2130,19 +2179,18 @@ static bool cr_mime_is_paused(struct Curl_easy *data,
 {
   struct cr_mime_ctx *ctx = reader->ctx;
   (void)data;
-  return (ctx->part && ctx->part->lastreadstatus == CURL_READFUNC_PAUSE);
+  return ctx->part && ctx->part->lastreadstatus == CURL_READFUNC_PAUSE;
 }
 
 static const struct Curl_crtype cr_mime = {
   "cr-mime",
   cr_mime_init,
   cr_mime_read,
-  Curl_creader_def_close,
+  cr_mime_close,
   cr_mime_needs_rewind,
   cr_mime_total_length,
   cr_mime_resume_from,
-  cr_mime_rewind,
-  cr_mime_unpause,
+  cr_mime_cntrl,
   cr_mime_is_paused,
   Curl_creader_def_done,
   sizeof(struct cr_mime_ctx)
@@ -2176,62 +2224,62 @@ CURLcode Curl_creader_set_mime(struct Curl_easy *data, curl_mimepart *part)
 /* Mime not compiled in: define stubs for externally-referenced functions. */
 curl_mime *curl_mime_init(CURL *easy)
 {
-  (void) easy;
+  (void)easy;
   return NULL;
 }
 
 void curl_mime_free(curl_mime *mime)
 {
-  (void) mime;
+  (void)mime;
 }
 
 curl_mimepart *curl_mime_addpart(curl_mime *mime)
 {
-  (void) mime;
+  (void)mime;
   return NULL;
 }
 
 CURLcode curl_mime_name(curl_mimepart *part, const char *name)
 {
-  (void) part;
-  (void) name;
+  (void)part;
+  (void)name;
   return CURLE_NOT_BUILT_IN;
 }
 
 CURLcode curl_mime_filename(curl_mimepart *part, const char *filename)
 {
-  (void) part;
-  (void) filename;
+  (void)part;
+  (void)filename;
   return CURLE_NOT_BUILT_IN;
 }
 
 CURLcode curl_mime_type(curl_mimepart *part, const char *mimetype)
 {
-  (void) part;
-  (void) mimetype;
+  (void)part;
+  (void)mimetype;
   return CURLE_NOT_BUILT_IN;
 }
 
 CURLcode curl_mime_encoder(curl_mimepart *part, const char *encoding)
 {
-  (void) part;
-  (void) encoding;
+  (void)part;
+  (void)encoding;
   return CURLE_NOT_BUILT_IN;
 }
 
 CURLcode curl_mime_data(curl_mimepart *part,
                         const char *data, size_t datasize)
 {
-  (void) part;
-  (void) data;
-  (void) datasize;
+  (void)part;
+  (void)data;
+  (void)datasize;
   return CURLE_NOT_BUILT_IN;
 }
 
 CURLcode curl_mime_filedata(curl_mimepart *part, const char *filename)
 {
-  (void) part;
-  (void) filename;
+  (void)part;
+  (void)filename;
   return CURLE_NOT_BUILT_IN;
 }
 
@@ -2242,28 +2290,28 @@ CURLcode curl_mime_data_cb(curl_mimepart *part,
                            curl_free_callback freefunc,
                            void *arg)
 {
-  (void) part;
-  (void) datasize;
-  (void) readfunc;
-  (void) seekfunc;
-  (void) freefunc;
-  (void) arg;
+  (void)part;
+  (void)datasize;
+  (void)readfunc;
+  (void)seekfunc;
+  (void)freefunc;
+  (void)arg;
   return CURLE_NOT_BUILT_IN;
 }
 
 CURLcode curl_mime_subparts(curl_mimepart *part, curl_mime *subparts)
 {
-  (void) part;
-  (void) subparts;
+  (void)part;
+  (void)subparts;
   return CURLE_NOT_BUILT_IN;
 }
 
 CURLcode curl_mime_headers(curl_mimepart *part,
                            struct curl_slist *headers, int take_ownership)
 {
-  (void) part;
-  (void) headers;
-  (void) take_ownership;
+  (void)part;
+  (void)headers;
+  (void)take_ownership;
   return CURLE_NOT_BUILT_IN;
 }
 

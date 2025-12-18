@@ -185,7 +185,7 @@ pointer to a long argument
 
 (ell-ell). A following integer conversion corresponds to a *long long* or
 *unsigned long long* argument, or a following n conversion corresponds to
-a pointer to a long long argument.
+a pointer to a *long long* argument.
 
 ## q
 
@@ -226,7 +226,7 @@ printed with an explicit precision 0, the output is empty.
 
 ## e, E
 
-The double argument is rounded and output in the style **"[-]d.ddde±dd"**
+The double argument is rounded and output in the style **"[-]d.ddde{+|-}dd"**
 
 ## f, F
 
