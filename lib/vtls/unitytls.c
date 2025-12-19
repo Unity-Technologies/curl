@@ -16,7 +16,7 @@
 #include "connect.h" /* for the connect timeout */
 #include "select.h"
 #include "curl_printf.h"
-#include "curl_multibyte.h"
+#include "curlx/multibyte.h"
 
 #if !defined(WIN32)
 #include <dirent.h>
@@ -207,7 +207,7 @@ static size_t unitytls_on_read(void* userData, UInt8* buf, size_t blen, unitytls
 {
   struct Curl_cfilter *cf = (struct Curl_cfilter*)userData;
   struct Curl_easy *data = CF_DATA_CURRENT(cf);
-  ssize_t nread;
+  size_t nread;
   CURLcode result;
 
   /* OpenSSL catches this case, so should we. */
@@ -216,8 +216,8 @@ static size_t unitytls_on_read(void* userData, UInt8* buf, size_t blen, unitytls
 
   DEBUGASSERT(data);
 
-  nread = Curl_conn_cf_recv(cf->next, data, (char *)buf, blen, &result);
-  if(nread < 0 && CURLE_AGAIN == result) {
+  result = Curl_conn_cf_recv(cf->next, data, (char *)buf, blen, &nread);
+  if(CURLE_AGAIN == result) {
     unitytls->unitytls_errorstate_raise_error(errorState, UNITYTLS_USER_WOULD_BLOCK);
     return 0;
   }
@@ -233,12 +233,12 @@ static size_t unitytls_on_write(void* userData, const UInt8* buf, size_t blen, u
 {
   struct Curl_cfilter *cf = (struct Curl_cfilter*)userData;
   struct Curl_easy *data = CF_DATA_CURRENT(cf);
-  ssize_t nwritten;
+  size_t nwritten;
   CURLcode result;
 
   DEBUGASSERT(data);
-  nwritten = Curl_conn_cf_send(cf->next, data, (char *)buf, blen, FALSE, &result);
-  if(nwritten < 0 && CURLE_AGAIN == result) {
+  result = Curl_conn_cf_send(cf->next, data, (char *)buf, blen, FALSE, &nwritten);
+  if(CURLE_AGAIN == result) {
     unitytls->unitytls_errorstate_raise_error(errorState, UNITYTLS_USER_WOULD_BLOCK);
     return 0;
   }
@@ -303,41 +303,41 @@ static unitytls_x509verify_result unitytls_on_verify(void* userData, unitytls_x5
   return verify_result;
 }
 
-static ssize_t unitytls_send(struct Curl_cfilter *cf, struct Curl_easy *data,
+static CURLcode unitytls_send(struct Curl_cfilter *cf, struct Curl_easy *data,
                              const void *mem, size_t len,
-                             CURLcode *curlcode)
+                             size_t *pnwritten)
 {
   struct ssl_connect_data *connssl = cf->ctx;
   struct ssl_backend_data *backend = connssl->backend;
+  CURLcode result = CURLE_OK;
 
-  size_t written = 0;
   unitytls_errorstate err = unitytls->unitytls_errorstate_create();
-  written = unitytls->unitytls_tlsctx_write(backend->ctx, (const UInt8*)mem, len, &err);
+  *pnwritten = unitytls->unitytls_tlsctx_write(backend->ctx, (const UInt8*)mem, len, &err);
 
   if(err.code != UNITYTLS_SUCCESS) {
     if(err.code == UNITYTLS_USER_WOULD_BLOCK)
-      *curlcode = CURLE_AGAIN;
+      result = CURLE_AGAIN;
     else {
-      *curlcode = CURLE_SEND_ERROR;
+      result = CURLE_SEND_ERROR;
       failf(data, "Sending data failed with unitytls error code %i", err.code);
     }
-    return -1;
+    return result;
   }
 
-  return written;
+  return result;
 }
 
-static ssize_t unitytls_recv(struct Curl_cfilter *cf, struct Curl_easy *data,
+static CURLcode unitytls_recv(struct Curl_cfilter *cf, struct Curl_easy *data,
                              char *buf, size_t buffersize,
-                             CURLcode *curlcode)
+                             size_t *pnread)
 {
   struct ssl_connect_data *connssl = cf->ctx;
   struct ssl_backend_data *backend = connssl->backend;
+  CURLcode result = CURLE_OK;
 
-  size_t read = 0;
   unitytls_errorstate err = unitytls->unitytls_errorstate_create();
 
-  read = unitytls->unitytls_tlsctx_read(backend->ctx, (UInt8*)buf, buffersize, &err);
+  *pnread = unitytls->unitytls_tlsctx_read(backend->ctx, (UInt8*)buf, buffersize, &err);
 
   // Curl expects us to ignore gracefully closed connections on read.
   if(err.code == UNITYTLS_STREAM_CLOSED)
@@ -345,15 +345,15 @@ static ssize_t unitytls_recv(struct Curl_cfilter *cf, struct Curl_easy *data,
 
   if(err.code != UNITYTLS_SUCCESS) {
     if(err.code == UNITYTLS_USER_WOULD_BLOCK)
-      *curlcode = CURLE_AGAIN;
+      result = CURLE_AGAIN;
     else {
-      *curlcode = CURLE_RECV_ERROR;
+      result = CURLE_RECV_ERROR;
       failf(data, "Receiving data failed with unitytls error code %i", err.code);
     }
-    return -1;
+    return result;
   }
 
-  return read;
+  return result;
 }
 
 static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy *data)
@@ -536,7 +536,11 @@ static CURLcode unitytls_connect_step2(struct Curl_cfilter* cf, struct Curl_easy
 #ifdef HAS_ALPN
   if (connssl->alpn) {
     const char *proto = unitytls->unitytls_tlsctx_get_alpn_protocol(backend->ctx);
-    Curl_alpn_set_negotiated(cf, data, (const unsigned char *)proto, proto ? strlen(proto) : 0);
+    CURLcode result = Curl_alpn_set_negotiated(cf, data, connssl,
+                                              (const unsigned char *)proto,
+                                              proto ? strlen(proto) : 0);
+    if(result)
+      return result;
   }
 #endif
 
@@ -621,20 +625,6 @@ static CURLcode unitytls_connect_common(struct Curl_cfilter *cf, struct Curl_eas
   return CURLE_OK;
 }
 
-static CURLcode Curl_unitytls_connect(struct Curl_cfilter *cf, struct Curl_easy *data)
-{
-  CURLcode retcode;
-  bool done = false;
-
-  retcode = unitytls_connect_common(cf, data, false, &done);
-  if(retcode)
-    return retcode;
-
-  DEBUGASSERT(done);
-
-  return CURLE_OK;
-}
-
 static CURLcode Curl_unitytls_connect_nonblocking(struct Curl_cfilter *cf, struct Curl_easy *data, bool *done)
 {
   return unitytls_connect_common(cf, data, true, done);
@@ -690,7 +680,7 @@ static CURLcode Curl_unitytls_random(struct Curl_easy *data, unsigned char *entr
 }
 
 static void *Curl_unitytls_get_internals(struct ssl_connect_data *connssl,
-                                        CURLINFO info UNUSED_PARAM)
+                                        CURLINFO info)
 {
   struct ssl_backend_data *backend = connssl->backend;
   (void)info;
@@ -705,27 +695,22 @@ const struct Curl_ssl Curl_ssl_unitytls = {
 
   sizeof(struct ssl_backend_data),
 
-  Curl_none_init,                   /* init */
-  Curl_none_cleanup,                /* cleanup */
+  NULL,                             /* init */
+  NULL,                             /* cleanup */
   Curl_unitytls_version,            /* version */
-  Curl_none_check_cxn,              /* check_cxn */
-  Curl_none_shutdown,               /* shutdown */
-  Curl_none_data_pending,           /* data_pending */
+  NULL,                             /* shutdown */
+  NULL,                             /* data_pending */
   Curl_unitytls_random,             /* random */
-  Curl_none_cert_status_request,    /* cert_status_request */
-  Curl_unitytls_connect,            /* connect_blocking */
-  Curl_unitytls_connect_nonblocking,/* connect_nonblocking */
+  NULL,                             /* cert_status_request */
+  Curl_unitytls_connect_nonblocking,/* connect */
   Curl_ssl_adjust_pollset,          /* adjust_pollset */
   Curl_unitytls_get_internals,      /* get_internals */
   Curl_unitytls_close,              /* close_one */
-  Curl_none_close_all,              /* close_all */
-  Curl_none_set_engine,             /* set_engine */
-  Curl_none_set_engine_default,     /* set_engine_default */
-  Curl_none_engines_list,           /* engines_list */
-  Curl_none_false_start,            /* false_start */
+  NULL,                             /* close_all */
+  NULL,                             /* set_engine */
+  NULL,                             /* set_engine_default */
+  NULL,                             /* engines_list */
   NULL,                             /* sha256sum */
-  NULL,                             /* associate_connection */
-  NULL,                             /* disassociate_connection */
   unitytls_recv,                    /* recv_plain */
   unitytls_send,                    /* send_plain */
   NULL,                             /* get_channel_binding */
