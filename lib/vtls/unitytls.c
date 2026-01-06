@@ -35,6 +35,8 @@ struct ssl_backend_data {
 #ifdef HAS_ALPN
   const char *protocols[ALPN_ENTRIES_MAX + 1];
 #endif
+  size_t send_blocked_len;
+  BIT(send_blocked);
 };
 
 /*
@@ -309,6 +311,18 @@ static CURLcode unitytls_send(struct Curl_cfilter *cf, struct Curl_easy *data,
 {
   struct ssl_connect_data *connssl = cf->ctx;
   struct ssl_backend_data *backend = connssl->backend;
+
+  /* Similar to mbedtls implementation, if unitytls_tlsctx_write was
+   * previously blocked, it must be called with the same amount of bytes
+   * again, or it will lose bytes , e.g. reporting all was sent but they
+   * were not.  If that happens, the other side errors and hangs up.
+   * Remember the blocked length and use that when it is set. */
+  if(backend->send_blocked) {
+    DEBUGASSERT(backend->send_blocked_len <= len);
+    CURL_TRC_CF(data, cf, "unitytls_tlsctx_write(len=%zu) -> previously blocked "
+                "on %zu bytes", len, backend->send_blocked_len);
+    len = backend->send_blocked_len;
+  }
   CURLcode result = CURLE_OK;
 
   unitytls_errorstate err = unitytls->unitytls_errorstate_create();
@@ -321,9 +335,15 @@ static CURLcode unitytls_send(struct Curl_cfilter *cf, struct Curl_easy *data,
       result = CURLE_SEND_ERROR;
       failf(data, "Sending data failed with unitytls error code %i", err.code);
     }
+    if((*curlcode == CURLE_AGAIN) && !backend->send_blocked) {
+      backend->send_blocked = TRUE;
+      backend->send_blocked_len = len;
+    }
     return result;
   }
 
+  CURL_TRC_CF(data, cf, "unitytls_tlsctx_write(len=%zu) -> %d", len, err.code);
+  backend->send_blocked = FALSE;
   return result;
 }
 
