@@ -181,3 +181,11 @@
 #endif
 
 #define USE_UNITYTLS 1
+// our curl version disabled poll on macOS due to bugs in macOS 10.12
+// Unity has no need for supporting macOS 10.12
+// and, we do need to support contexts with >1k open files
+// curl also enables HAVE_POLL on macOS in upstream
+// see https://github.com/curl/curl/issues/1057 for historical context 
+// nb: newer curl releases *do* use poll on macOS, so we can just regenerate once we sync
+#define HAVE_POLL 1
+#define HAVE_POLL_FINE 1
