@@ -48,6 +48,8 @@
 #include <libpsl.h>
 #endif
 
+#define CURL_OS "Darwin"
+
 #ifdef USE_LIBRTMP
 #include <librtmp/rtmp.h>
 #include "curl_rtmp.h"

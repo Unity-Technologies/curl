@@ -12,7 +12,7 @@
 #define CURL_DISABLE_SMTP 1
 #define CURL_DISABLE_TELNET 1
 #define CURL_DISABLE_TFTP 1
-#define CURL_DISABLE_VERBOSE_STRINGS 1
+//#define CURL_DISABLE_VERBOSE_STRINGS
 #define CURL_EXTERN_SYMBOL __attribute__ ((__visibility__ ("default")))
 #define CURL_SA_FAMILY_T sa_family_t
 #define ENABLE_IPV6 1

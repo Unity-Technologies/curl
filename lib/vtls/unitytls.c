@@ -36,6 +36,7 @@ struct ssl_backend_data {
   const char *protocols[ALPN_ENTRIES_MAX + 1];
 #endif
   size_t send_blocked_len;
+  size_t send_blocked_offset;
   BIT(send_blocked);
 };
 
@@ -326,24 +327,27 @@ static CURLcode unitytls_send(struct Curl_cfilter *cf, struct Curl_easy *data,
   CURLcode result = CURLE_OK;
 
   unitytls_errorstate err = unitytls->unitytls_errorstate_create();
-  *pnwritten = unitytls->unitytls_tlsctx_write(backend->ctx, (const UInt8*)mem, len, &err);
+  *pnwritten = unitytls->unitytls_tlsctx_write(backend->ctx, (const UInt8*)mem + backend->send_blocked_offset, len - backend->send_blocked_offset, &err);
 
   if(err.code != UNITYTLS_SUCCESS) {
-    if(err.code == UNITYTLS_USER_WOULD_BLOCK)
+    if(err.code == UNITYTLS_USER_WOULD_BLOCK) {
       result = CURLE_AGAIN;
-    else {
+    } else {
       result = CURLE_SEND_ERROR;
       failf(data, "Sending data failed with unitytls error code %i", err.code);
     }
-    if((*curlcode == CURLE_AGAIN) && !backend->send_blocked) {
+    if((result == CURLE_AGAIN) && !backend->send_blocked) {
       backend->send_blocked = TRUE;
       backend->send_blocked_len = len;
+      backend->send_blocked_offset += *pnwritten;
     }
+    *pnwritten = -1;
     return result;
   }
 
   CURL_TRC_CF(data, cf, "unitytls_tlsctx_write(len=%zu) -> %d", len, err.code);
   backend->send_blocked = FALSE;
+  backend->send_blocked_offset = 0;
   return result;
 }
 
