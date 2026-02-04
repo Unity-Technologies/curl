@@ -339,9 +339,11 @@ static CURLcode unitytls_send(struct Curl_cfilter *cf, struct Curl_easy *data,
     if((result == CURLE_AGAIN) && !backend->send_blocked) {
       backend->send_blocked = TRUE;
       backend->send_blocked_len = len;
+      backend->send_blocked_offset = *pnwritten;
+    } else if (result == CURLE_AGAIN) {
       backend->send_blocked_offset += *pnwritten;
     }
-    *pnwritten = -1;
+    *pnwritten = 0;
     return result;
   }
 
