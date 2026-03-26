@@ -179,6 +179,7 @@ typedef enum
     UNITYTLS_PROTOCOL_TLS_1_0,
     UNITYTLS_PROTOCOL_TLS_1_1,
     UNITYTLS_PROTOCOL_TLS_1_2,
+    UNITYTLS_PROTOCOL_TLS_1_3,
 
     UNITYTLS_PROTOCOL_INVALID,
 } unitytls_protocol_t;
@@ -189,7 +190,6 @@ typedef struct
     unitytls_protocol min;
     unitytls_protocol max;
 } unitytls_tlsctx_protocolrange;
-extern const unitytls_tlsctx_protocolrange UNITYTLS_TLSCTX_PROTOCOLRANGE_DEFAULT;
 
 typedef enum
 {

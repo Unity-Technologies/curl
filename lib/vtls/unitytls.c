@@ -393,16 +393,15 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
 
   unitytls_tlsctx_callbacks callbacks = { unitytls_on_read, unitytls_on_write, cf };
 
-  /* unitytls only supports TLS 1.0-1.2 */
+  /* unitytls only supports TLS 1.2-1.3 */
   switch (conn_config->version)
   {
     case CURL_SSLVERSION_DEFAULT:
-    case CURL_SSLVERSION_TLSv1_0:
-    case CURL_SSLVERSION_TLSv1_1:
     case CURL_SSLVERSION_TLSv1_2:
+    case CURL_SSLVERSION_TLSv1_3:
       break;
     default:
-      failf(data, "unitytls only supports TLS 1.0-1.2");
+      failf(data, "unitytls only supports TLS 1.2-1.3");
       return CURLE_SSL_CONNECT_ERROR;
   }
 
@@ -456,14 +455,11 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
     case CURL_SSLVERSION_DEFAULT:
       protocol_range = unitytls->UNITYTLS_TLSCTX_PROTOCOLRANGE_DEFAULT;
       break;
-    case CURL_SSLVERSION_TLSv1_0:
-      protocol_range.max = protocol_range.min = UNITYTLS_PROTOCOL_TLS_1_0;
-      break;
-    case CURL_SSLVERSION_TLSv1_1:
-      protocol_range.max = protocol_range.min = UNITYTLS_PROTOCOL_TLS_1_1;
-      break;
     case CURL_SSLVERSION_TLSv1_2:
       protocol_range.max = protocol_range.min = UNITYTLS_PROTOCOL_TLS_1_2;
+      break;
+    case CURL_SSLVERSION_TLSv1_3:
+      protocol_range.max = protocol_range.min = UNITYTLS_PROTOCOL_TLS_1_3;
       break;
     default:
       failf(data, "Unrecognized/unsupported parameter passed via CURLOPT_SSLVERSION");
