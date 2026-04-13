@@ -130,6 +130,10 @@
 
 #else /* HAVE_CONFIG_H */
 
+#if defined(CURL_EXTERNAL_PLATFORM)
+#  include "config-external.h"
+#endif
+
 #ifdef _WIN32_WCE
 #  include "config-win32ce.h"
 #else
@@ -318,6 +322,14 @@
 /* No system header file shall be included in this file before this */
 /* point.                                                           */
 /* ================================================================ */
+
+/*
+ * For platforms defined outside repo.
+ */
+
+#if defined(CURL_EXTERNAL_PLATFORM)
+#  include "setup-external.h"
+#endif 
 
 /*
  * OS/400 setup file includes some system headers.

@@ -111,6 +111,8 @@ int Curl_wait_ms(timediff_t timeout_ms);
   } while(0)
 #endif
 
+struct easy_pollset;
+
 struct curl_pollfds {
   struct pollfd *pfds;
   unsigned int n;

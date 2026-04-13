@@ -206,7 +206,7 @@ typedef size_t (*unitytls_tlsctx_write_callback)(void* userData, const UInt8* da
 /* Called when unitytls expects incoming data. Should return the number of bytes it received or set an error on errorState. */
 typedef size_t (*unitytls_tlsctx_read_callback)(void* userData, UInt8* buffer, size_t bufferLen, unitytls_errorstate* errorState);
 /* Called with human readable string to trace the handshake process */
-typedef void   (*unitytls_tlsctx_trace_callback)(void* userData, unitytls_tlsctx* ctx, const char* traceMessage, size_t traceMessageLen);
+typedef void    (*unitytls_tlsctx_trace_callback)(void* userData, unitytls_tlsctx* ctx, int level, const char* fileName, size_t lineNumber, const char* traceMessage);
 /* Called during a handshake operation, check currentState to determine how to react. */
 typedef void   (*unitytls_tlsctx_handshake_callback)(void* userData, unitytls_tlsctx* ctx, unitytls_tlsctx_handshakestate currentState, unitytls_errorstate* errorState);
 /* Called during a handshake operation. Client: if server issues a certificate request (client auth), Server: certificate SNI selection. */
@@ -265,7 +265,7 @@ typedef size_t                      (*unitytls_tlsctx_write_t)(unitytls_tlsctx* 
 typedef void                        (*unitytls_tlsctx_notify_close_t)(unitytls_tlsctx* ctx, unitytls_errorstate* errorState);
 typedef void                        (*unitytls_tlsctx_free_t)(unitytls_tlsctx* ctx);
 
-typedef void                        (*unitytls_tlsctx_set_certificate_callback_t)(unitytls_tlsctx* ctx, unitytls_tlsctx_certificate_callback cb, void* userData, unitytls_errorstate* errorState);
+
 
 typedef void                        (*unitytls_random_generate_bytes_t)(UInt8* buffer, size_t bufferLen, unitytls_errorstate* errorState);
 
