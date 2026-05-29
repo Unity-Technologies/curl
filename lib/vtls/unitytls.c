@@ -109,6 +109,12 @@ static bool unitytls_append_pem_file(const char* filepath, unitytls_x509list* li
   return true;
 }
 
+static bool unitytls_append_pem_blob(const struct curl_blob* blob, unitytls_x509list* list, unitytls_errorstate* err)
+{
+  size_t parsed = unitytls->unitytls_x509list_append_pem(list, (const char*)blob->data, blob->len, err);
+  return parsed != 0 && err->code == UNITYTLS_SUCCESS;
+}
+
 static unitytls_key* unitytls_key_parse_pem_from_file(const char* filepath, const char* password, unitytls_errorstate* err)
 {
   long fsize;
@@ -117,10 +123,19 @@ static unitytls_key* unitytls_key_parse_pem_from_file(const char* filepath, cons
   if (!filecontent)
     return NULL;
 
-  unitytls->unitytls_key_parse_pem(filecontent, fsize, password, strlen(password), err);
+  key = unitytls->unitytls_key_parse_pem(filecontent, fsize,
+                                         password, password ? strlen(password) : 0,
+                                         err);
 
   free(filecontent);
   return key;
+}
+
+static unitytls_key* unitytls_key_parse_pem_from_blob(const struct curl_blob* blob, const char* password, unitytls_errorstate* err)
+{
+  return unitytls->unitytls_key_parse_pem((const char*)blob->data, blob->len,
+                                          password, password ? strlen(password) : 0,
+                                          err);
 }
 
 static bool unitytls_parse_all_pem_in_dir(struct Curl_easy* data, const char* path, unitytls_x509list* list, unitytls_errorstate* err)
@@ -387,6 +402,8 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
   const bool verifypeer = conn_config->verifypeer;
   const char* const ssl_capath = conn_config->CApath;
   char* const ssl_cert = ssl_config->primary.clientcert;
+  const struct curl_blob *ssl_cert_blob = ssl_config->primary.cert_blob;
+  const struct curl_blob *ssl_key_blob = ssl_config->key_blob;
   const char* const hostname = connssl->peer.hostname;
 
   unitytls_errorstate err = unitytls->unitytls_errorstate_create();
@@ -406,7 +423,7 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
   }
 
   /* Load the trusted CA */
-  if (ssl_cafile || ssl_capath)
+  if (ssl_cafile || ssl_capath || ca_info_blob)
     backend->cacert = unitytls->unitytls_x509list_create(&err);
 
   if(ssl_cafile) {
@@ -420,7 +437,16 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
 
   if(ssl_capath) {
     if(!unitytls_parse_all_pem_in_dir(data, ssl_capath, backend->cacert, &err) || err.code != UNITYTLS_SUCCESS) {
-      failf(data, "Error reading ca cert path from %s", ssl_cafile);
+      failf(data, "Error reading ca cert path from %s", ssl_capath);
+      if(verifypeer)
+        return CURLE_SSL_CACERT_BADFILE;
+      err = unitytls->unitytls_errorstate_create(); /* ignore any errors that came up */
+    }
+  }
+
+  if(ca_info_blob) {
+    if(!unitytls_append_pem_blob(ca_info_blob, backend->cacert, &err)) {
+      failf(data, "Error parsing CA cert blob");
       if(verifypeer)
         return CURLE_SSL_CACERT_BADFILE;
       err = unitytls->unitytls_errorstate_create(); /* ignore any errors that came up */
@@ -430,8 +456,15 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
   /* Load the client certificate */
   if(ssl_cert) {
     backend->clicert = unitytls->unitytls_x509list_create(&err);
-    if(unitytls_append_pem_file(ssl_cert, backend->clicert, &err) != CURLE_OK || err.code != UNITYTLS_SUCCESS) {
-      failf(data, "Error reading client cert file %s", ssl_cafile);
+    if(!unitytls_append_pem_file(ssl_cert, backend->clicert, &err) || err.code != UNITYTLS_SUCCESS) {
+      failf(data, "Error reading client cert file %s", ssl_cert);
+      return CURLE_SSL_CERTPROBLEM;
+    }
+  }
+  else if(ssl_cert_blob) {
+    backend->clicert = unitytls->unitytls_x509list_create(&err);
+    if(!unitytls_append_pem_blob(ssl_cert_blob, backend->clicert, &err)) {
+      failf(data, "Error parsing client cert blob");
       return CURLE_SSL_CERTPROBLEM;
     }
   }
@@ -441,6 +474,13 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
     backend->pk = unitytls_key_parse_pem_from_file(ssl_config->key, ssl_config->key_passwd, &err);
     if(!backend->pk || err.code != UNITYTLS_SUCCESS) {
       failf(data, "Error reading private key %s", ssl_config->key);
+      return CURLE_SSL_CERTPROBLEM;
+    }
+  }
+  else if(ssl_key_blob) {
+    backend->pk = unitytls_key_parse_pem_from_blob(ssl_key_blob, ssl_config->key_passwd, &err);
+    if(!backend->pk || err.code != UNITYTLS_SUCCESS) {
+      failf(data, "Error parsing private key blob");
       return CURLE_SSL_CERTPROBLEM;
     }
   }
@@ -717,6 +757,7 @@ const struct Curl_ssl Curl_ssl_unitytls = {
   { CURLSSLBACKEND_UNITYTLS, "unitytls" }, /* info */
 
   SSLSUPP_CA_PATH |
+  SSLSUPP_CAINFO_BLOB |
   SSLSUPP_SSL_CTX,
 
   sizeof(struct ssl_backend_data),
