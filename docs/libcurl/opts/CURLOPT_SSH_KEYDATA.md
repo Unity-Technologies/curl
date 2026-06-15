@@ -57,13 +57,15 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
+    CURLcode result;
     struct mine callback_data;
     curl_easy_setopt(curl, CURLOPT_URL, "sftp://example.com/thisfile.txt");
     curl_easy_setopt(curl, CURLOPT_SSH_KEYFUNCTION, keycb);
     curl_easy_setopt(curl, CURLOPT_SSH_KEYDATA, &callback_data);
     curl_easy_setopt(curl, CURLOPT_SSH_KNOWNHOSTS, "/home/user/known_hosts");
 
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
   }
 }
 ~~~
@@ -72,4 +74,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

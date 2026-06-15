@@ -30,16 +30,16 @@ CURLMcode curl_multi_socket_all(CURLM *multi_handle,
 
 # DESCRIPTION
 
-This function is deprecated. Do not use. See curl_multi_socket_action(3)
-instead.
+This function is deprecated for performance reasons but there are no plans to
+remove it from the API. Use curl_multi_socket_action(3) instead.
 
 At return, the integer **running_handles** points to contains the number of
 still running easy handles within the multi handle. When this number reaches
 zero, all transfers are complete/done.
 
 Force libcurl to (re-)check all its internal sockets and transfers instead of
-just a single one by calling curl_multi_socket_all(3). Note that there should
-not be any reason to use this function.
+a single one by calling curl_multi_socket_all(3). Note that there should not
+be any reason to use this function.
 
 # %PROTOCOLS%
 
@@ -50,7 +50,8 @@ int main(void)
 {
   int running;
   int rc;
-  CURLM *multi;
+  CURLM *multi = curl_multi_init();
+
   rc = curl_multi_socket_all(multi, &running);
 }
 ~~~
@@ -59,7 +60,10 @@ int main(void)
 
 # RETURN VALUE
 
-CURLMcode type, general libcurl multi interface error code.
+This function returns a CURLMcode indicating success or error.
+
+CURLM_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).
 
 The return code is for the whole multi stack. Problems still might have
 occurred on individual transfers even when one of these functions return OK.

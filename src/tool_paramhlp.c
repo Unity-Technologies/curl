@@ -23,10 +23,6 @@
  ***************************************************************************/
 #include "tool_setup.h"
 
-#include "strcase.h"
-
-#include "curlx.h"
-
 #include "tool_cfgable.h"
 #include "tool_getparam.h"
 #include "tool_getpass.h"
@@ -35,13 +31,10 @@
 #include "tool_libinfo.h"
 #include "tool_util.h"
 #include "tool_version.h"
-#include "dynbuf.h"
-
-#include "memdebug.h" /* keep this as LAST include */
 
 struct getout *new_getout(struct OperationConfig *config)
 {
-  struct getout *node = calloc(1, sizeof(struct getout));
+  struct getout *node = curlx_calloc(1, sizeof(struct getout));
   struct getout *last = config->url_last;
   if(node) {
     static int outnum = 0;
@@ -55,7 +48,7 @@ struct getout *new_getout(struct OperationConfig *config)
     /* move the last pointer */
     config->url_last = node;
 
-    node->flags = config->default_node_flags;
+    node->useremote = config->remote_name_all;
     node->num = outnum++;
   }
   return node;
@@ -92,7 +85,7 @@ static size_t memcrlf(char *orig,
 
 ParameterError file2string(char **bufp, FILE *file)
 {
-  struct curlx_dynbuf dyn;
+  struct dynbuf dyn;
   curlx_dyn_init(&dyn, MAX_FILE2STRING);
   if(file) {
     do {
@@ -124,15 +117,32 @@ ParameterError file2string(char **bufp, FILE *file)
   return PARAM_OK;
 }
 
-ParameterError file2memory(char **bufp, size_t *size, FILE *file)
+ParameterError file2memory_range(char **bufp, size_t *size, FILE *file,
+                                 curl_off_t starto, curl_off_t endo)
 {
   if(file) {
     size_t nread;
-    struct curlx_dynbuf dyn;
+    struct dynbuf dyn;
+    curl_off_t offset = 0;
+    curl_off_t throwaway = 0;
+
+    if(starto) {
+      if(file != stdin) {
+        if(curlx_fseek(file, starto, SEEK_SET))
+          return PARAM_READ_ERROR;
+        offset = starto;
+      }
+      else
+        /* we cannot seek stdin, read 'starto' bytes and throw them away */
+        throwaway = starto;
+    }
+
     /* The size needs to fit in an int later */
     curlx_dyn_init(&dyn, MAX_FILE2MEMORY);
     do {
       char buffer[4096];
+      size_t n_add;
+      char *ptr_add;
       nread = fread(buffer, 1, sizeof(buffer), file);
       if(ferror(file)) {
         curlx_dyn_free(&dyn);
@@ -140,9 +150,35 @@ ParameterError file2memory(char **bufp, size_t *size, FILE *file)
         *bufp = NULL;
         return PARAM_READ_ERROR;
       }
-      if(nread)
-        if(curlx_dyn_addn(&dyn, buffer, nread))
-          return PARAM_NO_MEM;
+      n_add = nread;
+      ptr_add = buffer;
+      if(nread) {
+        if(throwaway) {
+          if(throwaway >= (curl_off_t)nread) {
+            throwaway -= nread;
+            offset += nread;
+            n_add = 0; /* nothing to add */
+          }
+          else {
+            /* append the trailing piece */
+            n_add = (size_t)(nread - throwaway);
+            ptr_add = &buffer[throwaway];
+            offset += throwaway;
+            throwaway = 0;
+          }
+        }
+        if(n_add) {
+          if((curl_off_t)(n_add + offset) > endo)
+            n_add = (size_t)(endo - offset + 1);
+
+          if(curlx_dyn_addn(&dyn, ptr_add, n_add))
+            return PARAM_NO_MEM;
+
+          offset += n_add;
+          if(offset > endo)
+            break;
+        }
+      }
     } while(!feof(file));
     *size = curlx_dyn_len(&dyn);
     *bufp = curlx_dyn_ptr(&dyn);
@@ -154,6 +190,11 @@ ParameterError file2memory(char **bufp, size_t *size, FILE *file)
   return PARAM_OK;
 }
 
+ParameterError file2memory(char **bufp, size_t *size, FILE *file)
+{
+  return file2memory_range(bufp, size, file, 0, CURL_OFF_T_MAX);
+}
+
 /*
  * Parse the string and write the long in the given address. Return PARAM_OK
  * on success, otherwise a parameter specific error enum.
@@ -162,39 +203,39 @@ ParameterError file2memory(char **bufp, size_t *size, FILE *file)
  * getparameter a lot, we must check it for NULL before accessing the str
  * data.
  */
-static ParameterError getnum(long *val, const char *str, int base)
-{
-  if(str) {
-    char *endptr = NULL;
-    long num;
-    if(!str[0])
-      return PARAM_BLANK_STRING;
-    errno = 0;
-    num = strtol(str, &endptr, base);
-    if(errno == ERANGE)
-      return PARAM_NUMBER_TOO_LARGE;
-    if((endptr != str) && (*endptr == '\0')) {
-      *val = num;
-      return PARAM_OK;  /* Ok */
-    }
-  }
-  return PARAM_BAD_NUMERIC; /* badness */
-}
-
 ParameterError str2num(long *val, const char *str)
 {
-  return getnum(val, str, 10);
+  curl_off_t num;
+  bool is_neg = FALSE;
+  DEBUGASSERT(str);
+  if(!curlx_str_single(&str, '-'))
+    is_neg = TRUE;
+  if(curlx_str_number(&str, &num, LONG_MAX) ||
+     curlx_str_single(&str, '\0'))
+    return PARAM_BAD_NUMERIC; /* badness */
+
+  *val = (long)num;
+  if(is_neg)
+    *val = -*val;
+  return PARAM_OK; /* Ok */
 }
 
 ParameterError oct2nummax(long *val, const char *str, long max)
 {
-  ParameterError result = getnum(val, str, 8);
-  if(result != PARAM_OK)
-    return result;
-  else if(*val > max)
-    return PARAM_NUMBER_TOO_LARGE;
-  else if(*val < 0)
+  curl_off_t num;
+  int rc;
+  DEBUGASSERT(str);
+  rc = curlx_str_octal(&str, &num, max);
+  if(rc) {
+    if(STRE_OVERFLOW == rc)
+      return PARAM_NUMBER_TOO_LARGE;
+    return PARAM_BAD_NUMERIC;
+  }
+  if(curlx_str_single(&str, '\0'))
+    return PARAM_BAD_NUMERIC;
+  if(num < 0)
     return PARAM_NEGATIVE_NUMERIC;
+  *val = (long)num;
 
   return PARAM_OK;
 }
@@ -210,9 +251,9 @@ ParameterError oct2nummax(long *val, const char *str, long max)
 
 ParameterError str2unum(long *val, const char *str)
 {
-  ParameterError result = getnum(val, str, 10);
-  if(result != PARAM_OK)
-    return result;
+  ParameterError err = str2num(val, str);
+  if(err != PARAM_OK)
+    return err;
   if(*val < 0)
     return PARAM_NEGATIVE_NUMERIC;
 
@@ -231,47 +272,13 @@ ParameterError str2unum(long *val, const char *str)
 
 ParameterError str2unummax(long *val, const char *str, long max)
 {
-  ParameterError result = str2unum(val, str);
-  if(result != PARAM_OK)
-    return result;
+  ParameterError err = str2unum(val, str);
+  if(err != PARAM_OK)
+    return err;
   if(*val > max)
     return PARAM_NUMBER_TOO_LARGE;
 
   return PARAM_OK;
-}
-
-
-/*
- * Parse the string and write the double in the given address. Return PARAM_OK
- * on success, otherwise a parameter specific error enum.
- *
- * The 'max' argument is the maximum value allowed, as the numbers are often
- * multiplied when later used.
- *
- * Since this function gets called with the 'nextarg' pointer from within the
- * getparameter a lot, we must check it for NULL before accessing the str
- * data.
- */
-
-static ParameterError str2double(double *val, const char *str, double max)
-{
-  if(str) {
-    char *endptr;
-    double num;
-    errno = 0;
-    num = strtod(str, &endptr);
-    if(errno == ERANGE)
-      return PARAM_NUMBER_TOO_LARGE;
-    if(num > max) {
-      /* too large */
-      return PARAM_NUMBER_TOO_LARGE;
-    }
-    if((endptr != str) && (endptr == str + strlen(str))) {
-      *val = num;
-      return PARAM_OK;  /* Ok */
-    }
-  }
-  return PARAM_BAD_NUMERIC; /* badness */
 }
 
 /*
@@ -287,16 +294,39 @@ static ParameterError str2double(double *val, const char *str, double max)
  * data.
  */
 
-ParameterError secs2ms(long *valp, const char *str)
+ParameterError secs2ms(long *val, const char *str)
 {
-  double value;
-  ParameterError result = str2double(&value, str, (double)LONG_MAX/1000);
-  if(result != PARAM_OK)
-    return result;
-  if(value < 0)
-    return PARAM_NEGATIVE_NUMERIC;
+  curl_off_t secs;
+  long ms = 0;
+  const unsigned int digs[] = {
+    1,
+    10,
+    100,
+    1000,
+    10000,
+    100000,
+    1000000,
+    10000000,
+    100000000
+  };
+  if(!str || curlx_str_number(&str, &secs, LONG_MAX / 1000 - 1))
+    return PARAM_BAD_NUMERIC;
+  if(!curlx_str_single(&str, '.')) {
+    curl_off_t fracs;
+    const char *s = str;
+    size_t len;
+    if(curlx_str_number(&str, &fracs, CURL_OFF_T_MAX))
+      return PARAM_NUMBER_TOO_LARGE;
+    /* how many milliseconds are in fracs ? */
+    len = (str - s);
+    while((len > CURL_ARRAYSIZE(digs) || (fracs > LONG_MAX / 100))) {
+      fracs /= 10;
+      len--;
+    }
+    ms = ((long)fracs * 100) / digs[len - 1];
+  }
 
-  *valp = (long)(value*1000);
+  *val = ((long)secs * 1000) + ms;
   return PARAM_OK;
 }
 
@@ -310,7 +340,7 @@ static size_t protoset_index(const char * const *protoset, const char *proto)
 {
   const char * const *p = protoset;
 
-  DEBUGASSERT(proto == proto_token(proto));     /* Ensure it is tokenized. */
+  DEBUGASSERT(proto == proto_token(proto)); /* Ensure it is tokenized. */
 
   for(; *p; p++)
     if(proto == *p)
@@ -358,33 +388,22 @@ static void protoset_clear(const char **protoset, const char *proto)
  * data.
  */
 
-#define MAX_PROTOSTRING (64*11) /* Enough room for 64 10-chars proto names. */
+#define MAX_PROTOS 34
+#define MAX_PROTOSTRING (MAX_PROTOS * 11)  /* Room for MAX_PROTOS number of
+                                              10-chars proto names. */
 
-ParameterError proto2num(struct OperationConfig *config,
-                         const char * const *val, char **ostr, const char *str)
+ParameterError proto2num(const char * const *val, char **ostr, const char *str)
 {
-  char *buffer;
-  const char *sep = ",";
-  char *token;
-  const char **protoset;
-  struct curlx_dynbuf obuf;
+  struct dynbuf obuf;
   size_t proto;
-  CURLcode result;
+  CURLcode result = CURLE_OK;
+  const char *protoset[MAX_PROTOS + 1];
+
+  DEBUGASSERT(proto_count <= MAX_PROTOS);
+  if(proto_count > MAX_PROTOS) /* if case of surprises */
+    return PARAM_NO_MEM;
 
   curlx_dyn_init(&obuf, MAX_PROTOSTRING);
-
-  if(!str)
-    return PARAM_OPTION_AMBIGUOUS;
-
-  buffer = strdup(str); /* because strtok corrupts it */
-  if(!buffer)
-    return PARAM_NO_MEM;
-
-  protoset = malloc((proto_count + 1) * sizeof(*protoset));
-  if(!protoset) {
-    free(buffer);
-    return PARAM_NO_MEM;
-  }
 
   /* Preset protocol set with default values. */
   protoset[0] = NULL;
@@ -395,46 +414,57 @@ ParameterError proto2num(struct OperationConfig *config,
       protoset_set(protoset, p);
   }
 
-  /* Allow strtok() here since this is not used threaded */
-  /* !checksrc! disable BANNEDFUNC 2 */
-  for(token = strtok(buffer, sep);
-      token;
-      token = strtok(NULL, sep)) {
+  while(*str) {
+    const char *next = strchr(str, ',');
+    size_t plen;
     enum e_action { allow, deny, set } action = allow;
 
-    /* Process token modifiers */
-    while(!ISALNUM(*token)) { /* may be NULL if token is all modifiers */
-      switch(*token++) {
-      case '=':
-        action = set;
-        break;
-      case '-':
-        action = deny;
-        break;
-      case '+':
-        action = allow;
-        break;
-      default: /* Includes case of terminating NULL */
-        free(buffer);
-        free((char *) protoset);
-        return PARAM_BAD_USE;
+    if(next) {
+      if(str == next) {
+        str++;
+        continue;
       }
+      plen = next - str - 1;
+    }
+    else
+      plen = strlen(str) - 1;
+
+    /* Process token modifiers */
+    switch(*str++) {
+    case '=':
+      action = set;
+      break;
+    case '-':
+      action = deny;
+      break;
+    case '+':
+      action = allow;
+      break;
+    default:
+      /* no modifier */
+      str--;
+      plen++;
+      break;
     }
 
-    if(curl_strequal(token, "all")) {
+    if((plen == 3) && curl_strnequal(str, "all", 3)) {
       switch(action) {
       case deny:
         protoset[0] = NULL;
         break;
       case allow:
       case set:
-        memcpy((char *) protoset,
-               built_in_protos, (proto_count + 1) * sizeof(*protoset));
+        memcpy((char *)protoset, built_in_protos,
+               (proto_count + 1) * sizeof(*protoset));
         break;
       }
     }
     else {
-      const char *p = proto_token(token);
+      char buffer[32];
+      const char *p;
+      curl_msnprintf(buffer, sizeof(buffer), "%.*s", (int)plen, str);
+
+      p = proto_token(buffer);
 
       if(p)
         switch(action) {
@@ -453,25 +483,31 @@ ParameterError proto2num(struct OperationConfig *config,
            if no protocols are allowed */
         if(action == set)
           protoset[0] = NULL;
-        warnf(config->global, "unrecognized protocol '%s'", token);
+        warnf("unrecognized protocol '%s'", buffer);
       }
     }
+    if(next)
+      str = next + 1;
+    else
+      break;
   }
-  free(buffer);
 
   /* We need the protocols in alphabetic order for CI tests requirements. */
-  qsort((char *) protoset, protoset_index(protoset, NULL), sizeof(*protoset),
+  qsort((char *)protoset, protoset_index(protoset, NULL), sizeof(*protoset),
         struplocompare4sort);
 
-  result = curlx_dyn_addn(&obuf, "", 0);
   for(proto = 0; protoset[proto] && !result; proto++)
-    result = curlx_dyn_addf(&obuf, "%s,", protoset[proto]);
-  free((char *) protoset);
-  curlx_dyn_setlen(&obuf, curlx_dyn_len(&obuf) - 1);
-  free(*ostr);
+    result = curlx_dyn_addf(&obuf, "%s%s", curlx_dyn_len(&obuf) ? "," : "",
+                            protoset[proto]);
+  if(result)
+    return PARAM_NO_MEM;
+  if(!curlx_dyn_len(&obuf)) {
+    curlx_dyn_free(&obuf);
+    return PARAM_BAD_USE;
+  }
+  curlx_free(*ostr);
   *ostr = curlx_dyn_ptr(&obuf);
-
-  return *ostr ? PARAM_OK : PARAM_NO_MEM;
+  return PARAM_OK;
 }
 
 /**
@@ -502,32 +538,13 @@ ParameterError check_protocol(const char *str)
  */
 ParameterError str2offset(curl_off_t *val, const char *str)
 {
-  char *endptr;
-  if(str[0] == '-')
-    /* offsets are not negative, this indicates weird input */
-    return PARAM_NEGATIVE_NUMERIC;
-
-#if(SIZEOF_CURL_OFF_T > SIZEOF_LONG)
-  {
-    CURLofft offt = curlx_strtoofft(str, &endptr, 10, val);
-    if(CURL_OFFT_FLOW == offt)
-      return PARAM_NUMBER_TOO_LARGE;
-    else if(CURL_OFFT_INVAL == offt)
-      return PARAM_BAD_NUMERIC;
-  }
-#else
-  errno = 0;
-  *val = strtol(str, &endptr, 0);
-  if((*val == LONG_MIN || *val == LONG_MAX) && errno == ERANGE)
-    return PARAM_NUMBER_TOO_LARGE;
-#endif
-  if((endptr != str) && (endptr == str + strlen(str)))
-    return PARAM_OK;
-
-  return PARAM_BAD_NUMERIC;
+  if(curlx_str_number(&str, val, CURL_OFF_T_MAX) ||
+     curlx_str_single(&str, '\0'))
+    return PARAM_BAD_NUMERIC;
+  return PARAM_OK;
 }
 
-#define MAX_USERPWDLENGTH (100*1024)
+#define MAX_USERPWDLENGTH (100 * 1024)
 static CURLcode checkpasswd(const char *kind, /* for what purpose */
                             const size_t i,   /* operation index */
                             const bool last,  /* TRUE if last operation */
@@ -549,7 +566,7 @@ static CURLcode checkpasswd(const char *kind, /* for what purpose */
     /* no password present, prompt for one */
     char passwd[2048] = "";
     char prompt[256];
-    struct curlx_dynbuf dyn;
+    struct dynbuf dyn;
 
     curlx_dyn_init(&dyn, MAX_USERPWDLENGTH);
     if(osep)
@@ -557,13 +574,13 @@ static CURLcode checkpasswd(const char *kind, /* for what purpose */
 
     /* build a nice-looking prompt */
     if(!i && last)
-      msnprintf(prompt, sizeof(prompt),
-                "Enter %s password for user '%s':",
-                kind, *userpwd);
+      curl_msnprintf(prompt, sizeof(prompt),
+                     "Enter %s password for user '%s':",
+                     kind, *userpwd);
     else
-      msnprintf(prompt, sizeof(prompt),
-                "Enter %s password for user '%s' on URL #%zu:",
-                kind, *userpwd, i + 1);
+      curl_msnprintf(prompt, sizeof(prompt),
+                     "Enter %s password for user '%s' on URL #%zu:",
+                     kind, *userpwd, i + 1);
 
     /* get password */
     getpass_r(prompt, passwd, sizeof(passwd));
@@ -574,7 +591,7 @@ static CURLcode checkpasswd(const char *kind, /* for what purpose */
       return CURLE_OUT_OF_MEMORY;
 
     /* return the new string */
-    free(*userpwd);
+    curlx_free(*userpwd);
     *userpwd = curlx_dyn_ptr(&dyn);
   }
 
@@ -592,7 +609,7 @@ ParameterError add2list(struct curl_slist **list, const char *ptr)
   return PARAM_OK;
 }
 
-int ftpfilemethod(struct OperationConfig *config, const char *str)
+long ftpfilemethod(const char *str)
 {
   if(curl_strequal("singlecwd", str))
     return CURLFTPMETHOD_SINGLECWD;
@@ -601,26 +618,24 @@ int ftpfilemethod(struct OperationConfig *config, const char *str)
   if(curl_strequal("multicwd", str))
     return CURLFTPMETHOD_MULTICWD;
 
-  warnf(config->global, "unrecognized ftp file method '%s', using default",
-        str);
+  warnf("unrecognized ftp file method '%s', using default", str);
 
   return CURLFTPMETHOD_MULTICWD;
 }
 
-int ftpcccmethod(struct OperationConfig *config, const char *str)
+long ftpcccmethod(const char *str)
 {
   if(curl_strequal("passive", str))
     return CURLFTPSSL_CCC_PASSIVE;
   if(curl_strequal("active", str))
     return CURLFTPSSL_CCC_ACTIVE;
 
-  warnf(config->global, "unrecognized ftp CCC method '%s', using default",
-        str);
+  warnf("unrecognized ftp CCC method '%s', using default", str);
 
   return CURLFTPSSL_CCC_PASSIVE;
 }
 
-long delegation(struct OperationConfig *config, const char *str)
+long delegation(const char *str)
 {
   if(curl_strequal("none", str))
     return CURLGSSAPI_DELEGATION_NONE;
@@ -629,36 +644,26 @@ long delegation(struct OperationConfig *config, const char *str)
   if(curl_strequal("always", str))
     return CURLGSSAPI_DELEGATION_FLAG;
 
-  warnf(config->global, "unrecognized delegation method '%s', using none",
-        str);
+  warnf("unrecognized delegation method '%s', using none", str);
 
   return CURLGSSAPI_DELEGATION_NONE;
 }
 
-/*
- * my_useragent: returns allocated string with default user agent
- */
-static char *my_useragent(void)
-{
-  return strdup(CURL_NAME "/" CURL_VERSION);
-}
-
-#define isheadersep(x) ((((x)==':') || ((x)==';')))
+#define isheadersep(x) ((((x) == ':') || ((x) == ';')))
 
 /*
  * inlist() returns true if the given 'checkfor' header is present in the
  * header list.
  */
-static bool inlist(const struct curl_slist *head,
-                   const char *checkfor)
+static bool inlist(const struct curl_slist *head, const char *checkfor)
 {
   size_t thislen = strlen(checkfor);
   DEBUGASSERT(thislen);
-  DEBUGASSERT(checkfor[thislen-1] != ':');
+  DEBUGASSERT(checkfor[thislen - 1] != ':');
 
   for(; head; head = head->next) {
     if(curl_strnequal(head->data, checkfor, thislen) &&
-       isheadersep(head->data[thislen]) )
+       isheadersep(head->data[thislen]))
       return TRUE;
   }
 
@@ -682,57 +687,42 @@ CURLcode get_args(struct OperationConfig *config, const size_t i)
       return CURLE_OUT_OF_MEMORY;
   }
 
-  /* Check we have a password for the given host user */
-  if(config->userpwd && !config->oauth_bearer) {
+  /* Check if we have a password for the given host user */
+  if(config->userpwd && !config->oauth_bearer)
     result = checkpasswd("host", i, last, &config->userpwd);
-    if(result)
-      return result;
-  }
 
-  /* Check we have a password for the given proxy user */
-  if(config->proxyuserpwd) {
+  /* Check if we have a password for the given proxy user */
+  if(!result && config->proxyuserpwd)
     result = checkpasswd("proxy", i, last, &config->proxyuserpwd);
-    if(result)
-      return result;
-  }
-
-  /* Check we have a user agent */
-  if(!config->useragent) {
-    config->useragent = my_useragent();
-    if(!config->useragent) {
-      errorf(config->global, "out of memory");
-      result = CURLE_OUT_OF_MEMORY;
-    }
-  }
 
   return result;
 }
 
 /*
  * Parse the string and modify ssl_version in the val argument. Return PARAM_OK
- * on success, otherwise a parameter error enum. ONLY ACCEPTS POSITIVE NUMBERS!
+ * on success, otherwise a parameter error enum.
  *
  * Since this function gets called with the 'nextarg' pointer from within the
  * getparameter a lot, we must check it for NULL before accessing the str
  * data.
  */
 
-ParameterError str2tls_max(long *val, const char *str)
+ParameterError str2tls_max(unsigned char *val, const char *str)
 {
-   static struct s_tls_max {
+  static struct s_tls_max {
     const char *tls_max_str;
-    long tls_max;
+    unsigned char tls_max;
   } const tls_max_array[] = {
-    { "default", CURL_SSLVERSION_MAX_DEFAULT },
-    { "1.0",     CURL_SSLVERSION_MAX_TLSv1_0 },
-    { "1.1",     CURL_SSLVERSION_MAX_TLSv1_1 },
-    { "1.2",     CURL_SSLVERSION_MAX_TLSv1_2 },
-    { "1.3",     CURL_SSLVERSION_MAX_TLSv1_3 }
+    { "default", 0 }, /* lets the library decide */
+    { "1.0",     1 },
+    { "1.1",     2 },
+    { "1.2",     3 },
+    { "1.3",     4 }
   };
   size_t i = 0;
   if(!str)
     return PARAM_REQUIRES_PARAMETER;
-  for(i = 0; i < sizeof(tls_max_array)/sizeof(tls_max_array[0]); i++) {
+  for(i = 0; i < CURL_ARRAYSIZE(tls_max_array); i++) {
     if(!strcmp(str, tls_max_array[i].tls_max_str)) {
       *val = tls_max_array[i].tls_max;
       return PARAM_OK;

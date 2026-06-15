@@ -56,7 +56,7 @@ regular old-fashioned Basic method.
 
 HTTP Digest authentication with an IE flavor. Digest authentication is defined
 in RFC 2617 and is a more secure way to do authentication over public networks
-than the regular old-fashioned Basic method. The IE flavor is simply that
+than the regular old-fashioned Basic method. The IE flavor means that
 libcurl uses a special "quirk" that IE is known to have used before version 7
 and that some servers require the client to use.
 
@@ -80,8 +80,7 @@ HTTP NTLM authentication. A proprietary protocol invented and used by
 Microsoft. It uses a challenge-response and hash concept similar to Digest, to
 prevent the password from being eavesdropped.
 
-You need to build libcurl with either OpenSSL or GnuTLS support for this
-option to work, or build libcurl on Windows with SSPI support.
+NTLM uses weak cryptographic algorithms and is not considered secure.
 
 ## CURLAUTH_NTLM_WB
 
@@ -135,12 +134,12 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
-    CURLcode ret;
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com/");
     /* allow whatever auth the server speaks */
-    curl_easy_setopt(curl, CURLOPT_HTTPAUTH, (long)CURLAUTH_ANY);
+    curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
     curl_easy_setopt(curl, CURLOPT_USERPWD, "james:bond");
-    ret = curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
   }
 }
 ~~~
@@ -153,6 +152,9 @@ CURLAUTH_ONLY was added in 7.21.3
 
 CURLAUTH_NTLM_WB was added in 7.22.0
 
+**CURLAUTH_*** macros became `long` types in 7.26.0, prior to this version
+a `long` cast was necessary when passed to curl_easy_setopt(3).
+
 CURLAUTH_BEARER was added in 7.61.0
 
 CURLAUTH_AWS_SIGV4 was added in 7.74.0
@@ -161,6 +163,7 @@ CURLAUTH_AWS_SIGV4 was added in 7.74.0
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, CURLE_UNKNOWN_OPTION if not, or
-CURLE_NOT_BUILT_IN if the bitmask specified no supported authentication
-methods.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

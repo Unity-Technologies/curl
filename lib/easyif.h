@@ -23,14 +23,13 @@
  * SPDX-License-Identifier: curl
  *
  ***************************************************************************/
-
 /*
  * Prototypes for library-wide functions provided by easy.c
  */
 CURLcode Curl_senddata(struct Curl_easy *data, const void *buffer,
                        size_t buflen, size_t *n);
 
-#ifdef USE_WEBSOCKETS
+#ifndef CURL_DISABLE_WEBSOCKETS
 CURLcode Curl_connect_only_attach(struct Curl_easy *data);
 #endif
 

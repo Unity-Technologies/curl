@@ -6,9 +6,13 @@ SPDX-License-Identifier: curl
 
 # [![curl logo](https://curl.se/logo/curl-logo.svg)](https://curl.se/)
 
-Curl is a command-line tool for transferring data specified with URL syntax.
+curl is a command-line tool for transferring data from or to a server using
+URLs. It supports these protocols: DICT, FILE, FTP, FTPS, GOPHER, GOPHERS,
+HTTP, HTTPS, IMAP, IMAPS, LDAP, LDAPS, MQTT, MQTTS, POP3, POP3S, RTSP, SCP,
+SFTP, SMB, SMBS, SMTP, SMTPS, TELNET, TFTP, WS and WSS.
+
 Learn how to use curl by reading [the
-manpage](https://curl.se/docs/manpage.html) or [everything
+man page](https://curl.se/docs/manpage.html) or [everything
 curl](https://everything.curl.dev/).
 
 Find out how to install curl by reading [the INSTALL
@@ -16,7 +20,7 @@ document](https://curl.se/docs/install.html).
 
 libcurl is the library curl is using to do its job. It is readily available to
 be used by your software. Read [the libcurl
-manpage](https://curl.se/libcurl/c/libcurl.html) to learn how.
+man page](https://curl.se/libcurl/c/libcurl.html) to learn how.
 
 ## Open Source
 
@@ -46,22 +50,16 @@ Visit the [curl website](https://curl.se/) for the latest news and downloads.
 
 Download the latest source from the Git server:
 
-    git clone https://github.com/curl/curl.git
+    git clone https://github.com/curl/curl
 
 ## Security problems
 
-Report suspected security problems via [our HackerOne
-page](https://hackerone.com/curl) and not in public.
-
-## Notice
-
-Curl contains pieces of source code that is Copyright (c) 1998, 1999 Kungliga
-Tekniska Högskolan. This notice is included here to comply with the
-distribution terms.
+Report suspected security problems
+[privately](https://curl.se/dev/vuln-disclosure.html) and not in public.
 
 ## Backers
 
-Thank you to all our backers! 🙏 [Become a backer](https://opencollective.com/curl#section-contribute).
+Thank you to all our backers :pray: [Become a backer](https://opencollective.com/curl#section-contribute).
 
 ## Sponsors
 

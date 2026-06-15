@@ -12,56 +12,74 @@ email the
 as soon as possible and explain to us why this is a problem for you and
 how your use case cannot be satisfied properly using a workaround.
 
-## TLS libraries without 1.3 support
+## TLS-SRP Authentication
 
-curl drops support for TLS libraries without TLS 1.3 capability after May
-2025.
+Transport Layer Security Secure Remote Password is a TLS feature that does not
+work with TLS 1.3 or QUIC and is virtually unused by curl users and in
+general.
 
-It requires that a curl build using the library should be able to negotiate
-and use TLS 1.3, or else it is not good enough.
+TLS-SRP support gets removed in August 2026.
 
-As of May 2024, the libraries that need to get fixed to remain supported after
-May 2025 are: BearSSL and Secure Transport.
+## drop SMB support
 
-## Hyper
+The SMB protocol has weak security and is rarely used these days.
 
-Hyper is an alternative HTTP backend for curl. It uses the hyper library and
-could in theory be used for HTTP/1, HTTP/2 and even HTTP/3 in the future with
-curl.
+SMB support gets removed in September 2026.
 
-The original plan and goal was that we would add this HTTP alternative (using
-a memory-safe library) and that users could eventually build and use libcurl
-exactly as previously but with parts of the core being more memory-safe.
+## drop NTLM support
 
-The hyper implementation ran into some snags and 10-15 tests and HTTP/2
-support have remained disabled with hyper. For these reasons, hyper support
-has remained tagged EXPERIMENTAL.
+The NTLM authentication method has weak security and is rarely used these
+days. It has been deprecated by Microsoft and does not work over HTTP/2 or
+HTTP/3.
 
-It is undoubtedly hard work to fix these remaining problems, as they typically
-require both rust and C knowledge in addition to deep HTTP familiarity. There
-does not seem to be that many persons interested or available for this
-challenge. Meanwhile, there is little if any demand for hyper from existing
-(lib)curl users.
+NTLM support gets removed in September 2026
 
-Finally: having support for hyper in curl has a significant cost: we need to
-maintain and develop a lot of functionality and tests twice to make sure
-libcurl works identically using either HTTP backend.
+## Local crypto implementations
 
-The only way to keep hyper support in curl is to give it a good polish by
-someone with time, skill and energy to spend on this task.
+Since the dawn of time, curl bundles code for a few crypto and hash algorithms
+in order to enable functionality for builds without TLS libraries. This list
+includes MD4, MD5, SHA256, SHA256_512 and perhaps something more.
 
-Unless a significant overhaul has proven to be in progress, hyper support is
-removed from curl after February 2025.
+Meanwhile, curl is almost always built to use a TLS/crypto library which for
+sure has better maintained and better performing versions of these algorithms.
+
+Also, the local curl implementations are not as widely tested since curl
+builds without TLS are rare.
+
+Since these implementations are going away, a good idea is to verify ahead of
+time that builds using your preferred TLS library use the crypto functions
+provided by that library and are not bundled by curl.
+
+The removal of local crypto functions subsequently disables some functions in
+future curl versions when built without TLS support. For example Digest.
+
+Local crypto gets removed in October 2026.
 
 ## Past removals
 
- - Pipelining
- - axTLS
- - PolarSSL
- - NPN
- - Support for systems without 64-bit data types
- - NSS
- - gskit
- - MinGW v1
- - NTLM_WB
- - space-separated `NOPROXY` patterns
+- axTLS (removed in 7.63.0)
+- Pipelining (removed in 7.65.0)
+- PolarSSL (removed in 7.69.0)
+- NPN (removed in 7.86.0)
+- Support for systems without 64-bit data types (removed in 8.0.0)
+- NSS (removed in 8.3.0)
+- gskit (removed in 8.3.0)
+- MinGW v1 (removed in 8.4.0)
+- NTLM_WB (removed in 8.8.0)
+- space-separated `NOPROXY` patterns (removed in 8.9.0)
+- hyper (removed in 8.12.0)
+- Support for Visual Studio 2005 and older (removed in 8.13.0)
+- Secure Transport (removed in 8.15.0)
+- BearSSL (removed in 8.15.0)
+- msh3 (removed in 8.16.0)
+- winbuild build system (removed in 8.17.0)
+- Windows CE (removed in 8.18.0)
+- Support for Visual Studio 2008 (removed in 8.18.0)
+- OpenSSL 1.1.1 and older (removed in 8.18.0)
+- Support for Windows XP (removed in 8.19.0)
+- OpenSSL-QUIC (removed in 8.19.0)
+- CMake 3.17 and older (removed in 8.20.0)
+- RTMP (removed in 8.20.0)
+- SMB (became opt-in in 8.20.0)
+- NTLM (became opt-in in 8.20.0)
+- c-ares < 1.16.0 (removed in 8.20.0)

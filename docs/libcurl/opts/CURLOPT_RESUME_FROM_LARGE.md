@@ -51,8 +51,9 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
-    curl_off_t resume_position; /* get it somehow */
-    curl_off_t file_size; /* get it somehow as well */
+    CURLcode result;
+    curl_off_t resume_position = 1234; /* get it somehow */
+    curl_off_t file_size = 9876; /* get it somehow as well */
 
     curl_easy_setopt(curl, CURLOPT_URL, "ftp://example.com");
 
@@ -66,7 +67,8 @@ int main(void)
     curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, file_size);
 
     /* Perform the request */
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
   }
 }
 ~~~
@@ -75,4 +77,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

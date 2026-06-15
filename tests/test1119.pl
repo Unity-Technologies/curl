@@ -43,11 +43,11 @@ my $rc = eval {
 };
 # Set default values if configure has not generated a configurehelp.pm file.
 # This is the case with cmake.
-if (!$rc) {
+if(!$rc) {
     $Cpreprocessor = 'cpp';
 }
 
-# we may get the dir root pointed out
+# we may get the directory root pointed out
 my $root=$ARGV[0] || ".";
 
 # need an include directory when building out-of-tree
@@ -67,8 +67,8 @@ my %rem;
 sub scanenum {
     my ($file) = @_;
     open my $h_in, "-|", "$Cpreprocessor $i$file" || die "Cannot preprocess $file";
-    while ( <$h_in> ) {
-        if ( /enum\s+(\S+\s+)?{/ .. /}/ ) {
+    while(<$h_in>) {
+        if(/enum\s+(\S+\s+)?{/ .. /}/) {
             s/^\s+//;
             next unless /^CURL/;
             chomp;
@@ -81,9 +81,9 @@ sub scanenum {
 
 sub scanheader {
     my ($f)=@_;
-    open my $h, "<", "$f";
+    open(my $h, "<", $f);
     while(<$h>) {
-        if (/^#define ((LIB|)CURL[A-Za-z0-9_]*)/) {
+        if(/^#define ((LIB|)CURL[A-Za-z0-9_]*)/) {
             push @syms, $1;
         }
     }
@@ -93,7 +93,7 @@ sub scanheader {
 sub scanallheaders {
     my $d = "$root/include/curl";
     opendir(my $dh, $d) ||
-        die "Can't opendir: $!";
+        die "Cannot opendir: $!";
     my @headers = grep { /.h\z/ } readdir($dh);
     closedir $dh;
     foreach my $h (@headers) {
@@ -105,17 +105,22 @@ sub scanallheaders {
 sub checkmanpage {
     my ($m) = @_;
 
-    open(my $mh, "<", "$m");
+    # detect global-looking 'CURL[BLABLA]_*' symbols
+    my $global_pat = '\W(CURL(AUTH|E|H|MOPT|OPT|SHOPT|UE|M|SSH|SSLBACKEND|HEADER|FORM|FTP|PIPE|MIMEOPT|GSSAPI|' .
+        'ALTSVC|PROTO|PROXY|UPART|USESSL|_READFUNC|_WRITEFUNC|_CSELECT|_FORMADD|_IPRESOLVE|_REDIR|_RTSPREQ|'.
+        '_TIMECOND|_VERSION)_[a-zA-Z0-9_]+)';
+    my $global_re = qr/$global_pat/;
+
+    open(my $mh, "<", $m);
     my $line = 1;
     while(<$mh>) {
         # strip off formatting
         $_ =~ s/(^|[^A-Z0-9])[*_]+/ /;
-        # detect global-looking 'CURL[BLABLA]_*' symbols
-        while(s/\W(CURL(AUTH|E|H|MOPT|OPT|SHOPT|UE|M|SSH|SSLBACKEND|HEADER|FORM|FTP|PIPE|MIMEOPT|GSSAPI|ALTSVC|PROTO|PROXY|UPART|USESSL|_READFUNC|_WRITEFUNC|_CSELECT|_FORMADD|_IPRESOLVE|_REDIR|_RTSPREQ|_TIMECOND|_VERSION)_[a-zA-Z0-9_]+)//) {
+        while(s/$global_re//) {
             my $s = $1;
             # skip two "special" ones
-            if($s !~ /^(CURLE_OBSOLETE|CURLOPT_TEMPLATE)/) {
-                push @manrefs, "$1:$m:$line";
+            if($s !~ /(^(CURLE_OBSOLETE|CURLOPT_TEMPLATE))|_$/) {
+                push @manrefs, "$s:$m:$line";
             }
         }
         $line++;
@@ -126,7 +131,7 @@ sub checkmanpage {
 sub scanman_md_dir {
     my ($d) = @_;
     opendir(my $dh, $d) ||
-        die "Can't opendir: $!";
+        die "Cannot opendir: $!";
     my @mans = grep { /.md\z/ } readdir($dh);
     closedir $dh;
     for my $m (@mans) {
@@ -134,12 +139,11 @@ sub scanman_md_dir {
     }
 }
 
-
 scanallheaders();
 scanman_md_dir("$root/docs/libcurl");
 scanman_md_dir("$root/docs/libcurl/opts");
 
-open my $s, "<", "$root/docs/libcurl/symbols-in-versions";
+open(my $s, "<", "$root/docs/libcurl/symbols-in-versions");
 while(<$s>) {
     if(/(^[^ \n]+) +(.*)/) {
         my ($sym, $rest)=($1, $2);
@@ -172,11 +176,11 @@ for my $e (sort @syms) {
     #
     # CURL_TEMP_ - are defined and *undefined* again within the file
     #
-    # *_LAST and *_LASTENTRY are just prefix for the placeholders used for the
+    # *_LAST and *_LASTENTRY are just suffix for the placeholders used for the
     # last entry in many enum series.
     #
 
-    if($e =~ /(OBSOLETE|^CURL_EXTERN|^CURLINC_|_LAST\z|_LASTENTRY\z|^CURL_TEMP_)/) {
+    if($e =~ /(OBSOLETE|CURLE_RESERVED|^CURL_EXTERN|^CURLINC_|_LAST\z|_LASTENTRY\z|^CURL_TEMP_)/) {
         $ignored++;
         next;
     }
@@ -197,7 +201,7 @@ for my $e (sort @syms) {
 # now scan through all symbols that were present in the symbols-in-versions
 # but not in the headers
 #
-# If the symbols were marked 'removed' in symbols-in-versions we don't output
+# If the symbols were marked 'removed' in symbols-in-versions we do not output
 # anything about it since that is perfectly fine.
 #
 

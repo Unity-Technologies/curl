@@ -25,32 +25,34 @@
 #
 # Input variables:
 #
-# LIBUV_INCLUDE_DIR   The libuv include directory
-# LIBUV_LIBRARY       Path to libuv library
+# - `LIBUV_INCLUDE_DIR`:  Absolute path to libuv include directory.
+# - `LIBUV_LIBRARY`:      Absolute path to `libuv` library.
 #
-# Result variables:
+# Defines:
 #
-# LIBUV_FOUND         System has libuv
-# LIBUV_INCLUDE_DIRS  The libuv include directories
-# LIBUV_LIBRARIES     The libuv library names
-# LIBUV_LIBRARY_DIRS  The libuv library directories
-# LIBUV_CFLAGS        Required compiler flags
-# LIBUV_VERSION       Version of libuv
+# - `LIBUV_FOUND`:        System has libuv.
+# - `LIBUV_VERSION`:      Version of libuv.
+# - `CURL::libuv`:        libuv library target.
+
+set(_libuv_pc_requires "libuv")
 
 if(CURL_USE_PKGCONFIG AND
    NOT DEFINED LIBUV_INCLUDE_DIR AND
    NOT DEFINED LIBUV_LIBRARY)
   find_package(PkgConfig QUIET)
-  pkg_check_modules(LIBUV "libuv")
+  pkg_check_modules(_libuv ${_libuv_pc_requires})
 endif()
 
-if(LIBUV_FOUND)
-  string(REPLACE ";" " " LIBUV_CFLAGS "${LIBUV_CFLAGS}")
-  message(STATUS "Found Libuv (via pkg-config): ${LIBUV_INCLUDE_DIRS} (found version \"${LIBUV_VERSION}\")")
+if(_libuv_FOUND)
+  set(Libuv_FOUND TRUE)
+  set(LIBUV_FOUND TRUE)
+  set(LIBUV_VERSION ${_libuv_VERSION})
+  message(STATUS "Found Libuv (via pkg-config): ${_libuv_INCLUDE_DIRS} (found version \"${LIBUV_VERSION}\")")
 else()
   find_path(LIBUV_INCLUDE_DIR NAMES "uv.h")
   find_library(LIBUV_LIBRARY NAMES "uv" "libuv")
 
+  unset(LIBUV_VERSION CACHE)
   if(LIBUV_INCLUDE_DIR AND EXISTS "${LIBUV_INCLUDE_DIR}/uv/version.h")
     set(_version_regex1 "#[\t ]*define[\t ]+UV_VERSION_MAJOR[\t ]+([0-9]+).*")
     set(_version_regex2 "#[\t ]*define[\t ]+UV_VERSION_MINOR[\t ]+([0-9]+).*")
@@ -80,9 +82,21 @@ else()
   )
 
   if(LIBUV_FOUND)
-    set(LIBUV_INCLUDE_DIRS ${LIBUV_INCLUDE_DIR})
-    set(LIBUV_LIBRARIES    ${LIBUV_LIBRARY})
+    set(_libuv_INCLUDE_DIRS ${LIBUV_INCLUDE_DIR})
+    set(_libuv_LIBRARIES    ${LIBUV_LIBRARY})
   endif()
 
   mark_as_advanced(LIBUV_INCLUDE_DIR LIBUV_LIBRARY)
+endif()
+
+if(LIBUV_FOUND)
+  if(NOT TARGET CURL::libuv)
+    add_library(CURL::libuv INTERFACE IMPORTED)
+    set_target_properties(CURL::libuv PROPERTIES
+      INTERFACE_LIBCURL_PC_MODULES "${_libuv_pc_requires}"
+      INTERFACE_COMPILE_OPTIONS "${_libuv_CFLAGS}"
+      INTERFACE_INCLUDE_DIRECTORIES "${_libuv_INCLUDE_DIRS}"
+      INTERFACE_LINK_DIRECTORIES "${_libuv_LIBRARY_DIRS}"
+      INTERFACE_LINK_LIBRARIES "${_libuv_LIBRARIES}")
+  endif()
 endif()

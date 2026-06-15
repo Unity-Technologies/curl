@@ -54,12 +54,12 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
-    CURLcode ret;
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com/");
     /* cap the upload speed to 1000 bytes/sec */
     curl_easy_setopt(curl, CURLOPT_MAX_SEND_SPEED_LARGE, (curl_off_t)1000);
-    /* (set some upload options as well!) */
-    ret = curl_easy_perform(curl);
+    /* (set some upload options as well) */
+    result = curl_easy_perform(curl);
   }
 }
 ~~~
@@ -68,4 +68,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

@@ -84,6 +84,7 @@ NULL
 /* send an application/x-www-form-urlencoded POST */
 int main(void)
 {
+  CURLcode result = CURLE_OK;
   CURL *curl = curl_easy_init();
   if(curl) {
     const char *data = "data to send";
@@ -96,7 +97,8 @@ int main(void)
     /* pass in a pointer to the data - libcurl does not copy */
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data);
 
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
   }
 
   /* send an application/json POST */
@@ -115,7 +117,8 @@ int main(void)
     /* pass in a pointer to the data - libcurl does not copy */
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json);
 
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
   }
 }
 ~~~
@@ -124,4 +127,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

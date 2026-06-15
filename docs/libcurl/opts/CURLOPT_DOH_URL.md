@@ -79,9 +79,11 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com");
     curl_easy_setopt(curl, CURLOPT_DOH_URL, "https://dns.example.com");
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
   }
 }
 ~~~
@@ -90,9 +92,11 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK on success or CURLE_OUT_OF_MEMORY if there was insufficient
-heap space.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
 
-Note that curl_easy_setopt(3) does immediately parse the given string so
-when given a bad DoH URL, libcurl might not detect the problem until it later
-tries to resolve a name with it.
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).
+
+Note that curl_easy_setopt(3) does immediately parse the given string so when
+given a bad DoH URL, libcurl might not detect the problem until it later tries
+to resolve a name with it.

@@ -55,12 +55,14 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com");
 
     /* we know the server is silly, ignore content-length */
     curl_easy_setopt(curl, CURLOPT_IGNORE_CONTENT_LENGTH, 1L);
 
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
   }
 }
 ~~~
@@ -69,13 +71,11 @@ int main(void)
 
 Support for FTP added in 7.46.0.
 
-# NOTES
-
-This option is not working for HTTP when libcurl is built to use the hyper
-backend.
-
 # %AVAILABILITY%
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

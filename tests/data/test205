@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="US-ASCII"?>
 <testcase>
 <info>
 <keywords>
@@ -14,10 +15,10 @@ FAILURE
 file
 </server>
 <name>
-"upload" with file://
+"upload" nonexisting with file://
 </name>
 <command option="no-include">
-file://localhost/%PWD/%LOGDIR/nonexisting/result%TESTNUMBER.txt -T %LOGDIR/upload%TESTNUMBER.txt
+file://localhost/%FILE_PWD/%LOGDIR/nonexisting/result%TESTNUMBER.txt -T %LOGDIR/upload%TESTNUMBER.txt
 </command>
 <file name="%LOGDIR/upload%TESTNUMBER.txt">
 data

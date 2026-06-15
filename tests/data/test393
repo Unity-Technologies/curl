@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="US-ASCII"?>
 <testcase>
 <info>
 <keywords>
@@ -8,7 +9,6 @@ FAILURE
 </keywords>
 </info>
 
-#
 # Server-side
 <reply>
 <data nocheck="yes">
@@ -18,11 +18,7 @@ Server: test-server/fake
 Last-Modified: Tue, 13 Jun 2000 12:10:00 GMT
 ETag: "21025-dc7-39462498"
 Accept-Ranges: bytes
-%if hyper
-Content-Length: 3689348814741910323
-%else
 Content-Length: 36893488147419103232
-%endif
 Connection: close
 Content-Type: text/html
 Funny-head: yesyes
@@ -31,7 +27,6 @@ Funny-head: yesyes
 </data>
 </reply>
 
-#
 # Client-side
 <client>
 <server>
@@ -45,13 +40,12 @@ http://%HOSTIP:%HTTPPORT/%TESTNUMBER --max-filesize 2000000
 </command>
 </client>
 
-#
 # Verify data after the test has been "shot"
 <verify>
 <errorcode>
 63
 </errorcode>
-<protocol>
+<protocol crlf="headers">
 GET /%TESTNUMBER HTTP/1.1
 Host: %HOSTIP:%HTTPPORT
 User-Agent: curl/%VERSION

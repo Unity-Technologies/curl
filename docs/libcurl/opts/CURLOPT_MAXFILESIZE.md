@@ -41,6 +41,9 @@ If you want a limit above 2GB, use CURLOPT_MAXFILESIZE_LARGE(3).
 Since 8.4.0, this option also stops ongoing transfers if they reach this
 threshold.
 
+Since 8.20.0, this option also stops ongoing transfers that would reach this
+threshold due to automatic decompression using CURLOPT_ACCEPT_ENCODING(3).
+
 # DEFAULT
 
 0, meaning disabled.
@@ -54,11 +57,11 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
-    CURLcode ret;
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com/");
-    /* refuse to download if larger than 1000 bytes! */
+    /* refuse to download if larger than 1000 bytes */
     curl_easy_setopt(curl, CURLOPT_MAXFILESIZE, 1000L);
-    ret = curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
   }
 }
 ~~~
@@ -67,5 +70,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK if the size passed is valid or CURLE_BAD_FUNCTION_ARGUMENT if
-not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

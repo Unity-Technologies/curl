@@ -25,56 +25,108 @@
 #
 # Input variables:
 #
-# CARES_INCLUDE_DIR   The c-ares include directory
-# CARES_LIBRARY       Path to c-ares library
+# - `CARES_INCLUDE_DIR`:      Absolute path to c-ares include directory.
+# - `CARES_LIBRARY`:          Absolute path to `cares` library.
+# - `CARES_USE_STATIC_LIBS`:  Configure for static c-ares libraries.
 #
-# Result variables:
+# Defines:
 #
-# CARES_FOUND         System has c-ares
-# CARES_INCLUDE_DIRS  The c-ares include directories
-# CARES_LIBRARIES     The c-ares library names
-# CARES_VERSION       Version of c-ares
+# - `CARES_FOUND`:            System has c-ares.
+# - `CARES_VERSION`:          Version of c-ares.
+# - `CURL::cares`:            c-ares library target.
 
-if(CURL_USE_PKGCONFIG)
-  find_package(PkgConfig QUIET)
-  pkg_check_modules(PC_CARES "libcares")
+set(_cares_pc_requires "libcares")
+
+if(NOT DEFINED CARES_INCLUDE_DIR AND
+   NOT DEFINED CARES_LIBRARY)
+  if(CURL_USE_PKGCONFIG)
+    find_package(PkgConfig QUIET)
+    pkg_check_modules(_cares ${_cares_pc_requires})
+  endif()
+  if(NOT _cares_FOUND AND CURL_USE_CMAKECONFIG)
+    find_package(c-ares CONFIG QUIET)
+  endif()
 endif()
 
-find_path(CARES_INCLUDE_DIR NAMES "ares.h"
-  HINTS
-    ${PC_CARES_INCLUDEDIR}
-    ${PC_CARES_INCLUDE_DIRS}
-)
+if(_cares_FOUND)
+  set(Cares_FOUND TRUE)
+  set(CARES_FOUND TRUE)
+  set(CARES_VERSION ${_cares_VERSION})
+  if(CARES_USE_STATIC_LIBS)
+    set(_cares_CFLAGS       "${_cares_STATIC_CFLAGS}")
+    set(_cares_INCLUDE_DIRS "${_cares_STATIC_INCLUDE_DIRS}")
+    set(_cares_LIBRARY_DIRS "${_cares_STATIC_LIBRARY_DIRS}")
+    set(_cares_LIBRARIES    "${_cares_STATIC_LIBRARIES}")
+  endif()
+  message(STATUS "Found Cares (via pkg-config): ${_cares_INCLUDE_DIRS} (found version \"${CARES_VERSION}\")")
+elseif(c-ares_CONFIG)
+  set(Cares_FOUND TRUE)
+  set(CARES_FOUND TRUE)
+  set(CARES_VERSION ${c-ares_VERSION})
+  if(CARES_USE_STATIC_LIBS)
+    set(_cares_LIBRARIES c-ares::cares_static)
+  else()
+    set(_cares_LIBRARIES c-ares::cares)
+  endif()
+  message(STATUS "Found Cares (via CMake Config): ${c-ares_CONFIG} (found version \"${CARES_VERSION}\")")
+else()
+  find_path(CARES_INCLUDE_DIR NAMES "ares.h")
+  if(CARES_USE_STATIC_LIBS)
+    set(_cares_CFLAGS "-DCARES_STATICLIB")
+    find_library(CARES_LIBRARY NAMES ${CARES_NAMES} "cares_static" "cares")
+  else()
+    find_library(CARES_LIBRARY NAMES ${CARES_NAMES} "cares")
+  endif()
 
-find_library(CARES_LIBRARY NAMES ${CARES_NAMES} "cares"
-  HINTS
-    ${PC_CARES_LIBDIR}
-    ${PC_CARES_LIBRARY_DIRS}
-)
+  unset(CARES_VERSION CACHE)
+  if(CARES_INCLUDE_DIR AND EXISTS "${CARES_INCLUDE_DIR}/ares_version.h")
+    set(_version_regex1 "#[\t ]*define[\t ]+ARES_VERSION_MAJOR[\t ]+([0-9]+).*")
+    set(_version_regex2 "#[\t ]*define[\t ]+ARES_VERSION_MINOR[\t ]+([0-9]+).*")
+    set(_version_regex3 "#[\t ]*define[\t ]+ARES_VERSION_PATCH[\t ]+([0-9]+).*")
+    file(STRINGS "${CARES_INCLUDE_DIR}/ares_version.h" _version_str1 REGEX "${_version_regex1}")
+    file(STRINGS "${CARES_INCLUDE_DIR}/ares_version.h" _version_str2 REGEX "${_version_regex2}")
+    file(STRINGS "${CARES_INCLUDE_DIR}/ares_version.h" _version_str3 REGEX "${_version_regex3}")
+    string(REGEX REPLACE "${_version_regex1}" "\\1" _version_str1 "${_version_str1}")
+    string(REGEX REPLACE "${_version_regex2}" "\\1" _version_str2 "${_version_str2}")
+    string(REGEX REPLACE "${_version_regex3}" "\\1" _version_str3 "${_version_str3}")
+    set(CARES_VERSION "${_version_str1}.${_version_str2}.${_version_str3}")
+    unset(_version_regex1)
+    unset(_version_regex2)
+    unset(_version_regex3)
+    unset(_version_str1)
+    unset(_version_str2)
+    unset(_version_str3)
+  endif()
 
-if(PC_CARES_VERSION)
-  set(CARES_VERSION ${PC_CARES_VERSION})
-elseif(CARES_INCLUDE_DIR AND EXISTS "${CARES_INCLUDE_DIR}/ares_version.h")
-  set(_version_regex "#[\t ]*define[\t ]+ARES_VERSION_STR[\t ]+\"([^\"]*)\"")
-  file(STRINGS "${CARES_INCLUDE_DIR}/ares_version.h" _version_str REGEX "${_version_regex}")
-  string(REGEX REPLACE "${_version_regex}" "\\1" _version_str "${_version_str}")
-  set(CARES_VERSION "${_version_str}")
-  unset(_version_regex)
-  unset(_version_str)
+  include(FindPackageHandleStandardArgs)
+  find_package_handle_standard_args(Cares
+    REQUIRED_VARS
+      CARES_INCLUDE_DIR
+      CARES_LIBRARY
+    VERSION_VAR
+      CARES_VERSION
+  )
+
+  if(CARES_FOUND)
+    set(_cares_INCLUDE_DIRS ${CARES_INCLUDE_DIR})
+    set(_cares_LIBRARIES    ${CARES_LIBRARY})
+  endif()
+
+  mark_as_advanced(CARES_INCLUDE_DIR CARES_LIBRARY)
 endif()
-
-include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(Cares
-  REQUIRED_VARS
-    CARES_INCLUDE_DIR
-    CARES_LIBRARY
-  VERSION_VAR
-    CARES_VERSION
-)
 
 if(CARES_FOUND)
-  set(CARES_INCLUDE_DIRS ${CARES_INCLUDE_DIR})
-  set(CARES_LIBRARIES    ${CARES_LIBRARY})
-endif()
+  if(WIN32)
+    list(APPEND _cares_LIBRARIES "iphlpapi")  # for if_indextoname and others
+  endif()
 
-mark_as_advanced(CARES_INCLUDE_DIR CARES_LIBRARY)
+  if(NOT TARGET CURL::cares)
+    add_library(CURL::cares INTERFACE IMPORTED)
+    set_target_properties(CURL::cares PROPERTIES
+      INTERFACE_LIBCURL_PC_MODULES "${_cares_pc_requires}"
+      INTERFACE_COMPILE_OPTIONS "${_cares_CFLAGS}"
+      INTERFACE_INCLUDE_DIRECTORIES "${_cares_INCLUDE_DIRS}"
+      INTERFACE_LINK_DIRECTORIES "${_cares_LIBRARY_DIRS}"
+      INTERFACE_LINK_LIBRARIES "${_cares_LIBRARIES}")
+  endif()
+endif()

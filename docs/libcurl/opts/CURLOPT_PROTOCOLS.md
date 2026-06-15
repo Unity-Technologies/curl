@@ -29,14 +29,16 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_PROTOCOLS, long bitmask);
 
 This option is deprecated. We strongly recommend using
 CURLOPT_PROTOCOLS_STR(3) instead because this option cannot control all
-available protocols!
+available protocols.
 
-Pass a long that holds a bitmask of CURLPROTO_* defines. If used, this bitmask
+Pass a long that holds a bitmask of protocol bits. If used, this bitmask
 limits what protocols libcurl may use in the transfer. This allows you to have
 a libcurl built to support a wide range of protocols but still limit specific
 transfers to only be allowed to use a subset of them. By default libcurl
-accepts all protocols it supports (*CURLPROTO_ALL*). See also
-CURLOPT_REDIR_PROTOCOLS(3).
+accepts all protocols it supports. See also CURLOPT_REDIR_PROTOCOLS(3).
+
+Note that the old define *CURLPROTO_ALL* no longer enables all protocols a
+modern curl might support!
 
 These are the available protocol defines:
 ~~~c
@@ -51,6 +53,7 @@ CURLPROTO_IMAP
 CURLPROTO_IMAPS
 CURLPROTO_LDAP
 CURLPROTO_LDAPS
+CURLPROTO_MQTT
 CURLPROTO_POP3
 CURLPROTO_POP3S
 CURLPROTO_RTMP
@@ -83,6 +86,7 @@ int main(int argc, char **argv)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
+    CURLcode result;
     /* pass in the URL from an external source */
     curl_easy_setopt(curl, CURLOPT_URL, argv[1]);
 
@@ -91,10 +95,16 @@ int main(int argc, char **argv)
                      CURLPROTO_HTTP | CURLPROTO_TFTP | CURLPROTO_SFTP);
 
     /* Perform the request */
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
   }
 }
 ~~~
+
+# HISTORY
+
+**CURLPROTO_*** macros became `long` types in 8.16.0, prior to this version
+a `long` cast was necessary when passed to curl_easy_setopt(3).
 
 # DEPRECATED
 
@@ -104,4 +114,7 @@ Deprecated since 7.85.0.
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

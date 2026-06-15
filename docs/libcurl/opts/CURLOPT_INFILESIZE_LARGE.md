@@ -59,6 +59,7 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
+    CURLcode result;
     curl_off_t uploadsize = FILE_SIZE;
 
     curl_easy_setopt(curl, CURLOPT_URL,
@@ -68,7 +69,8 @@ int main(void)
 
     curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, uploadsize);
 
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
   }
 }
 ~~~
@@ -81,4 +83,7 @@ SMTP support added in 7.23.0
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

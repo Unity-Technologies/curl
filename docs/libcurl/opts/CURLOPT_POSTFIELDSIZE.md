@@ -9,6 +9,8 @@ See-also:
   - CURLOPT_POSTFIELDSIZE_LARGE (3)
 Protocol:
   - HTTP
+  - MQTT
+  - RTSP
 Added-in: 7.2
 ---
 
@@ -49,16 +51,18 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
+    CURLcode result;
     const char *data = "data to send";
 
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com");
 
     /* size of the POST data */
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long) strlen(data));
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)strlen(data));
 
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data);
 
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
   }
 }
 ~~~
@@ -67,4 +71,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK if HTTP is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

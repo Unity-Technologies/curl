@@ -3,7 +3,7 @@ c: Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 SPDX-License-Identifier: curl
 Long: proxy-tls13-ciphers
 Arg: <list>
-help: TLS 1.3 proxy cipher suites
+Help: TLS 1.3 proxy cipher suites
 Protocols: TLS
 Category: proxy tls
 Added: 7.61.0
@@ -29,5 +29,5 @@ https://curl.se/docs/ssl-ciphers.html
 This option is used when curl is built to use OpenSSL 1.1.1 or later,
 Schannel, wolfSSL, or mbedTLS 3.6.0 or later.
 
-Before curl 8.10.0 with mbedTLS or wolfSSL, TLS 1.3 cipher suites where set
+Before curl 8.10.0 with mbedTLS or wolfSSL, TLS 1.3 cipher suites were set
 by using the --proxy-ciphers option.

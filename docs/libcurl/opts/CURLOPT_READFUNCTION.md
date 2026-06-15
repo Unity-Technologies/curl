@@ -36,9 +36,8 @@ Pass a pointer to your callback function, as the prototype shows above.
 
 This callback function gets called by libcurl as soon as it needs to read data
 in order to send it to the peer - like if you ask it to upload or post data to
-the server. The data area pointed at by the pointer *buffer* should be
-filled up with at most *size* multiplied with *nitems* number of bytes
-by your function. *size* is always 1.
+the server. The data area pointed at by the pointer *buffer* should be filled
+up with at most *nitems* number of bytes by your function. *size* is always 1.
 
 Set the *userdata* argument with the CURLOPT_READDATA(3) option.
 
@@ -71,6 +70,11 @@ CURLOPT_INFILESIZE_LARGE(3) or CURLOPT_POSTFIELDSIZE_LARGE(3),
 depending on the type of transfer. For some transfer types it may be required
 and it allows for better error checking.
 
+When this option is used in combination with telling libcurl to follow
+redirects with CURLOPT_FOLLOWLOCATION(3), the data might need to be rewound
+and sent again. The CURLOPT_SEEKFUNCTION(3) can then be invoked for that
+rewind operation.
+
 # DEFAULT
 
 fread(3)
@@ -86,7 +90,7 @@ size_t read_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
   curl_off_t nread;
 
   /* copy as much data as possible into the 'ptr' buffer, but no more than
-     'size' * 'nmemb' bytes! */
+     'size' * 'nmemb' bytes. */
   size_t retcode = fread(ptr, size, nmemb, readhere);
 
   nread = (curl_off_t)retcode;

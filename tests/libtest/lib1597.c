@@ -24,22 +24,19 @@
 
 /* Testing CURLOPT_PROTOCOLS_STR */
 
-#include "test.h"
-
-#include "memdebug.h"
+#include "first.h"
 
 struct pair {
   const char *in;
-  CURLcode *exp;
+  CURLcode *result_exp;
 };
 
-CURLcode test(char *URL)
+static CURLcode test_lib1597(const char *URL)
 {
   CURL *curl = NULL;
-  CURLcode res = CURLE_OK;
   CURLcode result = CURLE_OK;
   curl_version_info_data *curlinfo;
-  const char *const *proto;
+  const char * const *proto;
   int n;
   int i;
   static CURLcode ok = CURLE_OK;
@@ -50,22 +47,22 @@ CURLcode test(char *URL)
   static char protolist[1024];
 
   static const struct pair prots[] = {
-    {"goobar", &unsup},
-    {"http ", &unsup},
-    {" http", &unsup},
-    {"http", &httpcode},
-    {"http,", &httpcode},
-    {"https,", &httpscode},
-    {"https,http", &httpscode},
-    {"http,http", &httpcode},
-    {"HTTP,HTTP", &httpcode},
-    {",HTTP,HTTP", &httpcode},
-    {"http,http,ft", &unsup},
-    {"", &bad},
-    {",,", &bad},
-    {protolist, &ok},
-    {"all", &ok},
-    {NULL, NULL},
+    { "goobar", &unsup },
+    { "http ", &unsup },
+    { " http", &unsup },
+    { "http", &httpcode },
+    { "http,", &httpcode },
+    { "https,", &httpscode },
+    { "https,http", &httpscode },
+    { "http,http", &httpcode },
+    { "HTTP,HTTP", &httpcode },
+    { ",HTTP,HTTP", &httpcode },
+    { "http,http,ft", &unsup },
+    { "", &bad },
+    { ",,", &bad },
+    { protolist, &ok },
+    { "all", &ok },
+    { NULL, NULL },
   };
   (void)URL;
 
@@ -77,18 +74,18 @@ CURLcode test(char *URL)
   curlinfo = curl_version_info(CURLVERSION_NOW);
   if(!curlinfo) {
     fputs("curl_version_info failed\n", stderr);
-    res = TEST_ERR_FAILURE;
+    result = TEST_ERR_FAILURE;
     goto test_cleanup;
   }
 
   n = 0;
   for(proto = curlinfo->protocols; *proto; proto++) {
-    if((size_t) n >= sizeof(protolist)) {
+    if((size_t)n >= sizeof(protolist)) {
       puts("protolist buffer too small\n");
-      res = TEST_ERR_FAILURE;
+      result = TEST_ERR_FAILURE;
       goto test_cleanup;
     }
-    n += msnprintf(protolist + n, sizeof(protolist) - n, ",%s", *proto);
+    n += curl_msnprintf(protolist + n, sizeof(protolist) - n, ",%s", *proto);
     if(curl_strequal(*proto, "http"))
       httpcode = CURLE_OK;
     if(curl_strequal(*proto, "https"))
@@ -98,12 +95,12 @@ CURLcode test(char *URL)
   /* Run the tests. */
   for(i = 0; prots[i].in; i++) {
     result = curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, prots[i].in);
-    if(result != *prots[i].exp) {
-      printf("unexpectedly '%s' returned %d\n", prots[i].in, result);
+    if(result != *prots[i].result_exp) {
+      curl_mprintf("unexpectedly '%s' returned %d\n", prots[i].in, result);
       break;
     }
   }
-  printf("Tested %u strings\n", i);
+  curl_mprintf("Tested %d strings\n", i);
 
 test_cleanup:
   curl_easy_cleanup(curl);

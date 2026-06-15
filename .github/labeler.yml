@@ -11,7 +11,7 @@
 # the files fit into the category, and the any-glob-to-any-file ones are added
 # as long as any file matches. The first ones are for "major" categories (the
 # PR is all about that one topic, like HTTP/3), while the second ones are
-# "addendums" that give useful information about a PR that's really mostly
+# "addendums" that give useful information about a PR that is really mostly
 # something else (e.g. CI if the PR also touches CI jobs).
 #
 # N.B. any-glob-to-all-files is misnamed; it acts like one-glob-to-all-files.
@@ -29,15 +29,16 @@ appleOS:
               .github/workflows/macos.yml,\
               lib/config-mac.h,\
               lib/macos*,\
-              lib/vtls/sectransp*,\
-              m4/curl-sectransp.m4\
+              lib/vtls/apple.*,\
+              m4/curl-apple-sectrust.m4\
               }"
 
 authentication:
   - all:
       - changed-files:
           - any-glob-to-all-files: "{\
-              docs/mk-ca-bundle.1,\
+              CMake/FindGSS.cmake,\
+              CMake/FindLibgsasl.cmake,\
               docs/libcurl/opts/CURLINFO_HTTPAUTH*,\
               docs/libcurl/opts/CURLINFO_PROXYAUTH*,\
               docs/libcurl/opts/CURLOPT_KRB*,\
@@ -47,7 +48,6 @@ authentication:
               docs/libcurl/opts/CURLOPT_USERPWD*,\
               docs/libcurl/opts/CURLOPT_XOAUTH*,\
               lib/*gssapi*,\
-              lib/*krb5*,\
               lib/*ntlm*,\
               lib/curl_sasl.*,\
               lib/http_aws*,\
@@ -63,23 +63,19 @@ build:
               **/CMakeLists.txt,\
               **/Makefile.am,\
               **/Makefile.inc,\
-              **/Makefile.mk,\
               **/*.m4,\
-              **/*.mk,\
               *.m4,\
-              docs/INSTALL.cmake,\
-              lib/curl_config.h.cmake,\
+              docs/INSTALL-CMAKE.md,\
+              lib/curl_config-cmake.h.in,\
               lib/libcurl*.in,\
               CMake/**,\
               CMakeLists.txt,\
               configure.ac,\
               m4/**,\
               Makefile.*,\
-              packages/**,\
-              plan9/**,\
               projects/**,\
-              winbuild/**,\
-              lib/libcurl.def\
+              lib/libcurl.def,\
+              tests/cmake/**\
               }"
 
 CI:
@@ -100,8 +96,9 @@ cmake:
           - any-glob-to-all-files: "{\
               **/CMakeLists.txt,\
               CMake/**,\
-              docs/INSTALL.cmake,\
-              lib/curl_config.h.cmake\
+              docs/INSTALL-CMAKE.md,\
+              lib/curl_config-cmake.h.in,\
+              tests/cmake/**\
               }"
 
 cmdline tool:
@@ -115,7 +112,10 @@ connecting & proxies:
   - all:
       - changed-files:
           - any-glob-to-all-files: "{\
-              docs/CONNECTION-FILTERS.md,\
+              docs/cmdline-opts/happy-eyeballs*,\
+              docs/cmdline-opts/ipv*,\
+              docs/cmdline-opts/*proxy*,\
+              docs/internals/CONNECTION-FILTERS.md,\
               docs/examples/ipv6.c,\
               docs/libcurl/opts/CURLINFO_CONNECT*,\
               docs/libcurl/opts/CURLINFO_PROXY*,\
@@ -138,6 +138,8 @@ connecting & proxies:
               lib/if2ip.*,\
               lib/noproxy.*,\
               lib/socks.*,\
+              src/tool_cb_soc.*,\
+              tests/http/*socks*,\
               tests/server/socksd.c\
               }"
 
@@ -145,6 +147,7 @@ cookies:
   - all:
       - changed-files:
           - any-glob-to-all-files: "{\
+              CMake/FindLibpsl.cmake,\
               docs/HTTP-COOKIES.md,\
               docs/cmdline-opts/cookie*,\
               docs/cmdline-opts/junk-session-cookies.md,\
@@ -164,9 +167,9 @@ cryptography:
               docs/libcurl/opts/CURLOPT_EGDSOCKET*,\
               lib/*sha256*,\
               lib/*sha512*,\
-              lib/curl_des.*,\
               lib/curl_hmac.*,\
               lib/curl_md?.*,\
+              lib/curl_ntlm_core.*,\
               lib/md?.*,\
               lib/rand.*\
               }"
@@ -184,11 +187,10 @@ documentation:
       - changed-files:
           - any-glob-to-all-files: "{\
               .github/workflows/checkdocs.yml,\
-              .github/scripts/badwords.*,\
-              .github/scripts/cd2cd,\
-              .github/scripts/cd2nroff,\
-              .github/scripts/cdall.pl,\
-              .github/scripts/nroff2cd,\
+              .github/scripts/pyspelling*,\
+              .github/scripts/requirements-docs.txt,\
+              .github/scripts/requirements-proselint.txt,\
+              .github/scripts/typos*,\
               .github/scripts/verify-examples.pl,\
               .github/scripts/verify-synopsis.pl,\
               **/*.md,\
@@ -199,7 +201,11 @@ documentation:
               LICENSES/**,\
               README,\
               RELEASE-NOTES,\
-              scripts/cd*\
+              scripts/badwords.*,\
+              scripts/cd*,\
+              scripts/mdlinkcheck,\
+              scripts/nroff2cd,\
+              scripts/release-notes.pl\
               }"
           - all-globs-to-all-files:
               # negative matches
@@ -210,6 +216,7 @@ FTP:
   - all:
       - changed-files:
           - any-glob-to-all-files: "{\
+              docs/cmdline-opts/ftp*,\
               docs/libcurl/opts/CURLINFO_FTP*,\
               docs/libcurl/opts/CURLOPT_FTP*,\
               docs/libcurl/opts/CURLOPT_WILDCARDMATCH*,\
@@ -217,7 +224,10 @@ FTP:
               lib/curl_fnmatch.*,\
               lib/curl_range.*,\
               lib/ftp*,\
-              tests/ftp*\
+              tests/ftp*,\
+              tests/http/*ftpd*,\
+              tests/http/testenv/*ftpd*,\
+              tests/libtest/*_ftp_*\
               }"
 
 GOPHER:
@@ -231,18 +241,19 @@ HTTP:
   - all:
       - changed-files:
           - any-glob-to-all-files: "{\
+              docs/HTTPSRR.md,\
+              docs/HSTS.md,\
               docs/examples/hsts*,\
               docs/examples/http-*,\
               docs/examples/httpput*,\
               docs/examples/https*,\
               docs/examples/*post*,\
-              docs/HSTS.md,\
               docs/HTTP-COOKIES.md,\
               docs/libcurl/opts/CURLINFO_COOKIE*,\
-              docs/libcurl/opts/CURLOPT_COOKIE*,\
-              docs/libcurl/opts/CURLINFO_HTTP_**,\
+              docs/libcurl/opts/CURLINFO_HTTP*,\
               docs/libcurl/opts/CURLINFO_REDIRECT*,\
               docs/libcurl/opts/CURLINFO_REFER*,\
+              docs/libcurl/opts/CURLOPT_COOKIE*,\
               docs/libcurl/opts/CURLOPT_FOLLOWLOCATION*,\
               docs/libcurl/opts/CURLOPT_HSTS*,\
               docs/libcurl/opts/CURLOPT_HTTP*,\
@@ -271,7 +282,6 @@ HTTP/2:
           - any-glob-to-all-files: "{\
               CMake/FindNGHTTP2.cmake,\
               CMake/FindQuiche.cmake,\
-              docs/HTTP2.md,\
               docs/libcurl/opts/CURLOPT_STREAM*,\
               docs/examples/http2*,\
               lib/http2*,\
@@ -282,10 +292,7 @@ HTTP/3:
   - all:
       - changed-files:
           - any-glob-to-all-files: "{\
-              .github/workflows/ngtcp2*,\
-              .github/workflows/quiche*,\
-              .github/workflows/osslq*,\
-              CMake/FindMSH3.cmake,\
+              .github/workflows/http3-linux.yml,\
               CMake/FindNGHTTP3.cmake,\
               CMake/FindNGTCP2.cmake,\
               docs/HTTP3.md,\
@@ -293,14 +300,6 @@ HTTP/3:
               lib/vquic/**,\
               tests/http3-server.pl,\
               tests/nghttpx.conf\
-              }"
-
-Hyper:
-  - all:
-      - changed-files:
-          - any-glob-to-all-files: "{\
-              docs/HYPER.md,\
-              lib/c-hyper.*\
               }"
 
 IMAP:
@@ -353,7 +352,7 @@ MQTT:
   - all:
       - changed-files:
           - any-glob-to-all-files: "{\
-              docs/MQTT.md,\
+              docs/internals/MQTT.md,\
               lib/mqtt*,\
               tests/server/mqttd.c\
               }"
@@ -362,18 +361,28 @@ name lookup:
   - all:
       - changed-files:
           - any-glob-to-all-files: "{\
+              CMake/FindLibidn2.cmake,\
+              docs/cmdline-opts/doh*,\
+              docs/cmdline-opts/dns*,\
               docs/examples/resolve.c,\
+              docs/internals/THRDPOOL-AND-QUEUE.md,\
               docs/libcurl/opts/CURLINFO_NAMELOOKUP*,\
               docs/libcurl/opts/CURLOPT_DNS*,\
               docs/libcurl/opts/CURLOPT_DOH*,\
               docs/libcurl/opts/CURLOPT_RESOLVE*,\
+              lib/*addrinfo*,\
               lib/asyn*,\
+              lib/cf-dns.*,\
               lib/curl_gethostname.*,\
+              lib/dns*,\
               lib/doh*,\
               lib/host*,\
               lib/idn*,\
-              lib/inet_pton.*,\
               lib/socketpair*,\
+              lib/thrdpool.*,\
+              lib/thrdqueue.*,\
+              tests/http/*resolve.py,\
+              tests/server/dnsd.c,\
               tests/server/resolve.c\
               }"
 
@@ -383,13 +392,6 @@ POP3:
           - any-glob-to-all-files: "{\
               docs/examples/pop3*,\
               lib/pop3.*\
-              }"
-
-RTMP:
-  - all:
-      - changed-files:
-          - any-glob-to-all-files: "{\
-              lib/curl_rtmp.*\
               }"
 
 RTSP:
@@ -407,12 +409,17 @@ SCP/SFTP:
   - all:
       - changed-files:
           - any-glob-to-all-files: "{\
+              CMake/FindLibssh.cmake,\
               CMake/FindLibssh2.cmake,\
+              docs/cmdline-opts/knownhosts.md,\
               docs/libcurl/opts/CURLOPT_SSH*,\
               docs/examples/sftp*,\
               lib/vssh/**,\
               tests/sshhelp.pm,\
-              tests/sshserver.pl\
+              tests/sshserver.pl,\
+              tests/http/*scp*,\
+              tests/http/*sftp*,\
+              tests/http/testenv/sshd.py\
               }"
 
 script:
@@ -422,8 +429,9 @@ script:
               **/*.pl,\
               **/*.sh,\
               curl-config.in,\
-              docs/curl-config.1,\
-              docs/mk-ca-bundle.1,\
+              docs/curl-config.md,\
+              docs/mk-ca-bundle.md,\
+              docs/wcurl.md,\
               docs/THANKS-filter,\
               scripts/**\
               }"
@@ -440,6 +448,7 @@ SMTP:
   - all:
       - changed-files:
           - any-glob-to-all-files: "{\
+              docs/cmdline-opts/mail*,\
               docs/examples/smtp-*,\
               docs/libcurl/opts/CURLOPT_MAIL*,\
               lib/smtp.*\
@@ -464,17 +473,25 @@ TLS:
   - all:
       - changed-files:
           - any-glob-to-all-files: "{\
-              CMake/FindBearSSL.cmake,\
+              CMake/FindGnuTLS.cmake,\
               CMake/FindMbedTLS.cmake,\
               CMake/FindWolfSSL.cmake,\
               CMake/FindRustls.cmake,\
+              docs/CIPHERS-TLS12.md,\
+              docs/SSL*,\
+              docs/cmdline-opts/dump-ca-embed.md,\
+              docs/cmdline-opts/*cert*,\
+              docs/cmdline-opts/*ssl*,\
+              docs/cmdline-opts/*tls*,\
               docs/examples/ssl*,\
               docs/examples/*ssl.*,\
               docs/examples/*tls.*,\
-              docs/SSL*,\
+              docs/internals/TLS-SESSIONS.md,\
               docs/libcurl/curl_global_sslset*,\
+              docs/libcurl/curl_easy_ssls*,\
               docs/libcurl/opts/CURLINFO_CA*,\
               docs/libcurl/opts/CURLINFO_CERT*,\
+              docs/libcurl/opts/CURLINFO_EARLYDATA*,\
               docs/libcurl/opts/CURLINFO_SSL*,\
               docs/libcurl/opts/CURLINFO_TLS*,\
               docs/libcurl/opts/CURLOPT_CA*,\
@@ -484,14 +501,13 @@ TLS:
               docs/libcurl/opts/CURLOPT_TLS*,\
               docs/libcurl/opts/CURLOPT_USE_SSL*,\
               lib/vtls/**,\
-              m4/curl-bearssl.m4,\
               m4/curl-gnutls.m4,\
               m4/curl-mbedtls.m4,\
               m4/curl-openssl.m4,\
               m4/curl-rustls.m4,\
               m4/curl-schannel.m4,\
-              m4/curl-sectransp.m4,\
-              m4/curl-wolfssl.m4\
+              m4/curl-wolfssl.m4,\
+              src/tool_ssls.*\
               }"
 
 URL:
@@ -509,33 +525,32 @@ WebSocket:
   - all:
       - changed-files:
           - any-glob-to-all-files: "{\
-              docs/WEBSOCKET.md*,\
+              docs/internals/WEBSOCKET.md,\
               docs/examples/websocket*,\
               docs/libcurl/curl_ws_*,\
               docs/libcurl/libcurl-ws*,\
               docs/libcurl/opts/CURLOPT_WS_*,\
               include/curl/websockets.h,\
               lib/ws.*,\
-              tests/http/clients/ws*,\
               tests/http/test_20_websockets.py,\
-              tests/http/testenv/ws*\
+              tests/http/testenv/ws*,\
+              tests/libtest/cli_ws*\
               }"
 
 Windows:
   - all:
       - changed-files:
           - any-glob-to-all-files: "{\
-              appveyor.*,\
-              .github/workflows/cygwin.yml,\
               .github/workflows/windows.yml,\
-              CMake/Platforms/WindowsCache.cmake,\
+              appveyor.*,\
+              CMake/win32-cache.cmake,\
               lib/*win32*,\
-              lib/curl_multibyte.*,\
-              lib/rename.*,\
+              lib/curlx/fopen.*,\
+              lib/curlx/multibyte.*,\
+              lib/curlx/winapi.*,\
               lib/vtls/schannel*,\
               m4/curl-schannel.m4,\
-              projects/**,\
+              projects/Windows/**,\
               src/tool_doswin.c,\
-              winbuild/**,\
               lib/libcurl.def\
               }"

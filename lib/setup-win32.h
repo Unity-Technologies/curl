@@ -30,10 +30,10 @@
 /* ---------------------------------------------------------------- */
 #ifdef USE_WATT32
 #  include <tcp.h>
+#  include <sys/socket.h>
 #  undef byte
 #  undef word
 #  define HAVE_SYS_IOCTL_H
-#  define HAVE_SYS_SOCKET_H
 #  define HAVE_NETINET_IN_H
 #  define HAVE_NETDB_H
 #  define HAVE_ARPA_INET_H
@@ -45,31 +45,32 @@
   /* Define to use BSD-style lwIP TCP/IP stack. */
   /* #define USE_LWIPSOCK 1 */
 #  undef HAVE_GETHOSTNAME
-#  undef LWIP_POSIX_SOCKETS_IO_NAMES
-#  undef RECV_TYPE_ARG1
-#  undef RECV_TYPE_ARG3
-#  undef SEND_TYPE_ARG1
-#  undef SEND_TYPE_ARG3
 #  define HAVE_GETHOSTBYNAME_R
 #  define HAVE_GETHOSTBYNAME_R_6
+#  undef LWIP_POSIX_SOCKETS_IO_NAMES
 #  define LWIP_POSIX_SOCKETS_IO_NAMES 0
+#  undef RECV_TYPE_ARG1
 #  define RECV_TYPE_ARG1 int
+#  undef RECV_TYPE_ARG3
 #  define RECV_TYPE_ARG3 size_t
+#  undef SEND_TYPE_ARG1
 #  define SEND_TYPE_ARG1 int
+#  undef SEND_TYPE_ARG3
 #  define SEND_TYPE_ARG3 size_t
 #elif defined(_WIN32)
 #  define USE_WINSOCK 2
+#  include <winsock2.h>
+#  include <ws2tcpip.h>
 #endif
 
 /*
- * Include header files for Windows builds before redefining anything.
- * Use this preprocessor block only to include or exclude windows.h,
- * winsock2.h or ws2tcpip.h. Any other Windows thing belongs
- * to any other further and independent block. Under Cygwin things work
- * just as under Linux (e.g. <sys/socket.h>) and the Winsock headers should
- * never be included when __CYGWIN__ is defined.
+ * Include header files for Windows builds before redefining anything. Use
+ * this preprocessor block only to include or exclude windows.h, winsock2.h or
+ * ws2tcpip.h. Any other Windows thing belongs to any other further and
+ * independent block. Under Cygwin things work as under Linux (e.g.
+ * <sys/socket.h>) and the Winsock headers should never be included when
+ * __CYGWIN__ is defined.
  */
-
 #ifdef _WIN32
 #  if defined(UNICODE) && !defined(_UNICODE)
 #    error "UNICODE is defined but _UNICODE is not defined"
@@ -77,25 +78,9 @@
 #  if defined(_UNICODE) && !defined(UNICODE)
 #    error "_UNICODE is defined but UNICODE is not defined"
 #  endif
-/*
- * Do not include unneeded stuff in Windows headers to avoid compiler
- * warnings and macro clashes.
- * Make sure to define this macro before including any Windows headers.
- */
-#  ifndef WIN32_LEAN_AND_MEAN
-#    define WIN32_LEAN_AND_MEAN
-#  endif
-#  ifndef NOGDI
-#    define NOGDI
-#  endif
-#  include <winsock2.h>
-#  include <ws2tcpip.h>
 #  include <windows.h>
 #  include <winerror.h>
 #  include <tchar.h>
-#  ifdef UNICODE
-     typedef wchar_t *(*curl_wcsdup_callback)(const wchar_t *str);
-#  endif
 #endif
 
 /*
@@ -103,19 +88,6 @@
  * those symbols to compare against, and even those that do may be missing
  * newer symbols.
  */
-
-#ifndef _WIN32_WINNT_NT4
-#define _WIN32_WINNT_NT4            0x0400   /* Windows NT 4.0 */
-#endif
-#ifndef _WIN32_WINNT_WIN2K
-#define _WIN32_WINNT_WIN2K          0x0500   /* Windows 2000 */
-#endif
-#ifndef _WIN32_WINNT_WINXP
-#define _WIN32_WINNT_WINXP          0x0501   /* Windows XP */
-#endif
-#ifndef _WIN32_WINNT_WS03
-#define _WIN32_WINNT_WS03           0x0502   /* Windows Server 2003 */
-#endif
 #ifndef _WIN32_WINNT_VISTA
 #define _WIN32_WINNT_VISTA          0x0600   /* Windows Vista */
 #endif

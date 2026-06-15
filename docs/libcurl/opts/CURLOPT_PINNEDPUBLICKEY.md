@@ -16,7 +16,6 @@ TLS-backend:
   - GnuTLS
   - wolfSSL
   - mbedTLS
-  - Secure Transport
   - Schannel
 Added-in: 7.39.0
 ---
@@ -67,6 +66,7 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com");
     curl_easy_setopt(curl, CURLOPT_PINNEDPUBLICKEY, "/etc/publickey.der");
     /* OR
@@ -77,7 +77,8 @@ int main(void)
     */
 
     /* Perform the request */
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
   }
 }
 ~~~
@@ -94,7 +95,7 @@ server's certificate.
 # Windows-specific:
 # - Use NUL instead of /dev/null.
 # - OpenSSL may wait for input instead of disconnecting. Hit enter.
-# - If you do not have sed, then just copy the certificate into a file:
+# - If you do not have sed, then copy the certificate into a file:
 #   Lines from -----BEGIN CERTIFICATE----- to -----END CERTIFICATE-----.
 #
 openssl s_client -servername www.example.com -connect www.example.com:443 \
@@ -129,8 +130,6 @@ footer:
 
 7.47.0: mbedTLS
 
-7.54.1: Secure Transport on macOS 10.7+/iOS 10+
-
 7.58.1: Schannel
 
 ## sha256 support
@@ -138,8 +137,6 @@ footer:
 7.44.0: OpenSSL, GnuTLS and wolfSSL
 
 7.47.0: mbedTLS
-
-7.54.1: Secure Transport on macOS 10.7+/iOS 10+
 
 7.58.1: Schannel
 
@@ -149,5 +146,7 @@ Other SSL backends not supported.
 
 # RETURN VALUE
 
-Returns CURLE_OK if TLS enabled, CURLE_UNKNOWN_OPTION if not, or
-CURLE_OUT_OF_MEMORY if there was insufficient heap space.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

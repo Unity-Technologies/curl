@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="US-ASCII"?>
 <testcase>
 <info>
 <keywords>
@@ -6,16 +7,15 @@ verbose logs
 </keywords>
 </info>
 
-#
 # Server-side
 <reply>
 </reply>
 
 # Client-side
 <client>
-<server>
-none
-</server>
+<features>
+verbose-strings
+</features>
 <tool>
 lib%TESTNUMBER
 </tool>
@@ -23,12 +23,8 @@ lib%TESTNUMBER
 <name>
 libcurl strerror API call tests
 </name>
-<command>
-nothing
-</command>
 </client>
 
-#
 # Verify data after the test has been "shot"
 <verify>
 <stdout>
@@ -66,14 +62,14 @@ e30: FTP: command PORT failed
 e31: FTP: command REST failed
 e32: Unknown error
 e33: Requested range was not delivered by the server
-e34: Internal problem setting up the POST
+e34: Unknown error
 e35: SSL connect error
 e36: Could not resume download
 e37: Could not read a file:// file
 e38: LDAP: cannot bind
 e39: LDAP: search failed
 e40: Unknown error
-e41: A required function in the library was not found
+e41: Unknown error
 e42: Operation was aborted by an application callback
 e43: A libcurl function was given a bad argument
 e44: Unknown error

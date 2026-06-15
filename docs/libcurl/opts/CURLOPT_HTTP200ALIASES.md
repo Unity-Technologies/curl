@@ -61,14 +61,16 @@ int main(void)
   CURL *curl = curl_easy_init();
   if(curl) {
     struct curl_slist *list;
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com");
 
     list = curl_slist_append(NULL, "ICY 200 OK");
     list = curl_slist_append(list, "WEIRDO 99 FINE");
 
     curl_easy_setopt(curl, CURLOPT_HTTP200ALIASES, list);
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
     curl_slist_free_all(list); /* free the list again */
+    curl_easy_cleanup(curl);
   }
 }
 ~~~
@@ -77,4 +79,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK if HTTP is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

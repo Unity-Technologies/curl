@@ -11,7 +11,6 @@ set -eu
 gitonly=".git*
 ^.*
 ^appveyor.*
-^buildconf
 ^GIT-INFO.md
 ^README.md
 ^renovate.json
@@ -19,18 +18,15 @@ gitonly=".git*
 ^SECURITY.md
 ^LICENSES/*
 ^docs/examples/adddocsref.pl
+^docs/tests/CI.md
 ^docs/THANKS-filter
 ^projects/Windows/*
-^scripts/ciconfig.pl
-^scripts/cijobs.pl
 ^scripts/contributors.sh
 ^scripts/contrithanks.sh
 ^scripts/delta
 ^scripts/installcheck.sh
 ^scripts/release-notes.pl
-^scripts/singleuse.pl
-^src/tool_hugehelp.c.cvs
-^tests/CI.md"
+^scripts/singleuse.pl"
 
 tarfiles="$(mktemp)"
 gitfiles="$(mktemp)"

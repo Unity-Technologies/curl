@@ -46,14 +46,20 @@ stderr
 ~~~c
 int main(void)
 {
-  CURL *curl = curl_easy_init();
+  CURL *curl;
   FILE *filep = fopen("dump", "wb");
+  if(!filep)
+    return 1;
+  curl = curl_easy_init();
   if(curl) {
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com");
     curl_easy_setopt(curl, CURLOPT_STDERR, filep);
 
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
   }
+  fclose(filep);
 }
 ~~~
 
@@ -61,4 +67,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

@@ -11,9 +11,9 @@ SPDX-License-Identifier: curl
 The official "URL syntax" is primarily defined in these two different
 specifications:
 
- - [RFC 3986](https://datatracker.ietf.org/doc/html/rfc3986) (although URL is called
-   "URI" in there)
- - [The WHATWG URL Specification](https://url.spec.whatwg.org/)
+- [RFC 3986](https://datatracker.ietf.org/doc/html/rfc3986) (although URL is called
+  "URI" in there)
+- [The WHATWG URL Specification](https://url.spec.whatwg.org/)
 
 RFC 3986 is the earlier one, and curl has always tried to adhere to that one
 (since it shipped in January 2005).
@@ -32,7 +32,7 @@ unlikely that multiple parsers treat URLs the same way.
 
 Due to the inherent differences between URL parser implementations, it is
 considered a security risk to mix different implementations and assume the
-same behavior!
+same behavior.
 
 For example, if you use one parser to check if a URL uses a good hostname or
 the correct auth field, and then pass on that same URL to a *second* parser,
@@ -100,13 +100,13 @@ supported by browsers early on and has been mimicked by curl.
 
 Based on what the hostname starts with, curl "guesses" what protocol to use:
 
- - `ftp.` means FTP
- - `dict.` means DICT
- - `ldap.` means LDAP
- - `imap.` means IMAP
- - `smtp.` means SMTP
- - `pop3.` means POP3
- - all other means HTTP
+- `ftp.` means FTP
+- `dict.` means DICT
+- `ldap.` means LDAP
+- `imap.` means IMAP
+- `smtp.` means SMTP
+- `pop3.` means POP3
+- all other means HTTP
 
 ### Globbing letters
 
@@ -130,7 +130,7 @@ character or string.
 
 For example, this could look like:
 
-    http://user:password@www.example.com:80/index.html?foo=bar#top
+    https://user:password@www.example.com:80/index.html?foo=bar#top
 
 ## Scheme
 
@@ -141,9 +141,8 @@ curl supports the following schemes on URLs specified to transfer. They are
 matched case insensitively:
 
 `dict`, `file`, `ftp`, `ftps`, `gopher`, `gophers`, `http`, `https`, `imap`,
-`imaps`, `ldap`, `ldaps`, `mqtt`, `pop3`, `pop3s`, `rtmp`, `rtmpe`, `rtmps`,
-`rtmpt`, `rtmpte`, `rtmpts`, `rtsp`, `smb`, `smbs`, `smtp`, `smtps`, `telnet`,
-`tftp`
+`imaps`, `ldap`, `ldaps`, `mqtt`, `pop3`, `pop3s`, `rtsp`, `smb`, `smbs`,
+`smtp`, `smtps`, `telnet`, `tftp`
 
 When the URL is specified to identify a proxy, curl recognizes the following
 schemes:
@@ -169,13 +168,13 @@ local network name of the machine on your network or the IP address of the
 server or machine represented by either an IPv4 or IPv6 address (within
 brackets). For example:
 
-    http://www.example.com/
+    https://www.example.com/
 
-    http://hostname/
+    https://hostname.example/
 
-    http://192.168.0.1/
+    https://192.168.0.1/
 
-    http://[2001:1890:1112:1::20]/
+    https://[2001:1890:1112:1::20]/
 
 ### "localhost"
 
@@ -194,8 +193,8 @@ handle hostnames using non-ASCII characters.
 When built with libidn2, curl uses the IDNA 2008 standard. This is equivalent
 to the WHATWG URL spec, but differs from certain browsers that use IDNA 2003
 Transitional Processing. The two standards have a huge overlap but differ
-slightly, perhaps most famously in how they deal with the German "double s"
-(`ß`).
+slightly, perhaps most famously in how they deal with the
+[German "double s"](https://en.wikipedia.org/wiki/%c3%9f).
 
 When WinIDN is used, curl uses IDNA 2003 Transitional Processing, like the rest
 of Windows.
@@ -209,10 +208,9 @@ only if the URL starts with a scheme.
 If the port number is not specified in the URL, curl uses a default port
 number based on the provide scheme:
 
-DICT 2628, FTP 21, FTPS 990, GOPHER 70, GOPHERS 70, HTTP 80, HTTPS 443,
-IMAP 132, IMAPS 993, LDAP 369, LDAPS 636, MQTT 1883, POP3 110, POP3S 995,
-RTMP 1935, RTMPS 443, RTMPT 80, RTSP 554, SCP 22, SFTP 22, SMB 445, SMBS 445,
-SMTP 25, SMTPS 465, TELNET 23, TFTP 69
+DICT 2628, FTP 21, FTPS 990, GOPHER 70, GOPHERS 70, HTTP 80, HTTPS 443, IMAP
+143, IMAPS 993, LDAP 389, LDAPS 636, MQTT 1883, POP3 110, POP3S 995, RTSP 554,
+SCP 22, SFTP 22, SMB 445, SMBS 445, SMTP 25, SMTPS 465, TELNET 23, TFTP 69
 
 # Scheme specific behaviors
 
@@ -317,9 +315,9 @@ was specified in the URL. That was a bug fixed in 7.62.0, which added
 
 ## LDAP
 
-The path part of a LDAP request can be used to specify the: Distinguished
-Name, Attributes, Scope, Filter and Extension for a LDAP search. Each field is
-separated by a question mark and when that field is not required an empty
+The path part of an LDAP request can be used to specify the: Distinguished
+Name, Attributes, Scope, Filter and Extension for an LDAP search. Each field
+is separated by a question mark and when that field is not required an empty
 string with the question mark separator should be included.
 
 Search for the `DN` as `My Organization`:
@@ -335,8 +333,8 @@ Search for an empty `DN` and request information about the
 
     ldap://ldap.example.com/?rootDomainNamingContext
 
-For more information about the individual components of a LDAP URL please
-see [RFC 4516](https://datatracker.ietf.org/doc/html/rfc4516).
+For more information about the individual components of an LDAP URL please see
+[RFC 4516](https://datatracker.ietf.org/doc/html/rfc4516).
 
 ## POP3
 
@@ -360,7 +358,7 @@ file. If the path is omitted entirely then the directory listing for the root
 / home directory is returned.
 
 ## SMB
-The path part of a SMB request specifies the file to retrieve and from what
+The path part of an SMB request specifies the file to retrieve and from what
 share and directory or the share to upload to and as such, may not be omitted.
 If the username is embedded in the URL then it must contain the domain name
 and as such, the backslash must be URL encoded as %2f.
@@ -372,24 +370,12 @@ curl supports SMB version 1 (only)
 
 ## SMTP
 
-The path part of a SMTP request specifies the hostname to present during
+The path part of an SMTP request specifies the hostname to present during
 communication with the mail server. If the path is omitted, then libcurl
-attempts to resolve the local computer's hostname. However, this may not
-return the fully qualified domain name that is required by some mail servers
-and specifying this path allows you to set an alternative name, such as your
+attempts to resolve the local computer's hostname. This may not return the
+fully qualified domain name that is required by some mail servers and
+specifying this path allows you to set an alternative name, such as your
 machine's fully qualified domain name, which you might have obtained from an
 external function such as gethostname or getaddrinfo.
 
 The default smtp port is 25. Some servers use port 587 as an alternative.
-
-## RTMP
-
-There is no official URL spec for RTMP so libcurl uses the URL syntax supported
-by the underlying librtmp library. It has a syntax where it wants a
-traditional URL, followed by a space and a series of space-separated
-`name=value` pairs.
-
-While space is not typically a "legal" letter, libcurl accepts them. When a
-user wants to pass in a `#` (hash) character it is treated as a fragment and
-it gets cut off by libcurl if provided literally. You have to escape it by
-providing it as backslash and its ASCII value in hexadecimal: `\23`.

@@ -41,6 +41,16 @@ option.
 Using this option multiple times makes the last set string override the
 previous ones. Set it to NULL to disable its use again.
 
+# SECURITY CONCERNS
+
+libcurl cannot fully protect against attacks where an attacker has write
+access to the same directory where it is directed to save files. This is
+particularly sensitive if you save files using elevated privileges.
+
+libcurl creates the file to store the alt-svc cache in using default file
+permissions, meaning that on *nix systems you may need to restrict your umask
+to prevent other users on the same system to access the file.
+
 # DEFAULT
 
 NULL. The alt-svc cache is not read nor written to file.
@@ -54,12 +64,19 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_ALTSVC_CTRL, CURLALTSVC_H1);
     curl_easy_setopt(curl, CURLOPT_ALTSVC, "altsvc-cache.txt");
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
   }
 }
 ~~~
+
+# HISTORY
+
+**CURLALTSVC_*** macros became `long` types in 8.16.0, prior to this version
+a `long` cast was necessary when passed to curl_easy_setopt(3).
 
 # FILE FORMAT
 
@@ -113,4 +130,7 @@ Integer priority value (not currently used)
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

@@ -52,11 +52,15 @@ libcurl does not inspect, parse or "understand" the commands passed to the
 server using this option. If you change connection state, working directory or
 similar using quote commands, libcurl does not know about it.
 
-The path arguments for FTP or SFTP can use single or double quotes to
-distinguish a space from being the parameter separator or being a part of the
-path. e.g. rename with sftp using a quote command like this:
+The path arguments for FTP or SFTP should use double quotes to distinguish a
+space from being the parameter separator or being a part of the path. For
+example, rename with sftp using a quote command like this:
 
-    "rename 'test/_upload.txt' 'test/Hello World.txt'"
+    rename "test/_upload.txt" "test/Hello World.txt"
+
+For SFTP, filenames must be provided within double quotes to embed spaces,
+backslashes, quotes or double quotes. Within double quotes the following
+escape sequences are available for that purpose: \\, \", and \'.
 
 # SFTP commands
 
@@ -120,7 +124,7 @@ operand, provided it is empty.
 ## statvfs file
 
 The statvfs command returns statistics on the file system in which specified
-file resides. (Added in 7.49.0)
+file resides.
 
 ## symlink source_file target_file
 
@@ -143,13 +147,13 @@ int main(void)
 
   CURL *curl = curl_easy_init();
   if(curl) {
-    CURLcode res;
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "ftp://example.com/foo.bin");
 
     /* pass in the FTP commands to run before the transfer */
     curl_easy_setopt(curl, CURLOPT_QUOTE, cmdlist);
 
-    res = curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
 
     curl_easy_cleanup(curl);
   }
@@ -166,4 +170,7 @@ SFTP support added in 7.16.3. *-prefix for SFTP added in 7.24.0
 
 # RETURN VALUE
 
-Returns CURLE_OK
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

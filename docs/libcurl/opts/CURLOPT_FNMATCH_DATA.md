@@ -62,12 +62,14 @@ int main(void)
   struct local_stuff local_data;
   CURL *curl = curl_easy_init();
   if(curl) {
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "ftp://ftp.example.com/file*");
     curl_easy_setopt(curl, CURLOPT_WILDCARDMATCH, 1L);
     curl_easy_setopt(curl, CURLOPT_FNMATCH_FUNCTION, my_fnmatch);
     curl_easy_setopt(curl, CURLOPT_FNMATCH_DATA, &local_data);
 
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
   }
 }
 ~~~
@@ -76,4 +78,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

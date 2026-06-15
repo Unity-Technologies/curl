@@ -34,7 +34,7 @@ Get the definition of curl from a dictionary:
 
 Fetch two documents at once:
 
-    curl ftp://ftp.example.com/ http://www.example.com:8000/
+    curl ftp://ftp.example.com/ https://www.example.com:8000/
 
 Get a file off an FTPS server:
 
@@ -42,7 +42,7 @@ Get a file off an FTPS server:
 
 or use the more appropriate FTPS way to get the same file:
 
-    curl --ftp-ssl ftp://files.are.example.com/secrets.txt
+    curl --ssl-reqd ftp://files.are.example.com/secrets.txt
 
 Get a file from an SSH server using SFTP:
 
@@ -71,12 +71,12 @@ Get a file from an SMB server:
 
 Get a webpage and store in a local file with a specific name:
 
-    curl -o thatpage.html http://www.example.com/
+    curl -o thatpage.html https://www.example.com/
 
 Get a webpage and store in a local file, make the local file get the name of
 the remote document (if no filename part is specified in the URL, this fails):
 
-    curl -O http://www.example.com/index.html
+    curl -O https://www.example.com/index.html
 
 Fetch two files and store them with their remote names:
 
@@ -96,8 +96,8 @@ or specify them with the `-u` flag like
 
 ### FTPS
 
-It is just like for FTP, but you may also want to specify and use SSL-specific
-options for certificates etc.
+It is like FTP, but you may also want to specify and use SSL-specific options
+for certificates etc.
 
 Note that using `FTPS://` as prefix is the *implicit* way as described in the
 standards while the recommended *explicit* way is done by using `FTP://` and
@@ -115,14 +115,14 @@ matching public key file must be specified using the `--pubkey` option.
 
 ### HTTP
 
-Curl also supports user and password in HTTP URLs, thus you can pick a file
+curl also supports user and password in HTTP(S) URLs. You can download a file
 like:
 
-    curl http://name:passwd@http.server.example/full/path/to/file
+    curl https://name:passwd@http.server.example/full/path/to/file
 
 or specify user and password separately like in
 
-    curl -u name:passwd http://http.server.example/full/path/to/file
+    curl -u name:passwd https://http.server.example/full/path/to/file
 
 HTTP offers many different methods of authentication and curl supports
 several: Basic, Digest, NTLM and Negotiate (SPNEGO). Without telling which
@@ -151,26 +151,26 @@ Get an ftp file using an HTTP proxy named my-proxy that uses port 888:
 
     curl -x my-proxy:888 ftp://ftp.example.com/README
 
-Get a file from an HTTP server that requires user and password, using the
+Get a file from an HTTPS server that requires user and password, using the
 same proxy as above:
 
-    curl -u user:passwd -x my-proxy:888 http://www.example.com/
+    curl -u user:passwd -x my-proxy:888 https://www.example.com/
 
 Some proxies require special authentication. Specify by using -U as above:
 
-    curl -U user:passwd -x my-proxy:888 http://www.example.com/
+    curl -U user:passwd -x my-proxy:888 https://www.example.com/
 
 A comma-separated list of hosts and domains which do not use the proxy can be
 specified as:
 
-    curl --noproxy example.com -x my-proxy:888 http://www.example.com/
+    curl --noproxy example.com -x my-proxy:888 https://www.example.com/
 
 If the proxy is specified with `--proxy1.0` instead of `--proxy` or `-x`, then
 curl uses HTTP/1.0 instead of HTTP/1.1 for any `CONNECT` attempts.
 
 curl also supports SOCKS4 and SOCKS5 proxies with `--socks4` and `--socks5`.
 
-See also the environment variables Curl supports that offer further proxy
+See also the environment variables curl supports that offer further proxy
 control.
 
 Most FTP proxy servers are set up to appear as a normal FTP server from the
@@ -199,18 +199,18 @@ should be read from STDIN.
 ## Ranges
 
 HTTP 1.1 introduced byte-ranges. Using this, a client can request to get only
-one or more sub-parts of a specified document. Curl supports this with the
+one or more sub-parts of a specified document. curl supports this with the
 `-r` flag.
 
 Get the first 100 bytes of a document:
 
-    curl -r 0-99 http://www.example.com/
+    curl -r 0-99 https://www.example.com/
 
 Get the last 500 bytes of a document:
 
-    curl -r -500 http://www.example.com/
+    curl -r -500 https://www.example.com/
 
-Curl also supports simple ranges for FTP files as well. Then you can only
+curl also supports simple ranges for FTP files as well. Then you can only
 specify start and stop position.
 
 Get the first 100 bytes of a document using FTP:
@@ -238,7 +238,7 @@ Upload a local file to get appended to the remote file:
 
     curl -T localfile -a ftp://ftp.example.com/remotefile
 
-Curl also supports ftp upload through a proxy, but only if the proxy is
+curl also supports ftp upload through a proxy, but only if the proxy is
 configured to allow that kind of tunneling. If it does, you can run curl in a
 fashion similar to:
 
@@ -251,9 +251,9 @@ fashion similar to:
 
 ### HTTP
 
-Upload all data on stdin to a specified HTTP site:
+Upload all data on stdin to a specified HTTPS site:
 
-    curl -T - http://www.example.com/myfile
+    curl -T - https://www.example.com/myfile
 
 Note that the HTTP server must have been configured to accept PUT before this
 can be done successfully.
@@ -264,7 +264,7 @@ For other ways to do HTTP data upload, see the POST section below.
 
 If curl fails where it is not supposed to, if the servers do not let you in,
 if you cannot understand the responses: use the `-v` flag to get verbose
-fetching. Curl outputs lots of info and what it sends and receives in order to
+fetching. curl outputs lots of info and what it sends and receives in order to
 let the user see all client-server interaction (but it does not show you the
 actual data).
 
@@ -274,8 +274,7 @@ To get even more details and information on what curl does, try using the
 `--trace` or `--trace-ascii` options with a given filename to log to, like
 this:
 
-    curl --trace trace.txt www.haxx.se
-
+    curl --trace my-trace.txt www.haxx.se
 
 ## Detailed Information
 
@@ -286,7 +285,7 @@ info on a single file for HTTP and FTP. The HTTP information is a lot more
 extensive.
 
 For HTTP, you can get the header information (the same as `-I` would show)
-shown before the data by using `-i`/`--include`. Curl understands the
+shown before the data by using `-i`/`--include`. curl understands the
 `-D`/`--dump-header` option when getting files from both FTP and HTTP, and it
 then stores the headers in the specified file.
 
@@ -305,12 +304,12 @@ The post data must be urlencoded.
 
 Post a simple `name` and `phone` guestbook.
 
-    curl -d "name=Rafael%20Sagula&phone=3320780" http://www.example.com/guest.cgi
+    curl -d "name=Rafael%20Sagula&phone=3320780" https://www.example.com/guest.cgi
 
 Or automatically [URL encode the data](https://everything.curl.dev/http/post/url-encode).
 
     curl --data-urlencode "name=Rafael Sagula&phone=3320780"
-      http://www.example.com/guest.cgi
+      https://www.example.com/guest.cgi
 
 How to post a form with curl, lesson #1:
 
@@ -329,7 +328,7 @@ of the letter's ASCII code.
 
 Example:
 
-(say if `http://example.com` had the following html)
+(say if `https://example.com` had the following html)
 
 ```html
 <form action="post.cgi" method="post">
@@ -345,7 +344,7 @@ We want to enter user `foobar` with password `12345`.
 To post to this, you would enter a curl command line like:
 
     curl -d "user=foobar&pass=12345&id=blablabla&ding=submit"
-      http://example.com/post.cgi
+      https://example.com/post.cgi
 
 While `-d` uses the application/x-www-form-urlencoded mime-type, generally
 understood by CGI's and similar, curl also supports the more capable
@@ -359,7 +358,7 @@ example, the field name `coolfiles` is used to send three files, with
 different content types using the following syntax:
 
     curl -F "coolfiles=@fil1.gif;type=image/gif,fil2.txt,fil3.html"
-      http://www.example.com/postit.cgi
+      https://www.example.com/postit.cgi
 
 If the content-type is not specified, curl tries to guess from the file
 extension (it only knows a few), or use the previously specified type (from an
@@ -376,7 +375,7 @@ the names of the input fields. In our example, the input field names are
 
     curl -F "file=@cooltext.txt" -F "yourname=Daniel"
       -F "filedescription=Cool text file with cool text inside"
-      http://www.example.com/postit.cgi
+      https://www.example.com/postit.cgi
 
 To send two files in one post you can do it in two ways:
 
@@ -402,18 +401,18 @@ used on the command line. It is especially useful to fool or trick stupid
 servers or CGI scripts that rely on that information being available or
 contain certain data.
 
-    curl -e www.example.org http://www.example.com/
+    curl -e www.example.org https://www.example.com/
 
 ## User Agent
 
 An HTTP request has the option to include information about the browser that
-generated the request. Curl allows it to be specified on the command line. It
+generated the request. curl allows it to be specified on the command line. It
 is especially useful to fool or trick stupid servers or CGI scripts that only
 accept certain browsers.
 
 Example:
 
-    curl -A 'Mozilla/3.0 (Win95; I)' http://www.bank.example.com/
+    curl -A 'Mozilla/3.0 (Win95; I)' https://www.bank.example.com/
 
 Other common strings:
 
@@ -456,7 +455,7 @@ Example, get a page that wants my name passed in a cookie:
 
     curl -b "name=Daniel" www.example.com
 
-Curl also has the ability to use previously received cookies in following
+curl also has the ability to use previously received cookies in following
 sessions. If you get cookies from a server and store them in a file in a
 manner similar to:
 
@@ -482,7 +481,7 @@ non-existing file to trigger the cookie awareness like:
     curl -L -b empty.txt www.example.com
 
 The file to read cookies from must be formatted using plain HTTP headers OR as
-Netscape's cookie file. Curl determines what kind it is based on the file
+Netscape's cookie file. curl determines what kind it is based on the file
 contents. In the above command, curl parses the header and store the cookies
 received from www.example.com. curl sends the stored cookies which match the
 request to the server as it follows the location. The file `empty.txt` may be
@@ -504,18 +503,18 @@ happening. The different fields in the output have the following meaning:
 
 From left-to-right:
 
- - `%`           - percentage completed of the whole transfer
- - `Total`       - total size of the whole expected transfer
- - `%`           - percentage completed of the download
- - `Received`    - currently downloaded amount of bytes
- - `%`           - percentage completed of the upload
- - `Xferd`       - currently uploaded amount of bytes
- - `Average Speed Dload` - the average transfer speed of the download
- - `Average Speed Upload` - the average transfer speed of the upload
- - `Time Total`  - expected time to complete the operation
- - `Time Current` - time passed since the invoke
- - `Time Left`   - expected time left to completion
- - `Curr.Speed`  - the average transfer speed the last 5 seconds (the first
+- `%`            - percentage completed of the whole transfer
+- `Total`        - total size of the whole expected transfer
+- `%`            - percentage completed of the download
+- `Received`     - currently downloaded amount of bytes
+- `%`            - percentage completed of the upload
+- `Xferd`        - currently uploaded amount of bytes
+- `Average Speed Dload` - the average transfer speed of the download
+- `Average Speed Upload` - the average transfer speed of the upload
+- `Time Total`   - expected time to complete the operation
+- `Time Current` - time passed since the invoke
+- `Time Left`    - expected time left to completion
+- `Curr.Speed`   - the average transfer speed the last 5 seconds (the first
                    5 seconds of a transfer is based on less time of course.)
 
 The `-#` option displays a totally different progress bar that does not need
@@ -523,7 +522,7 @@ much explanation!
 
 ## Speed Limit
 
-Curl allows the user to set the transfer speed conditions that must be met to
+curl allows the user to set the transfer speed conditions that must be met to
 let the transfer keep going. By using the switch `-y` and `-Y` you can make
 curl abort transfers if the transfer speed is below the specified lowest limit
 for a specified time.
@@ -562,7 +561,7 @@ stalls during periods.
 
 ## Config File
 
-Curl automatically tries to read the `.curlrc` file (or `_curlrc` file on
+curl automatically tries to read the `.curlrc` file (or `_curlrc` file on
 Microsoft Windows systems) from the user's home directory on startup.
 
 The config file could be made up with normal command line switches, but you
@@ -582,7 +581,7 @@ Example, set default time out and proxy in a config file:
     # We want a 30 minute timeout:
     -m 1800
     # ... and we use a proxy for all accesses:
-    proxy = proxy.our.domain.com:8080
+    proxy = proxy.our.domain.example.com:8080
 
 Whitespaces ARE significant at the end of lines, but all whitespace leading
 up to the first characters of each line are ignored.
@@ -595,15 +594,15 @@ line parameter, like:
 Force curl to get and display a local help page in case it is invoked without
 URL by making a config file similar to:
 
-    # default url to get
-    url = "http://help.with.curl.example.com/curlhelp.html"
+    # default URL to get
+    url = "https://help.with.curl.example.com/curlhelp.html"
 
 You can specify another config file to be read by using the `-K`/`--config`
 flag. If you set config filename to `-` it reads the config from stdin, which
 can be handy if you want to hide options from being visible in process tables
 etc:
 
-    echo "user = user:passwd" | curl -K - http://that.secret.example.com
+    echo "user = user:passwd" | curl -K - https://that.secret.example.com
 
 ## Extra Headers
 
@@ -661,7 +660,7 @@ incoming connections.
     curl ftp.example.com
 
 If the server, for example, is behind a firewall that does not allow
-connections on ports other than 21 (or if it just does not support the `PASV`
+connections on ports other than 21 (or if it does not support the `PASV`
 command), the other way to do it is to use the `PORT` command and instruct the
 server to connect to the client on the given IP number and port (as parameters
 to the PORT command).
@@ -685,11 +684,11 @@ Download with `PORT` but use 192.168.0.10 as our IP address to use:
 
 Get a webpage from a server using a specified port for the interface:
 
-    curl --interface eth0:1 http://www.example.com/
+    curl --interface eth0:1 https://www.example.com/
 
 or
 
-    curl --interface 192.168.1.10 http://www.example.com/
+    curl --interface 192.168.1.10 https://www.example.com/
 
 ## HTTPS
 
@@ -740,7 +739,7 @@ Continue uploading a document:
 
 Continue downloading a document from a web server
 
-    curl -C - -o file http://www.example.com/
+    curl -C - -o file https://www.example.com/
 
 ## Time Conditions
 
@@ -751,17 +750,17 @@ them with the `-z`/`--time-cond` flag.
 For example, you can easily make a download that only gets performed if the
 remote file is newer than a local copy. It would be made like:
 
-    curl -z local.html http://remote.example.com/remote.html
+    curl -z local.html https://remote.example.com/remote.html
 
 Or you can download a file only if the local file is newer than the remote
 one. Do this by prepending the date string with a `-`, as in:
 
-    curl -z -local.html http://remote.example.com/remote.html
+    curl -z -local.html https://remote.example.com/remote.html
 
 You can specify a plain text date as condition. Tell curl to only download the
 file if it was updated since January 12, 2012:
 
-    curl -z "Jan 12 2012" http://remote.example.com/remote.html
+    curl -z "Jan 12 2012" https://remote.example.com/remote.html
 
 curl accepts a wide range of date formats. You always make the date check the
 other way around by prepending it with a dash (`-`).
@@ -822,7 +821,7 @@ with current logon credentials (SSPI/SPNEGO).
 
 ## Environment Variables
 
-Curl reads and understands the following environment variables:
+curl reads and understands the following proxy related environment variables:
 
     http_proxy, HTTPS_PROXY, FTP_PROXY
 
@@ -855,9 +854,9 @@ this is a big security risk if someone else gets hold of your passwords,
 therefore most Unix programs do not read this file unless it is only readable
 by yourself (curl does not care though).
 
-Curl supports `.netrc` files if told to (using the `-n`/`--netrc` and
-`--netrc-optional` options). This is not restricted to just FTP, so curl can
-use it for all protocols where authentication is used.
+curl supports `.netrc` files if told to (using the `-n`/`--netrc` and
+`--netrc-optional` options). This is not restricted to FTP, so curl can use it
+for all protocols where authentication is used.
 
 A simple `.netrc` file could look something like:
 
@@ -876,7 +875,7 @@ ending newline:
 
 ## Kerberos FTP Transfer
 
-Curl supports kerberos4 and kerberos5/GSSAPI for FTP transfers. You need the
+curl supports kerberos4 and kerberos5/GSSAPI for FTP transfers. You need the
 kerberos package installed and used at curl build time for it to be available.
 
 First, get the krb-ticket the normal way, like with the `kinit`/`kauth` tool.
@@ -889,7 +888,7 @@ ask for one and you already entered the real password to `kinit`/`kauth`.
 
 ## TELNET
 
-The curl telnet support is basic and easy to use. Curl passes all data passed
+The curl telnet support is basic and easy to use. curl passes all data passed
 to it on stdin to the remote server. Connect to a remote telnet server using a
 command line similar to:
 
@@ -908,8 +907,8 @@ tell the server we use a vt100 terminal, try something like:
 
 Other interesting options for it `-t` include:
 
- - `XDISPLOC=<X display>` Sets the X display location.
- - `NEW_ENV=<var,val>` Sets an environment variable.
+- `XDISPLOC=<X display>` Sets the X display location.
+- `NEW_ENV=<var,val>` Sets an environment variable.
 
 NOTE: The telnet protocol does not specify any way to login with a specified
 user and password so curl cannot do that automatically. To do that, you need to
@@ -936,15 +935,15 @@ are persistent.
 ## Multiple Transfers With A Single Command Line
 
 As is mentioned above, you can download multiple files with one command line
-by simply adding more URLs. If you want those to get saved to a local file
-instead of just printed to stdout, you need to add one save option for each
-URL you specify. Note that this also goes for the `-O` option (but not
+by adding more URLs. If you want those to get saved to a local file
+instead of printed to stdout, you need to add one save option for each URL you
+specify. Note that this also goes for the `-O` option (but not
 `--remote-name-all`).
 
 For example: get two files and use `-O` for the first and a custom file
 name for the second:
 
-    curl -O http://example.com/file.txt ftp://example.com/moo.exe -o moo.jpg
+    curl -O https://example.com/file.txt ftp://example.com/moo.exe -o moo.jpg
 
 You can also upload multiple files in a similar fashion:
 
@@ -957,7 +956,7 @@ and fall back to IPv4 if the connection fails. The `--ipv4` and `--ipv6`
 options can specify which address to use when both are available. IPv6
 addresses can also be specified directly in URLs using the syntax:
 
-    http://[2001:1890:1112:1::20]/overview.html
+    https://[2001:1890:1112:1::20]/overview.html
 
 When this style is used, the `-g` option must be given to stop curl from
 interpreting the square brackets as special globbing characters. Link local

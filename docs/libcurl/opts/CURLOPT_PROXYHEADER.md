@@ -61,6 +61,7 @@ int main(void)
   struct curl_slist *list;
 
   if(curl) {
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com");
     curl_easy_setopt(curl, CURLOPT_PROXY, "http://proxy.example.com:80");
 
@@ -69,9 +70,10 @@ int main(void)
 
     curl_easy_setopt(curl, CURLOPT_PROXYHEADER, list);
 
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
 
     curl_slist_free_all(list); /* free the list again */
+    curl_easy_cleanup(curl);
   }
 }
 ~~~
@@ -80,4 +82,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).
