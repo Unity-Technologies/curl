@@ -58,6 +58,7 @@
 #include "vtls/schannel.h"       /* Schannel SSPI version */
 #include "vtls/mbedtls.h"        /* mbedTLS versions */
 #include "vtls/rustls.h"         /* Rustls versions */
+#include "vtls/unitytls.h"       /* UnityTls version */
 
 #include "slist.h"
 #include "curl_trc.h"

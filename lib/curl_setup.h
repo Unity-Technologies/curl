@@ -149,7 +149,8 @@
 #  include "config-win32ce.h"
 #else
 #  ifdef _WIN32
-#  include "config-win32.h"
+#    include "config-win32.h"
+#  endif
 #endif
 
 #if defined(__MACH__)

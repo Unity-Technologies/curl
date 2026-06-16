@@ -46,8 +46,10 @@
 
 #if defined(USE_UNIX_SOCKETS) && defined(WINAPI_FAMILY) && \
     ((WINAPI_FAMILY == WINAPI_FAMILY_APP) || (WINAPI_FAMILY == WINAPI_FAMILY_GAMES) || (WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP))
-   /* Required for sockaddr_un type */
-#  if !defined(WIN32_SOCKADDR_UN)
+   /* Required for sockaddr_un type — skip if curl_setup.h's local typedef
+      already ran (it defines UNIX_PATH_MAX) or if afunix.h was pulled in
+      earlier in the translation unit. */
+#  if !defined(UNIX_PATH_MAX)
 #    include <afunix.h>
 #  endif
 #endif
