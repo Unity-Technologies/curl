@@ -23,19 +23,22 @@
 #
 ###########################################################################
 
+use strict;
+use warnings;
+
 my @files = @ARGV;
 my $cfile = "test.c";
 
-if($files[0] eq "-h") {
+if(!@files || $files[0] eq "-h") {
     print "Usage: verify-synopsis [man pages]\n";
     exit;
 }
 
 sub testcompile {
-    my $rc = system("gcc -c test.c -DCURL_DISABLE_TYPECHECK -DCURL_ALLOW_OLD_MULTI_SOCKET -I include") >> 8;
+    my $rc = system('gcc -c test.c -I include -W -Wall -pedantic -Werror ' .
+        '-DCURL_ALLOW_OLD_MULTI_SOCKET -DCURL_DISABLE_TYPECHECK') >> 8;
     return $rc;
 }
-
 
 sub extract {
     my($f) = @_;

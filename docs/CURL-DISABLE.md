@@ -40,7 +40,11 @@ Disable support for the negotiate authentication methods.
 
 ## `CURL_DISABLE_AWS`
 
-Disable **AWS-SIG4** support.
+Disable **aws-sigv4** support.
+
+## `CURL_DISABLE_CA_SEARCH`
+
+Disable unsafe CA bundle search in PATH on Windows.
 
 ## `CURL_DISABLE_DICT`
 
@@ -64,8 +68,8 @@ Disable the FTP (and FTPS) protocol
 
 ## `CURL_DISABLE_GETOPTIONS`
 
-Disable the `curl_easy_options` API calls that lets users get information
-about existing options to `curl_easy_setopt`.
+Disable the `curl_easy_options()` API calls that lets users get information
+about existing options to `curl_easy_setopt()`.
 
 ## `CURL_DISABLE_GOPHER`
 
@@ -116,10 +120,6 @@ Disable MQTT support.
 
 Disable the netrc parser.
 
-## `CURL_DISABLE_NTLM`
-
-Disable support for NTLM.
-
 ## `CURL_DISABLE_OPENSSL_AUTO_LOAD_CONFIG`
 
 Disable the auto load config support in the OpenSSL backend.
@@ -140,6 +140,11 @@ Disable the built-in progress meter
 
 Disable support for proxies
 
+## `CURL_DISABLE_IPFS`
+
+Disable the IPFS/IPNS protocols. This affects the curl tool only, where
+IPFS/IPNS protocol support is implemented.
+
 ## `CURL_DISABLE_RTSP`
 
 Disable the RTSP protocol.
@@ -152,9 +157,9 @@ Disable the SHA-512/256 hash algorithm.
 
 Disable the shuffle DNS feature
 
-## `CURL_DISABLE_SMB`
+## `CURL_ENABLE_SMB`
 
-Disable the SMB(S) protocols
+Enable the SMB(S) protocols
 
 ## `CURL_DISABLE_SMTP`
 
@@ -173,6 +178,16 @@ Disable the TELNET protocol
 
 Disable the TFTP protocol
 
+## `CURL_DISABLE_TYPECHECK`
+
+Disable `curl_easy_setopt()`/`curl_easy_getinfo()` type checking.
+
+Useful to improve build performance for the `tests/libtest` test tool.
+
 ## `CURL_DISABLE_VERBOSE_STRINGS`
 
 Disable verbose strings and error messages.
+
+## `CURL_DISABLE_WEBSOCKETS`
+
+Disable the WebSocket protocols.

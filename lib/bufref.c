@@ -21,16 +21,15 @@
  * SPDX-License-Identifier: curl
  *
  ***************************************************************************/
-
 #include "curl_setup.h"
+
 #include "urldata.h"
 #include "bufref.h"
-#include "strdup.h"
+#include "curlx/strdup.h"
 
-#include "curl_memory.h"
-#include "memdebug.h"
-
+#ifdef DEBUGBUILD
 #define SIGNATURE 0x5c48e9b2    /* Random pattern. */
+#endif
 
 /*
  * Init a bufref struct.
@@ -59,7 +58,7 @@ void Curl_bufref_free(struct bufref *br)
   DEBUGASSERT(br->ptr || !br->len);
 
   if(br->ptr && br->dtor)
-    br->dtor((void *) br->ptr);
+    br->dtor(CURL_UNCONST(br->ptr));
 
   br->dtor = NULL;
   br->ptr = NULL;
@@ -77,7 +76,7 @@ void Curl_bufref_set(struct bufref *br, const void *ptr, size_t len,
   DEBUGASSERT(len <= CURL_MAX_INPUT_LENGTH);
 
   Curl_bufref_free(br);
-  br->ptr = (const unsigned char *) ptr;
+  br->ptr = (const unsigned char *)ptr;
   br->len = len;
   br->dtor = dtor;
 }
@@ -85,13 +84,25 @@ void Curl_bufref_set(struct bufref *br, const void *ptr, size_t len,
 /*
  * Get a pointer to the referenced buffer.
  */
-const unsigned char *Curl_bufref_ptr(const struct bufref *br)
+const unsigned char *Curl_bufref_uptr(const struct bufref *br)
 {
   DEBUGASSERT(br);
   DEBUGASSERT(br->signature == SIGNATURE);
   DEBUGASSERT(br->ptr || !br->len);
 
   return br->ptr;
+}
+
+/*
+ * Get a pointer to the referenced string.
+ */
+const char *Curl_bufref_ptr(const struct bufref *br)
+{
+  DEBUGASSERT(br);
+  DEBUGASSERT(br->signature == SIGNATURE);
+  DEBUGASSERT(br->ptr || !br->len);
+
+  return (const char *)br->ptr;
 }
 
 /*
@@ -106,7 +117,7 @@ size_t Curl_bufref_len(const struct bufref *br)
   return br->len;
 }
 
-CURLcode Curl_bufref_memdup(struct bufref *br, const void *ptr, size_t len)
+CURLcode Curl_bufref_memdup0(struct bufref *br, const void *ptr, size_t len)
 {
   unsigned char *cpy = NULL;
 
@@ -117,7 +128,7 @@ CURLcode Curl_bufref_memdup(struct bufref *br, const void *ptr, size_t len)
   DEBUGASSERT(len <= CURL_MAX_INPUT_LENGTH);
 
   if(ptr) {
-    cpy = Curl_memdup0(ptr, len);
+    cpy = curlx_memdup0(ptr, len);
     if(!cpy)
       return CURLE_OUT_OF_MEMORY;
   }

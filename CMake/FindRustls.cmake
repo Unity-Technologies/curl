@@ -21,53 +21,96 @@
 # SPDX-License-Identifier: curl
 #
 ###########################################################################
-# Find the rustls library
+# Find the Rustls library
 #
 # Input variables:
 #
-# RUSTLS_INCLUDE_DIR   The rustls include directory
-# RUSTLS_LIBRARY       Path to rustls library
+# - `RUSTLS_INCLUDE_DIR`:  Absolute path to Rustls include directory.
+# - `RUSTLS_LIBRARY`:      Absolute path to `rustls` library.
 #
-# Result variables:
+# Defines:
 #
-# RUSTLS_FOUND         System has rustls
-# RUSTLS_INCLUDE_DIRS  The rustls include directories
-# RUSTLS_LIBRARIES     The rustls library names
-# RUSTLS_VERSION       Version of rustls
+# - `RUSTLS_FOUND`:        System has Rustls.
+# - `RUSTLS_VERSION`:      Version of Rustls.
+# - `CURL::rustls`:        Rustls library target.
 
-if(CURL_USE_PKGCONFIG)
+set(_rustls_pc_requires "rustls")
+
+if(CURL_USE_PKGCONFIG AND
+   NOT DEFINED RUSTLS_INCLUDE_DIR AND
+   NOT DEFINED RUSTLS_LIBRARY)
   find_package(PkgConfig QUIET)
-  pkg_check_modules(PC_RUSTLS "rustls")
+  pkg_check_modules(_rustls ${_rustls_pc_requires})
 endif()
 
-find_path(RUSTLS_INCLUDE_DIR NAMES "rustls.h"
-  HINTS
-    ${PC_RUSTLS_INCLUDEDIR}
-    ${PC_RUSTLS_INCLUDE_DIRS}
-)
+if(_rustls_FOUND)
+  set(Rustls_FOUND TRUE)
+  set(RUSTLS_FOUND TRUE)
+  set(RUSTLS_VERSION ${_rustls_VERSION})
+  message(STATUS "Found Rustls (via pkg-config): ${_rustls_INCLUDE_DIRS} (found version \"${RUSTLS_VERSION}\")")
+else()
+  set(_rustls_pc_requires "")  # Depend on pkg-config only when found via pkg-config
 
-find_library(RUSTLS_LIBRARY NAMES "rustls"
-  HINTS
-    ${PC_RUSTLS_LIBDIR}
-    ${PC_RUSTLS_LIBRARY_DIRS}
-)
+  find_path(RUSTLS_INCLUDE_DIR NAMES "rustls.h")
+  find_library(RUSTLS_LIBRARY NAMES "rustls")
 
-if(PC_RUSTLS_VERSION)
-  set(RUSTLS_VERSION ${PC_RUSTLS_VERSION})
+  include(FindPackageHandleStandardArgs)
+  find_package_handle_standard_args(Rustls
+    REQUIRED_VARS
+      RUSTLS_INCLUDE_DIR
+      RUSTLS_LIBRARY
+  )
+
+  if(RUSTLS_FOUND)
+    set(_rustls_INCLUDE_DIRS ${RUSTLS_INCLUDE_DIR})
+    set(_rustls_LIBRARIES    ${RUSTLS_LIBRARY})
+  endif()
+
+  mark_as_advanced(RUSTLS_INCLUDE_DIR RUSTLS_LIBRARY)
 endif()
-
-include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(Rustls
-  REQUIRED_VARS
-    RUSTLS_INCLUDE_DIR
-    RUSTLS_LIBRARY
-  VERSION_VAR
-    RUSTLS_VERSION
-)
 
 if(RUSTLS_FOUND)
-  set(RUSTLS_INCLUDE_DIRS ${RUSTLS_INCLUDE_DIR})
-  set(RUSTLS_LIBRARIES    ${RUSTLS_LIBRARY})
-endif()
+  if(APPLE)
+    find_library(SECURITY_FRAMEWORK NAMES "Security")
+    mark_as_advanced(SECURITY_FRAMEWORK)
+    if(NOT SECURITY_FRAMEWORK)
+      message(FATAL_ERROR "Security framework not found")
+    endif()
+    list(APPEND _rustls_LIBRARIES "-framework Security")
 
-mark_as_advanced(RUSTLS_INCLUDE_DIR RUSTLS_LIBRARY)
+    find_library(FOUNDATION_FRAMEWORK NAMES "Foundation")
+    mark_as_advanced(FOUNDATION_FRAMEWORK)
+    if(NOT FOUNDATION_FRAMEWORK)
+      message(FATAL_ERROR "Foundation framework not found")
+    endif()
+    list(APPEND _rustls_LIBRARIES "-framework Foundation")
+  elseif(NOT WIN32)
+    find_library(PTHREAD_LIBRARY NAMES "pthread")
+    if(PTHREAD_LIBRARY)
+      list(APPEND _rustls_LIBRARIES ${PTHREAD_LIBRARY})
+    endif()
+    mark_as_advanced(PTHREAD_LIBRARY)
+
+    find_library(DL_LIBRARY NAMES "dl")
+    if(DL_LIBRARY)
+      list(APPEND _rustls_LIBRARIES ${DL_LIBRARY})
+    endif()
+    mark_as_advanced(DL_LIBRARY)
+
+    find_library(MATH_LIBRARY NAMES "m")
+    if(MATH_LIBRARY)
+      list(APPEND _rustls_LIBRARIES ${MATH_LIBRARY})
+    endif()
+    mark_as_advanced(MATH_LIBRARY)
+  endif()
+
+  if(NOT TARGET CURL::rustls)
+    add_library(CURL::rustls INTERFACE IMPORTED)
+    set_target_properties(CURL::rustls PROPERTIES
+      INTERFACE_LIBCURL_PC_MODULES "${_rustls_pc_requires}"
+      INTERFACE_COMPILE_OPTIONS "${_rustls_CFLAGS}"
+      INTERFACE_INCLUDE_DIRECTORIES "${_rustls_INCLUDE_DIRS}"
+      INTERFACE_LINK_DIRECTORIES "${_rustls_LIBRARY_DIRS}"
+      INTERFACE_LINK_LIBRARIES "${_rustls_LIBRARIES}")
+  endif()
+endif()

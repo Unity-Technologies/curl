@@ -21,55 +21,44 @@
  * SPDX-License-Identifier: curl
  *
  ***************************************************************************/
-
 #include "curl_setup.h"
-
-#include <curl/curl.h>
 
 #include "curl_trc.h"
 #include "urldata.h"
-#include "easyif.h"
 #include "cfilters.h"
-#include "timeval.h"
 #include "multiif.h"
-#include "strcase.h"
 
+#include "cf-dns.h"
 #include "cf-socket.h"
 #include "connect.h"
-#include "doh.h"
 #include "http2.h"
 #include "http_proxy.h"
 #include "cf-h1-proxy.h"
 #include "cf-h2-proxy.h"
 #include "cf-haproxy.h"
 #include "cf-https-connect.h"
+#include "cf-ip-happy.h"
+#include "progress.h"
 #include "socks.h"
-#include "strtok.h"
+#include "curlx/strparse.h"
 #include "vtls/vtls.h"
 #include "vquic/vquic.h"
+#include "curlx/strcopy.h"
 
-/* The last 3 #include files should be in this order */
-#include "curl_printf.h"
-#include "curl_memory.h"
-#include "memdebug.h"
-
-#ifndef ARRAYSIZE
-#define ARRAYSIZE(A) (sizeof(A)/sizeof((A)[0]))
-#endif
-
-void Curl_debug(struct Curl_easy *data, curl_infotype type,
-                char *ptr, size_t size)
+static void trc_write(struct Curl_easy *data, curl_infotype type,
+                      const char *ptr, size_t size)
 {
   if(data->set.verbose) {
-    static const char s_infotype[CURLINFO_END][3] = {
-      "* ", "< ", "> ", "{ ", "} ", "{ ", "} " };
     if(data->set.fdebug) {
       bool inCallback = Curl_is_in_callback(data);
-      Curl_set_in_callback(data, true);
-      (void)(*data->set.fdebug)(data, type, ptr, size, data->set.debugdata);
+      Curl_set_in_callback(data, TRUE);
+      (void)(*data->set.fdebug)(data, type, CURL_UNCONST(ptr), size,
+                                data->set.debugdata);
       Curl_set_in_callback(data, inCallback);
     }
     else {
+      static const char s_infotype[CURLINFO_END][3] = {
+        "* ", "< ", "> ", "{ ", "} ", "{ ", "} " };
       switch(type) {
       case CURLINFO_TEXT:
       case CURLINFO_HEADER_OUT:
@@ -84,6 +73,103 @@ void Curl_debug(struct Curl_easy *data, curl_infotype type,
   }
 }
 
+/* max length we trace before ending in '...' */
+#define TRC_LINE_MAX 2048
+
+#define CURL_TRC_FMT_IDSC   "[x-%" CURL_FORMAT_CURL_OFF_T "] "
+#define CURL_TRC_FMT_IDSD   "[%" CURL_FORMAT_CURL_OFF_T "-x] "
+#define CURL_TRC_FMT_IDSDC  "[%" CURL_FORMAT_CURL_OFF_T "-%" \
+                            CURL_FORMAT_CURL_OFF_T "] "
+
+static struct curl_trc_feat Curl_trc_feat_ids = {
+  "LIB-IDS",
+  CURL_LOG_LVL_NONE,
+};
+#define CURL_TRC_IDS(data) \
+  (Curl_trc_is_verbose(data) && \
+  Curl_trc_feat_ids.log_level >= CURL_LOG_LVL_INFO)
+
+static size_t trc_print_ids(struct Curl_easy *data, char *buf, size_t maxlen)
+{
+  curl_off_t cid = data->conn ?
+                   data->conn->connection_id : data->state.recent_conn_id;
+  if(data->id >= 0) {
+    if(cid >= 0)
+      return curl_msnprintf(buf, maxlen, CURL_TRC_FMT_IDSDC, data->id, cid);
+    else
+      return curl_msnprintf(buf, maxlen, CURL_TRC_FMT_IDSD, data->id);
+  }
+  else if(cid >= 0)
+    return curl_msnprintf(buf, maxlen, CURL_TRC_FMT_IDSC, cid);
+  else {
+    return curl_msnprintf(buf, maxlen, "[x-x] ");
+  }
+}
+
+static size_t trc_end_buf(char *buf, size_t len, size_t maxlen, bool addnl)
+{
+  /* make sure we end the trace line in `buf` properly. It needs
+   * to end with a terminating '\0' or '\n\0' */
+  if(len >= (maxlen - (addnl ? 2 : 1))) {
+    len = maxlen - 5;
+    buf[len++] = '.';
+    buf[len++] = '.';
+    buf[len++] = '.';
+    buf[len++] = '\n';
+  }
+  else if(addnl)
+    buf[len++] = '\n';
+  buf[len] = '\0';
+  return len;
+}
+
+void Curl_debug(struct Curl_easy *data, curl_infotype type,
+                const char *ptr, size_t size)
+{
+  if(data->set.verbose) {
+    static const char s_infotype[CURLINFO_END][3] = {
+      "* ", "< ", "> ", "{ ", "} ", "{ ", "} " };
+    char buf[TRC_LINE_MAX];
+    size_t len;
+    if(data->set.fdebug) {
+      bool inCallback = Curl_is_in_callback(data);
+
+      if(CURL_TRC_IDS(data) && (size < TRC_LINE_MAX)) {
+        len = trc_print_ids(data, buf, TRC_LINE_MAX);
+        len += curl_msnprintf(buf + len, TRC_LINE_MAX - len, "%.*s",
+                              (int)size, ptr);
+        len = trc_end_buf(buf, len, TRC_LINE_MAX, FALSE);
+        Curl_set_in_callback(data, TRUE);
+        (void)(*data->set.fdebug)(data, type, buf, len, data->set.debugdata);
+        Curl_set_in_callback(data, inCallback);
+      }
+      else {
+        Curl_set_in_callback(data, TRUE);
+        (void)(*data->set.fdebug)(data, type, CURL_UNCONST(ptr),
+                                  size, data->set.debugdata);
+        Curl_set_in_callback(data, inCallback);
+      }
+    }
+    else {
+      switch(type) {
+      case CURLINFO_TEXT:
+      case CURLINFO_HEADER_OUT:
+      case CURLINFO_HEADER_IN:
+#ifndef CURL_DISABLE_VERBOSE_STRINGS
+        if(CURL_TRC_IDS(data)) {
+          len = trc_print_ids(data, buf, TRC_LINE_MAX);
+          fwrite(buf, len, 1, data->set.err);
+        }
+#endif
+        fwrite(s_infotype[type], 2, 1, data->set.err);
+        fwrite(ptr, size, 1, data->set.err);
+        break;
+      default: /* nada */
+        break;
+      }
+    }
+  }
+}
 
 /* Curl_failf() is for messages stating why we failed.
  * The message SHALL NOT include any LF or CR.
@@ -93,85 +179,34 @@ void Curl_failf(struct Curl_easy *data, const char *fmt, ...)
   DEBUGASSERT(!strchr(fmt, '\n'));
   if(data->set.verbose || data->set.errorbuffer) {
     va_list ap;
-    int len;
+    size_t len;
     char error[CURL_ERROR_SIZE + 2];
     va_start(ap, fmt);
-    len = mvsnprintf(error, CURL_ERROR_SIZE, fmt, ap);
+    len = curl_mvsnprintf(error, CURL_ERROR_SIZE, fmt, ap);
 
     if(data->set.errorbuffer && !data->state.errorbuf) {
-      strcpy(data->set.errorbuffer, error);
+      curlx_strcopy(data->set.errorbuffer, CURL_ERROR_SIZE, error, len);
       data->state.errorbuf = TRUE; /* wrote error string */
     }
     error[len++] = '\n';
     error[len] = '\0';
-    Curl_debug(data, CURLINFO_TEXT, error, len);
+    trc_write(data, CURLINFO_TEXT, error, len);
     va_end(ap);
   }
 }
 
-#if !defined(CURL_DISABLE_VERBOSE_STRINGS)
-
-/* Curl_infof() is for info message along the way */
-#define MAXINFO 2048
-
-static void trc_infof(struct Curl_easy *data, struct curl_trc_feat *feat,
-                      const char * const fmt, va_list ap)  CURL_PRINTF(3, 0);
-
-static void trc_infof(struct Curl_easy *data, struct curl_trc_feat *feat,
-                      const char * const fmt, va_list ap)
+void Curl_reset_fail(struct Curl_easy *data)
 {
-  int len = 0;
-  char buffer[MAXINFO + 5];
-  if(feat)
-    len = msnprintf(buffer, (MAXINFO + 1), "[%s] ", feat->name);
-  len += mvsnprintf(buffer + len, (MAXINFO + 1) - len, fmt, ap);
-  if(len >= MAXINFO) { /* too long, shorten with '...' */
-    --len;
-    buffer[len++] = '.';
-    buffer[len++] = '.';
-    buffer[len++] = '.';
-  }
-  buffer[len++] = '\n';
-  buffer[len] = '\0';
-  Curl_debug(data, CURLINFO_TEXT, buffer, len);
+  if(data->set.errorbuffer)
+    data->set.errorbuffer[0] = 0;
+  data->state.errorbuf = FALSE;
 }
 
-void Curl_infof(struct Curl_easy *data, const char *fmt, ...)
-{
-  DEBUGASSERT(!strchr(fmt, '\n'));
-  if(Curl_trc_is_verbose(data)) {
-    va_list ap;
-    va_start(ap, fmt);
-    trc_infof(data, data->state.feat, fmt, ap);
-    va_end(ap);
-  }
-}
-
-void Curl_trc_cf_infof(struct Curl_easy *data, struct Curl_cfilter *cf,
-                       const char *fmt, ...)
-{
-  DEBUGASSERT(cf);
-  if(Curl_trc_cf_is_verbose(cf, data)) {
-    va_list ap;
-    int len = 0;
-    char buffer[MAXINFO + 2];
-    if(data->state.feat)
-      len += msnprintf(buffer + len, MAXINFO - len, "[%s] ",
-                       data->state.feat->name);
-    if(cf->sockindex)
-      len += msnprintf(buffer + len, MAXINFO - len, "[%s-%d] ",
-                      cf->cft->name, cf->sockindex);
-    else
-      len += msnprintf(buffer + len, MAXINFO - len, "[%s] ", cf->cft->name);
-    va_start(ap, fmt);
-    len += mvsnprintf(buffer + len, MAXINFO - len, fmt, ap);
-    va_end(ap);
-    buffer[len++] = '\n';
-    buffer[len] = '\0';
-    Curl_debug(data, CURLINFO_TEXT, buffer, len);
-  }
-}
-
+#ifdef CURLVERBOSE
+struct curl_trc_feat Curl_trc_feat_multi = {
+  "MULTI",
+  CURL_LOG_LVL_NONE,
+};
 struct curl_trc_feat Curl_trc_feat_read = {
   "READ",
   CURL_LOG_LVL_NONE,
@@ -180,6 +215,180 @@ struct curl_trc_feat Curl_trc_feat_write = {
   "WRITE",
   CURL_LOG_LVL_NONE,
 };
+struct curl_trc_feat Curl_trc_feat_dns = {
+  "DNS",
+  CURL_LOG_LVL_NONE,
+};
+struct curl_trc_feat Curl_trc_feat_timer = {
+  "TIMER",
+  CURL_LOG_LVL_NONE,
+};
+#ifdef USE_THREADS
+struct curl_trc_feat Curl_trc_feat_threads = {
+  "THREADS",
+  CURL_LOG_LVL_NONE,
+};
+#endif
+#endif
+
+#ifndef CURL_DISABLE_VERBOSE_STRINGS
+
+static void trc_infof(struct Curl_easy *data,
+                      struct curl_trc_feat *feat,
+                      const char *opt_id, int opt_id_idx,
+                      const char * const fmt, va_list ap) CURL_PRINTF(5, 0);
+
+static void trc_infof(struct Curl_easy *data,
+                      struct curl_trc_feat *feat,
+                      const char *opt_id, int opt_id_idx,
+                      const char * const fmt, va_list ap)
+{
+  size_t len = 0;
+  char buf[TRC_LINE_MAX];
+
+  if(CURL_TRC_IDS(data))
+    len += trc_print_ids(data, buf + len, TRC_LINE_MAX - len);
+  if(feat)
+    len += curl_msnprintf(buf + len, TRC_LINE_MAX - len, "[%s] ", feat->name);
+  if(opt_id) {
+    if(opt_id_idx > 0)
+      len += curl_msnprintf(buf + len, TRC_LINE_MAX - len, "[%s-%d] ",
+                            opt_id, opt_id_idx);
+    else
+      len += curl_msnprintf(buf + len, TRC_LINE_MAX - len, "[%s] ", opt_id);
+  }
+  len += curl_mvsnprintf(buf + len, TRC_LINE_MAX - len, fmt, ap);
+  len = trc_end_buf(buf, len, TRC_LINE_MAX, TRUE);
+  trc_write(data, CURLINFO_TEXT, buf, len);
+}
+
+void Curl_infof(struct Curl_easy *data, const char *fmt, ...)
+{
+  DEBUGASSERT(!strchr(fmt, '\n'));
+  if(Curl_trc_is_verbose(data)) {
+    va_list ap;
+    va_start(ap, fmt);
+    trc_infof(data, data->state.feat, NULL, 0, fmt, ap);
+    va_end(ap);
+  }
+}
+
+void Curl_trc_cf_infof(struct Curl_easy *data, const struct Curl_cfilter *cf,
+                       const char *fmt, ...)
+{
+  DEBUGASSERT(cf);
+  if(Curl_trc_cf_is_verbose(cf, data)) {
+    va_list ap;
+    va_start(ap, fmt);
+    trc_infof(data, data->state.feat, cf->cft->name, cf->sockindex, fmt, ap);
+    va_end(ap);
+  }
+}
+
+void Curl_trc_feat_infof(struct Curl_easy *data,
+                         struct curl_trc_feat *feat,
+                         const char *fmt, ...)
+{
+  DEBUGASSERT(feat);
+  if(Curl_trc_ft_is_verbose(data, feat)) {
+    va_list ap;
+    va_start(ap, fmt);
+    trc_infof(data, feat, NULL, 0, fmt, ap);
+    va_end(ap);
+  }
+}
+
+static const char * const Curl_trc_timer_names[] = {
+  "100_TIMEOUT",
+  "ASYNC_NAME",
+  "CONNECTTIMEOUT",
+  "DNS_PER_NAME",
+  "DNS_PER_NAME2",
+  "HAPPY_EYEBALLS_DNS",
+  "HAPPY_EYEBALLS",
+  "MULTI_PENDING",
+  "SPEEDCHECK",
+  "TIMEOUT",
+  "TOOFAST",
+  "QUIC",
+  "FTP_ACCEPT",
+  "ALPN_EYEBALLS",
+  "SHUTDOWN",
+};
+
+static const char *trc_timer_name(int tid)
+{
+  if((tid >= 0) && ((size_t)tid < CURL_ARRAYSIZE(Curl_trc_timer_names)))
+    return Curl_trc_timer_names[(size_t)tid];
+  return "UNKNOWN?";
+}
+
+void Curl_trc_timer(struct Curl_easy *data, int tid, const char *fmt, ...)
+{
+  DEBUGASSERT(!strchr(fmt, '\n'));
+  if(Curl_trc_ft_is_verbose(data, &Curl_trc_feat_timer)) {
+    const char *tname = trc_timer_name(tid);
+    va_list ap;
+    va_start(ap, fmt);
+    trc_infof(data, &Curl_trc_feat_timer, tname, 0, fmt, ap);
+    va_end(ap);
+  }
+}
+
+void Curl_trc_easy_timers(struct Curl_easy *data)
+{
+  if(CURL_TRC_TIMER_is_verbose(data)) {
+    struct Curl_llist_node *e = Curl_llist_head(&data->state.timeoutlist);
+    if(e) {
+      const struct curltime *pnow = Curl_pgrs_now(data);
+      while(e) {
+        struct time_node *n = Curl_node_elem(e);
+        e = Curl_node_next(e);
+        CURL_TRC_TIMER(data, n->eid, "expires in %" FMT_TIMEDIFF_T "ns",
+                       curlx_ptimediff_us(&n->time, pnow));
+      }
+    }
+  }
+}
+
+static const char * const Curl_trc_mstate_names[] = {
+  "INIT",
+  "PENDING",
+  "SETUP",
+  "CONNECT",
+  "CONNECTING",
+  "PROTOCONNECT",
+  "PROTOCONNECTING",
+  "DO",
+  "DOING",
+  "DOING_MORE",
+  "DID",
+  "PERFORMING",
+  "RATELIMITING",
+  "DONE",
+  "COMPLETED",
+  "MSGSENT",
+};
+
+const char *Curl_trc_mstate_name(int state)
+{
+  if((state >= 0) && ((size_t)state < CURL_ARRAYSIZE(Curl_trc_mstate_names)))
+    return Curl_trc_mstate_names[(size_t)state];
+  return "?";
+}
+
+void Curl_trc_multi(struct Curl_easy *data, const char *fmt, ...)
+{
+  DEBUGASSERT(!strchr(fmt, '\n'));
+  if(Curl_trc_ft_is_verbose(data, &Curl_trc_feat_multi)) {
+    const char *sname = (data->id >= 0) ?
+                        Curl_trc_mstate_name(data->mstate) : NULL;
+    va_list ap;
+    va_start(ap, fmt);
+    trc_infof(data, &Curl_trc_feat_multi, sname, 0, fmt, ap);
+    va_end(ap);
+  }
+}
 
 void Curl_trc_read(struct Curl_easy *data, const char *fmt, ...)
 {
@@ -187,7 +396,7 @@ void Curl_trc_read(struct Curl_easy *data, const char *fmt, ...)
   if(Curl_trc_ft_is_verbose(data, &Curl_trc_feat_read)) {
     va_list ap;
     va_start(ap, fmt);
-    trc_infof(data, &Curl_trc_feat_read, fmt, ap);
+    trc_infof(data, &Curl_trc_feat_read, NULL, 0, fmt, ap);
     va_end(ap);
   }
 }
@@ -198,7 +407,18 @@ void Curl_trc_write(struct Curl_easy *data, const char *fmt, ...)
   if(Curl_trc_ft_is_verbose(data, &Curl_trc_feat_write)) {
     va_list ap;
     va_start(ap, fmt);
-    trc_infof(data, &Curl_trc_feat_write, fmt, ap);
+    trc_infof(data, &Curl_trc_feat_write, NULL, 0, fmt, ap);
+    va_end(ap);
+  }
+}
+
+void Curl_trc_dns(struct Curl_easy *data, const char *fmt, ...)
+{
+  DEBUGASSERT(!strchr(fmt, '\n'));
+  if(Curl_trc_ft_is_verbose(data, &Curl_trc_feat_dns)) {
+    va_list ap;
+    va_start(ap, fmt);
+    trc_infof(data, &Curl_trc_feat_dns, NULL, 0, fmt, ap);
     va_end(ap);
   }
 }
@@ -215,7 +435,7 @@ void Curl_trc_ftp(struct Curl_easy *data, const char *fmt, ...)
   if(Curl_trc_ft_is_verbose(data, &Curl_trc_feat_ftp)) {
     va_list ap;
     va_start(ap, fmt);
-    trc_infof(data, &Curl_trc_feat_ftp, fmt, ap);
+    trc_infof(data, &Curl_trc_feat_ftp, NULL, 0, fmt, ap);
     va_end(ap);
   }
 }
@@ -233,13 +453,49 @@ void Curl_trc_smtp(struct Curl_easy *data, const char *fmt, ...)
   if(Curl_trc_ft_is_verbose(data, &Curl_trc_feat_smtp)) {
     va_list ap;
     va_start(ap, fmt);
-    trc_infof(data, &Curl_trc_feat_smtp, fmt, ap);
+    trc_infof(data, &Curl_trc_feat_smtp, NULL, 0, fmt, ap);
     va_end(ap);
   }
 }
 #endif /* !CURL_DISABLE_SMTP */
 
-#if defined(USE_WEBSOCKETS) && !defined(CURL_DISABLE_HTTP)
+#ifdef USE_SSL
+struct curl_trc_feat Curl_trc_feat_ssls = {
+  "SSLS",
+  CURL_LOG_LVL_NONE,
+};
+
+void Curl_trc_ssls(struct Curl_easy *data, const char *fmt, ...)
+{
+  DEBUGASSERT(!strchr(fmt, '\n'));
+  if(Curl_trc_ft_is_verbose(data, &Curl_trc_feat_ssls)) {
+    va_list ap;
+    va_start(ap, fmt);
+    trc_infof(data, &Curl_trc_feat_ssls, NULL, 0, fmt, ap);
+    va_end(ap);
+  }
+}
+#endif /* USE_SSL */
+
+#ifdef USE_SSH
+struct curl_trc_feat Curl_trc_feat_ssh = {
+  "SSH",
+  CURL_LOG_LVL_NONE,
+};
+
+void Curl_trc_ssh(struct Curl_easy *data, const char *fmt, ...)
+{
+  DEBUGASSERT(!strchr(fmt, '\n'));
+  if(Curl_trc_ft_is_verbose(data, &Curl_trc_feat_ssh)) {
+    va_list ap;
+    va_start(ap, fmt);
+    trc_infof(data, &Curl_trc_feat_ssh, NULL, 0, fmt, ap);
+    va_end(ap);
+  }
+}
+#endif /* USE_SSH */
+
+#if !defined(CURL_DISABLE_WEBSOCKETS) && !defined(CURL_DISABLE_HTTP)
 struct curl_trc_feat Curl_trc_feat_ws = {
   "WS",
   CURL_LOG_LVL_NONE,
@@ -251,16 +507,17 @@ void Curl_trc_ws(struct Curl_easy *data, const char *fmt, ...)
   if(Curl_trc_ft_is_verbose(data, &Curl_trc_feat_ws)) {
     va_list ap;
     va_start(ap, fmt);
-    trc_infof(data, &Curl_trc_feat_ws, fmt, ap);
+    trc_infof(data, &Curl_trc_feat_ws, NULL, 0, fmt, ap);
     va_end(ap);
   }
 }
-#endif /* USE_WEBSOCKETS && !CURL_DISABLE_HTTP */
+#endif /* !CURL_DISABLE_WEBSOCKETS && !CURL_DISABLE_HTTP */
 
-#define TRC_CT_NONE        (0)
-#define TRC_CT_PROTOCOL    (1<<(0))
-#define TRC_CT_NETWORK     (1<<(1))
-#define TRC_CT_PROXY       (1<<(2))
+#define TRC_CT_NONE        0
+#define TRC_CT_PROTOCOL    (1 << 0)
+#define TRC_CT_NETWORK     (1 << 1)
+#define TRC_CT_PROXY       (1 << 2)
+#define TRC_CT_INTERNALS   (1 << 3)
 
 struct trc_feat_def {
   struct curl_trc_feat *feat;
@@ -268,18 +525,28 @@ struct trc_feat_def {
 };
 
 static struct trc_feat_def trc_feats[] = {
+  { &Curl_trc_feat_ids,       TRC_CT_INTERNALS },
+  { &Curl_trc_feat_multi,     TRC_CT_NETWORK },
   { &Curl_trc_feat_read,      TRC_CT_NONE },
   { &Curl_trc_feat_write,     TRC_CT_NONE },
+  { &Curl_trc_feat_dns,       TRC_CT_NETWORK },
+  { &Curl_trc_feat_timer,     TRC_CT_NETWORK },
+#ifdef USE_THREADS
+  { &Curl_trc_feat_threads,   TRC_CT_NONE },
+#endif
 #ifndef CURL_DISABLE_FTP
   { &Curl_trc_feat_ftp,       TRC_CT_PROTOCOL },
-#endif
-#ifndef CURL_DISABLE_DOH
-  { &Curl_doh_trc,            TRC_CT_NETWORK },
 #endif
 #ifndef CURL_DISABLE_SMTP
   { &Curl_trc_feat_smtp,      TRC_CT_PROTOCOL },
 #endif
-#if defined(USE_WEBSOCKETS) && !defined(CURL_DISABLE_HTTP)
+#ifdef USE_SSL
+  { &Curl_trc_feat_ssls,      TRC_CT_NETWORK },
+#endif
+#ifdef USE_SSH
+  { &Curl_trc_feat_ssh,      TRC_CT_PROTOCOL },
+#endif
+#if !defined(CURL_DISABLE_WEBSOCKETS) && !defined(CURL_DISABLE_HTTP)
   { &Curl_trc_feat_ws,        TRC_CT_PROTOCOL },
 #endif
 };
@@ -290,13 +557,14 @@ struct trc_cft_def {
 };
 
 static struct trc_cft_def trc_cfts[] = {
+  { &Curl_cft_dns,            TRC_CT_NETWORK },
   { &Curl_cft_tcp,            TRC_CT_NETWORK },
   { &Curl_cft_udp,            TRC_CT_NETWORK },
   { &Curl_cft_unix,           TRC_CT_NETWORK },
   { &Curl_cft_tcp_accept,     TRC_CT_NETWORK },
-  { &Curl_cft_happy_eyeballs, TRC_CT_NETWORK },
+  { &Curl_cft_ip_happy,       TRC_CT_NETWORK },
   { &Curl_cft_setup,          TRC_CT_PROTOCOL },
-#ifdef USE_NGHTTP2
+#if !defined(CURL_DISABLE_HTTP) && defined(USE_NGHTTP2)
   { &Curl_cft_nghttp2,        TRC_CT_PROTOCOL },
 #endif
 #ifdef USE_SSL
@@ -305,8 +573,8 @@ static struct trc_cft_def trc_cfts[] = {
   { &Curl_cft_ssl_proxy,      TRC_CT_PROXY },
 #endif
 #endif
-#if !defined(CURL_DISABLE_PROXY)
-#if !defined(CURL_DISABLE_HTTP)
+#ifndef CURL_DISABLE_PROXY
+#ifndef CURL_DISABLE_HTTP
   { &Curl_cft_h1_proxy,       TRC_CT_PROXY },
 #ifdef USE_NGHTTP2
   { &Curl_cft_h2_proxy,       TRC_CT_PROXY },
@@ -316,41 +584,41 @@ static struct trc_cft_def trc_cfts[] = {
   { &Curl_cft_haproxy,        TRC_CT_PROXY },
   { &Curl_cft_socks_proxy,    TRC_CT_PROXY },
 #endif /* !CURL_DISABLE_PROXY */
-#ifdef USE_HTTP3
+#if !defined(CURL_DISABLE_HTTP) && defined(USE_HTTP3)
   { &Curl_cft_http3,          TRC_CT_PROTOCOL },
 #endif
-#if !defined(CURL_DISABLE_HTTP) && !defined(USE_HYPER)
+#ifndef CURL_DISABLE_HTTP
   { &Curl_cft_http_connect,   TRC_CT_PROTOCOL },
 #endif
 };
 
-static void trc_apply_level_by_name(const char * const token, int lvl)
+static void trc_apply_level_by_name(struct Curl_str *token, int lvl)
 {
   size_t i;
 
-  for(i = 0; i < ARRAYSIZE(trc_cfts); ++i) {
-    if(strcasecompare(token, trc_cfts[i].cft->name)) {
+  for(i = 0; i < CURL_ARRAYSIZE(trc_cfts); ++i) {
+    if(curlx_str_casecompare(token, trc_cfts[i].cft->name)) {
       trc_cfts[i].cft->log_level = lvl;
       break;
     }
   }
-  for(i = 0; i < ARRAYSIZE(trc_feats); ++i) {
-    if(strcasecompare(token, trc_feats[i].feat->name)) {
+  for(i = 0; i < CURL_ARRAYSIZE(trc_feats); ++i) {
+    if(curlx_str_casecompare(token, trc_feats[i].feat->name)) {
       trc_feats[i].feat->log_level = lvl;
       break;
     }
   }
 }
 
-static void trc_apply_level_by_category(int category, int lvl)
+static void trc_apply_level_by_category(unsigned int category, int lvl)
 {
   size_t i;
 
-  for(i = 0; i < ARRAYSIZE(trc_cfts); ++i) {
+  for(i = 0; i < CURL_ARRAYSIZE(trc_cfts); ++i) {
     if(!category || (trc_cfts[i].category & category))
       trc_cfts[i].cft->log_level = lvl;
   }
-  for(i = 0; i < ARRAYSIZE(trc_feats); ++i) {
+  for(i = 0; i < CURL_ARRAYSIZE(trc_feats); ++i) {
     if(!category || (trc_feats[i].category & category))
       trc_feats[i].feat->log_level = lvl;
   }
@@ -358,48 +626,42 @@ static void trc_apply_level_by_category(int category, int lvl)
 
 static CURLcode trc_opt(const char *config)
 {
-  char *token, *tok_buf, *tmp;
-  int lvl;
+  struct Curl_str out;
+  while(!curlx_str_until(&config, &out, 32, ',')) {
+    int lvl = CURL_LOG_LVL_INFO;
+    const char *token = curlx_str(&out);
 
-  tmp = strdup(config);
-  if(!tmp)
-    return CURLE_OUT_OF_MEMORY;
-
-  token = strtok_r(tmp, ", ", &tok_buf);
-  while(token) {
-    switch(*token) {
-      case '-':
-        lvl = CURL_LOG_LVL_NONE;
-        ++token;
-        break;
-      case '+':
-        lvl = CURL_LOG_LVL_INFO;
-        ++token;
-        break;
-      default:
-        lvl = CURL_LOG_LVL_INFO;
-        break;
+    if(*token == '-') {
+      lvl = CURL_LOG_LVL_NONE;
+      curlx_str_nudge(&out, 1);
     }
-    if(strcasecompare(token, "all"))
-      trc_apply_level_by_category(TRC_CT_NONE, lvl);
-    else if(strcasecompare(token, "protocol"))
-      trc_apply_level_by_category(TRC_CT_PROTOCOL, lvl);
-    else if(strcasecompare(token, "network"))
-      trc_apply_level_by_category(TRC_CT_NETWORK, lvl);
-    else if(strcasecompare(token, "proxy"))
-      trc_apply_level_by_category(TRC_CT_PROXY, lvl);
-    else
-      trc_apply_level_by_name(token, lvl);
+    else if(*token == '+')
+      curlx_str_nudge(&out, 1);
 
-    token = strtok_r(NULL, ", ", &tok_buf);
+    if(curlx_str_casecompare(&out, "all"))
+      trc_apply_level_by_category(TRC_CT_NONE, lvl);
+    else if(curlx_str_casecompare(&out, "protocol"))
+      trc_apply_level_by_category(TRC_CT_PROTOCOL, lvl);
+    else if(curlx_str_casecompare(&out, "network"))
+      trc_apply_level_by_category(TRC_CT_NETWORK, lvl);
+    else if(curlx_str_casecompare(&out, "proxy"))
+      trc_apply_level_by_category(TRC_CT_PROXY, lvl);
+    else if(curlx_str_casecompare(&out, "doh")) {
+      struct Curl_str dns = { "dns", 3 };
+      trc_apply_level_by_name(&dns, lvl);
+    }
+    else
+      trc_apply_level_by_name(&out, lvl);
+
+    if(curlx_str_single(&config, ','))
+      break;
   }
-  free(tmp);
   return CURLE_OK;
 }
 
 CURLcode Curl_trc_opt(const char *config)
 {
-  CURLcode result = config? trc_opt(config) : CURLE_OK;
+  CURLcode result = config ? trc_opt(config) : CURLE_OK;
 #ifdef DEBUGBUILD
   /* CURL_DEBUG can override anything */
   if(!result) {
@@ -420,11 +682,92 @@ CURLcode Curl_trc_init(void)
 #endif
 }
 
-#else /* defined(CURL_DISABLE_VERBOSE_STRINGS) */
+#else /* CURL_DISABLE_VERBOSE_STRINGS */
 
 CURLcode Curl_trc_init(void)
 {
   return CURLE_OK;
 }
 
-#endif /* !defined(CURL_DISABLE_VERBOSE_STRINGS) */
+void Curl_infof(struct Curl_easy *data, const char *fmt, ...)
+{
+  (void)data;
+  (void)fmt;
+}
+
+void Curl_trc_cf_infof(struct Curl_easy *data, const struct Curl_cfilter *cf,
+                       const char *fmt, ...)
+{
+  (void)data;
+  (void)cf;
+  (void)fmt;
+}
+
+void Curl_trc_multi(struct Curl_easy *data, const char *fmt, ...)
+{
+  (void)data;
+  (void)fmt;
+}
+
+void Curl_trc_write(struct Curl_easy *data, const char *fmt, ...)
+{
+  (void)data;
+  (void)fmt;
+}
+
+void Curl_trc_dns(struct Curl_easy *data, const char *fmt, ...)
+{
+  (void)data;
+  (void)fmt;
+}
+
+void Curl_trc_timer(struct Curl_easy *data, int tid, const char *fmt, ...)
+{
+  (void)data;
+  (void)tid;
+  (void)fmt;
+}
+
+void Curl_trc_read(struct Curl_easy *data, const char *fmt, ...)
+{
+  (void)data;
+  (void)fmt;
+}
+
+#ifndef CURL_DISABLE_FTP
+void Curl_trc_ftp(struct Curl_easy *data, const char *fmt, ...)
+{
+  (void)data;
+  (void)fmt;
+}
+#endif
+#ifndef CURL_DISABLE_SMTP
+void Curl_trc_smtp(struct Curl_easy *data, const char *fmt, ...)
+{
+  (void)data;
+  (void)fmt;
+}
+#endif
+#if !defined(CURL_DISABLE_WEBSOCKETS) && !defined(CURL_DISABLE_HTTP)
+void Curl_trc_ws(struct Curl_easy *data, const char *fmt, ...)
+{
+  (void)data;
+  (void)fmt;
+}
+#endif
+#ifdef USE_SSH
+void Curl_trc_ssh(struct Curl_easy *data, const char *fmt, ...)
+{
+  (void)data;
+  (void)fmt;
+}
+#endif
+#ifdef USE_SSL
+void Curl_trc_ssls(struct Curl_easy *data, const char *fmt, ...)
+{
+  (void)data;
+  (void)fmt;
+}
+#endif
+
+#endif /* !CURL_DISABLE_VERBOSE_STRINGS */

@@ -60,17 +60,17 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
-    CURLcode res;
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com/foo.bin");
 
     /* only reuse certificate stores for a short time */
     curl_easy_setopt(curl, CURLOPT_CA_CACHE_TIMEOUT, 60L);
 
-    res = curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
 
     /* in this second request, the cache is not used if more than
        sixty seconds passed since the previous connection */
-    res = curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
 
     curl_easy_cleanup(curl);
   }
@@ -86,4 +86,7 @@ This option is supported by OpenSSL and its forks (since 7.87.0), Schannel
 
 # RETURN VALUE
 
-Returns CURLE_OK
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

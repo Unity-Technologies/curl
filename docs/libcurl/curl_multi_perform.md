@@ -40,8 +40,8 @@ or a timeout has elapsed, the application should call this function to
 read/write whatever there is to read or write right now etc.
 curl_multi_perform(3) returns as soon as the reads/writes are done. This
 function does not require that there actually is any data available for
-reading or that data can be written, it can be called just in case. It stores
-the number of handles that still transfer data in the second argument's
+reading or that data can be written, it can be called as a precaution. It
+stores the number of handles that still transfer data in the second argument's
 integer-pointer.
 
 If the amount of *running_handles* is changed from the previous call (or
@@ -69,24 +69,29 @@ removing all the handles and adding new ones.
 int main(void)
 {
   int still_running;
-  CURL *multi = curl_multi_init();
+  CURLM *multi = curl_multi_init();
   CURL *curl = curl_easy_init();
   if(curl) {
     curl_multi_add_handle(multi, curl);
-    do {
-      CURLMcode mc = curl_multi_perform(multi, &still_running);
-
-      if(!mc && still_running)
-        /* wait for activity, timeout or "nothing" */
-        mc = curl_multi_poll(multi, NULL, 0, 1000, NULL);
-
-      if(mc) {
-        fprintf(stderr, "curl_multi_poll() failed, code %d.\n", (int)mc);
+    for(;;) {
+      CURLMcode mresult = curl_multi_perform(multi, &still_running);
+      if(mresult != CURLM_OK) {
+        fprintf(stderr, "curl_multi_perform() failed, code %d.\n",
+                (int)mresult);
         break;
       }
 
-    /* if there are still transfers, loop! */
-    } while(still_running);
+      if(!still_running) {
+        break;
+      }
+
+      /* wait for activity, timeout or "nothing" */
+      mresult = curl_multi_poll(multi, NULL, 0, 1000, NULL);
+      if(mresult != CURLM_OK) {
+        fprintf(stderr, "curl_multi_poll() failed, code %d.\n", (int)mresult);
+        break;
+      }
+    } /* if there are still transfers, loop */
   }
 }
 ~~~
@@ -95,12 +100,15 @@ int main(void)
 
 # RETURN VALUE
 
-CURLMcode type, general libcurl multi interface error code.
+This function returns a CURLMcode indicating success or error.
+
+CURLM_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).
 
 This function returns errors regarding the whole multi stack. Problems on
 individual transfers may have occurred even when this function returns
-*CURLM_OK*. Use curl_multi_info_read(3) to figure out how individual
-transfers did.
+*CURLM_OK*. Use curl_multi_info_read(3) to figure out how individual transfers
+did.
 
 # TYPICAL USAGE
 

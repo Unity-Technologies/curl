@@ -55,7 +55,7 @@ int main(void)
   CURL *curl = curl_easy_init();
   if(curl) {
     struct curl_slist *list;
-    CURLcode res;
+    CURLcode result;
 
     /* Adding one valid and one invalid email address */
     list = curl_slist_append(NULL, "person@example.com");
@@ -64,7 +64,7 @@ int main(void)
     curl_easy_setopt(curl, CURLOPT_URL, "smtp://example.com/");
     curl_easy_setopt(curl, CURLOPT_MAIL_RCPT_ALLOWFAILS, 1L);
 
-    res = curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
     curl_slist_free_all(list);
     curl_easy_cleanup(curl);
   }
@@ -80,4 +80,7 @@ two letter L) before 8.2.0
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

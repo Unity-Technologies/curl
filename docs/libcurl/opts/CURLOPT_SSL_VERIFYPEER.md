@@ -38,7 +38,7 @@ This option determines whether curl verifies the authenticity of the peer's
 certificate. A value of 1 means curl verifies; 0 (zero) means it does not.
 
 When negotiating a TLS or SSL connection, the server sends a certificate
-indicating its identity. Curl verifies whether the certificate is authentic,
+indicating its identity. curl verifies whether the certificate is authentic,
 i.e. that you can trust that the server is who the certificate says it is.
 This trust is based on a chain of digital signatures, rooted in certification
 authority (CA) certificates you supply. curl uses a default bundle of CA
@@ -50,7 +50,7 @@ When CURLOPT_SSL_VERIFYPEER(3) is enabled, and the verification fails to
 prove that the certificate is signed by a CA, the connection fails.
 
 When this option is disabled (set to zero), the CA certificates are not loaded
-and the peer certificate verification is simply skipped.
+and the peer certificate verification is skipped.
 
 Authenticating the certificate is not enough to be sure about the server. You
 typically also want to ensure that the server is the server you mean to be
@@ -58,11 +58,11 @@ talking to. Use CURLOPT_SSL_VERIFYHOST(3) for that. The check that the host
 name in the certificate is valid for the hostname you are connecting to is
 done independently of the CURLOPT_SSL_VERIFYPEER(3) option.
 
-WARNING: disabling verification of the certificate allows bad guys to
+**WARNING:** disabling verification of the certificate allows bad guys to
 man-in-the-middle the communication without you knowing it. Disabling
-verification makes the communication insecure. Just having encryption on a
-transfer is not enough as you cannot be sure that you are communicating with
-the correct end-point.
+verification makes the communication insecure. Having encryption on a transfer
+is not enough as you cannot be sure that you are communicating with the
+correct end-point.
 
 When libcurl uses secure protocols it trusts responses and allows for example
 HSTS and Alt-Svc information to be stored and used subsequently. Disabling
@@ -82,12 +82,14 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com");
 
     /* Set the default value: strict certificate check please */
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
 
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
   }
 }
 ~~~
@@ -96,4 +98,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

@@ -16,7 +16,7 @@ TLS-backend:
   - OpenSSL
   - GnuTLS
   - Schannel
-  - Secure Transport
+  - Rustls
 Added-in: 7.19.1
 ---
 
@@ -53,7 +53,7 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
-    CURLcode res;
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "https://www.example.com/");
 
     /* connect to any HTTPS site, trusted or not */
@@ -62,13 +62,13 @@ int main(void)
 
     curl_easy_setopt(curl, CURLOPT_CERTINFO, 1L);
 
-    res = curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
 
-    if(!res) {
+    if(result == CURLE_OK) {
       struct curl_certinfo *ci;
-      res = curl_easy_getinfo(curl, CURLINFO_CERTINFO, &ci);
+      result = curl_easy_getinfo(curl, CURLINFO_CERTINFO, &ci);
 
-      if(!res) {
+      if(result == CURLE_OK) {
         int i;
         printf("%d certs!\n", ci->num_of_certs);
 
@@ -87,11 +87,13 @@ int main(void)
 
 # HISTORY
 
-Schannel support added in 7.50.0. Secure Transport support added in 7.79.0.
-mbedTLS support added in 8.9.0.
+Schannel support added in 7.50.0. mbedTLS support added in 8.9.0.
 
 # %AVAILABILITY%
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

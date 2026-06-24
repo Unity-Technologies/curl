@@ -23,22 +23,29 @@
 #
 ###########################################################################
 
+use strict;
+use warnings;
+
 my $varname = "var";
-if($ARGV[0] eq "--var") {
+if(@ARGV && $ARGV[0] eq "--var") {
     shift;
     $varname = shift @ARGV;
 }
+
+my $varname_upper = uc($varname);
 
 print <<HEAD
 /*
  * NEVER EVER edit this manually, fix the mk-file-embed.pl script instead!
  */
-extern const unsigned char ${varname}[];
+/* !checksrc! disable COPYRIGHT all */
+#include "tool_setup.h"
+
 const unsigned char ${varname}[] = {
 HEAD
     ;
 
-while (<STDIN>) {
+while(<STDIN>) {
     my $line = $_;
     foreach my $n (split //, $line) {
         my $ord = ord($n);

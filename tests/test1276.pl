@@ -23,15 +23,18 @@
 #
 ###########################################################################
 
+use strict;
+use warnings;
+
 sub showline {
     my ($l) = @_;
     $l =~ s/([^\x20-\x7f])/sprintf "%%%02x", ord $1/eg;
     return $l;
 }
 
-my $root = $ARGV[0];
+my $root = $ARGV[0] || '..';
 
-open(my $fh, "-|", "perl $root/lib/optiontable.pl < $root/include/curl/curl.h");
+open(my $fh, "-|", 'perl', "$root/lib/optiontable.pl", "$root/include/curl/curl.h");
 binmode $fh;
 my @gen=<$fh>;
 close($fh);

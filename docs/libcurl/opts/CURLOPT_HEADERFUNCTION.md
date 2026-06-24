@@ -43,12 +43,12 @@ shown above.
 This callback function gets invoked by libcurl as soon as it has received
 header data. The header callback is called once for each header and only
 complete header lines are passed on to the callback. Parsing headers is easy
-to do using this callback. *buffer* points to the delivered data, and the
-size of that data is *nitems*; *size* is always 1. The provide header
-line is not null-terminated!
+to do using this callback. *buffer* points to the delivered data, and the size
+of that data is *nitems*; *size* is always 1. The provided header line is not
+null-terminated. Do not modify the passed in buffer.
 
-The pointer named *userdata* is the one you set with the
-CURLOPT_HEADERDATA(3) option.
+The pointer named *userdata* is the one you set with the CURLOPT_HEADERDATA(3)
+option.
 
 Your callback should return the number of bytes actually taken care of. If
 that amount differs from the amount passed to your callback function, it
@@ -67,11 +67,11 @@ CURLOPT_WRITEFUNCTION(3), or if it is not specified or NULL - the
 default, stream-writing function.
 
 It is important to note that the callback is invoked for the headers of all
-responses received after initiating a request and not just the final
-response. This includes all responses which occur during authentication
-negotiation. If you need to operate on only the headers from the final
-response, you need to collect headers in the callback yourself and use HTTP
-status lines, for example, to delimit response boundaries.
+responses received after initiating a request and not the final response. This
+includes all responses which occur during authentication negotiation. If you
+need to operate on only the headers from the final response, you need to
+collect headers in the callback yourself and use HTTP status lines, for
+example, to delimit response boundaries.
 
 For an HTTP transfer, the status line and the blank line preceding the response
 body are both included as headers and passed to this function.
@@ -95,7 +95,7 @@ curl_easy_header(3).
 libcurl does not unfold HTTP "folded headers" (deprecated since RFC 7230). A
 folded header is a header that continues on a subsequent line and starts with
 a whitespace. Such folds are passed to the header callback as separate ones,
-although strictly they are just continuations of the previous lines.
+although strictly they are continuations of the previous lines.
 
 # DEFAULT
 
@@ -109,20 +109,23 @@ Nothing.
 static size_t header_callback(char *buffer, size_t size,
                               size_t nitems, void *userdata)
 {
-  /* received header is nitems * size long in 'buffer' NOT ZERO TERMINATED */
+  /* received header is 'nitems' bytes in 'buffer' NOT NULL-TERMINATED */
   /* 'userdata' is set with CURLOPT_HEADERDATA */
-  return nitems * size;
+  return nitems;
 }
 
 int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com");
 
     curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, header_callback);
 
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
+
+    curl_easy_cleanup(curl);
   }
 }
 ~~~
@@ -131,4 +134,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

@@ -43,7 +43,7 @@ my $rc = eval {
 };
 # Set default values if configure has not generated a configurehelp.pm file.
 # This is the case with cmake.
-if (!$rc) {
+if(!$rc) {
     $Cpreprocessor = 'cpp';
 }
 
@@ -55,7 +55,7 @@ if($ARGV[0] eq "-v") {
     shift;
 }
 
-# we may get the dir root pointed out
+# we may get the directory root pointed out
 my $root=$ARGV[0] || ".";
 
 # need an include directory when building out-of-tree
@@ -67,8 +67,6 @@ my $summary=0;
 my $misses=0;
 
 my @syms;
-my %doc;
-my %rem;
 
 sub scanenums {
     my ($file)=@_;
@@ -76,10 +74,10 @@ sub scanenums {
 
     open H_IN, "-|", "$Cpreprocessor -DCURL_DISABLE_DEPRECATION $i$file" ||
         die "Cannot preprocess $file";
-    while ( <H_IN> ) {
+    while(<H_IN>) {
         my ($line, $linenum) = ($_, $.);
-        if( /^#(line|) (\d+) \"(.*)\"/) {
-            # if the included file isn't in our incdir, then we skip this section
+        if(/^#(line|) (\d+) \"(.*)\"/) {
+            # if the included file is not in our incdir, then we skip this section
             # until next #line
             #
             if($3 !~ /^$incdir/) {
@@ -93,10 +91,10 @@ sub scanenums {
         if($skipit) {
             next;
         }
-        if (/^#/) {
+        if(/^#/) {
             next;
         }
-        if ( /enum\s+(\S+\s+)?{/ .. /}/ ) {
+        if(/enum\s+(\S+\s+)?{/ .. /}/) {
             s/^\s+//;
             chomp;
             s/[,\s].*//;
@@ -121,10 +119,10 @@ sub scanenums {
 sub scanheader {
     my ($f)=@_;
     scanenums($f);
-    open H, "<$f";
+    open(H, '<', $f);
     while(<H>) {
         my ($line, $linenum) = ($_, $.);
-        if (/^#define +([^ \n]*)/) {
+        if(/^ *# *define +([^ \n]*)/) {
             if($verbose) {
                 print "Source: $f\n";
                 print "Symbol: $1\n";
@@ -136,8 +134,7 @@ sub scanheader {
     close H;
 }
 
-
-opendir(my $dh, $incdir) || die "Can't opendir $incdir: $!";
+opendir(my $dh, $incdir) || die "Cannot opendir $incdir: $!";
 my @hfiles = grep { /\.h$/ } readdir($dh);
 closedir $dh;
 

@@ -21,7 +21,7 @@ curl_easy_pause - pause and unpause a connection
 ~~~c
 #include <curl/curl.h>
 
-CURLcode curl_easy_pause(CURL *handle, int bitmask );
+CURLcode curl_easy_pause(CURL *handle, int action);
 ~~~
 
 # DESCRIPTION
@@ -32,11 +32,10 @@ most other libcurl functions, curl_easy_pause(3) can be used from within
 callbacks.
 
 A connection can be paused by using this function or by letting the read or
-the write callbacks return the proper magic return code
-(*CURL_READFUNC_PAUSE* and *CURL_WRITEFUNC_PAUSE*). A write callback
-that returns pause signals to the library that it could not take care of any
-data at all, and that data is then delivered again to the callback when the
-transfer is unpaused.
+the write callbacks return the proper return code (*CURL_READFUNC_PAUSE* and
+*CURL_WRITEFUNC_PAUSE*). A write callback that returns pause signals to the
+library that it could not take care of any data at all, and that data is then
+delivered again to the callback when the transfer is unpaused.
 
 While it may feel tempting, take care and notice that you cannot call this
 function from another thread. To unpause, you may for example call it from the
@@ -55,7 +54,7 @@ A paused transfer is excluded from low speed cancels via the
 CURLOPT_LOW_SPEED_LIMIT(3) option and unpausing a transfer resets the
 time period required for the low speed limit to be met.
 
-The **bitmask** argument is a set of bits that sets the new state of the
+The **action** argument is a set of bits that sets the new state of the
 connection. The following bits can be used:
 
 ## CURLPAUSE_RECV
@@ -109,15 +108,14 @@ int main(void)
   if(curl) {
     /* pause a transfer in both directions */
     curl_easy_pause(curl, CURLPAUSE_RECV | CURLPAUSE_SEND);
-
   }
 }
 ~~~
 
 # MEMORY USE
 
-When pausing a download transfer by returning the magic return code from a
-write callback, the read data is already in libcurl's internal buffers so it
+When pausing a download transfer by returning the appropriate return code from
+a write callback, the read data is already in libcurl's internal buffers so it
 has to keep it in an allocated buffer until the receiving is again unpaused
 using this function.
 
@@ -138,6 +136,9 @@ might end up having to cache 64 MB of data.
 
 # RETURN VALUE
 
-CURLE_OK (zero) means that the option was set properly, and a non-zero return
-code means something wrong occurred after the new state was set. See the
-libcurl-errors(3) man page for the full list with descriptions.
+This function returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3). If CURLOPT_ERRORBUFFER(3) was set with curl_easy_setopt(3)
+there can be an error message stored in the error buffer when non-zero is
+returned.

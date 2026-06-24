@@ -15,7 +15,7 @@ Added-in: 7.55.0
 
 # NAME
 
-CURLINFO_SPEED_UPLOAD_T - get upload speed
+CURLINFO_SPEED_UPLOAD_T - upload speed
 
 # SYNOPSIS
 
@@ -40,16 +40,16 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
-    CURLcode res;
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com");
 
     /* Perform the request */
-    res = curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
 
-    if(!res) {
+    if(result == CURLE_OK) {
       curl_off_t speed;
-      res = curl_easy_getinfo(curl, CURLINFO_SPEED_UPLOAD_T, &speed);
-      if(!res) {
+      result = curl_easy_getinfo(curl, CURLINFO_SPEED_UPLOAD_T, &speed);
+      if(result == CURLE_OK) {
         printf("Upload speed %" CURL_FORMAT_CURL_OFF_T " bytes/sec\n", speed);
       }
     }
@@ -61,4 +61,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_getinfo(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

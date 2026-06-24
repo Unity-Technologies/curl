@@ -32,15 +32,15 @@ Pass a long. If the parameter equals 1, it tells the library to perform all
 the required proxy authentication and connection setup, but no data transfer,
 and then return.
 
-The option can be used to simply test a connection to a server, but is more
+The option can be used to test a connection to a server, but is more
 useful when used with the CURLINFO_ACTIVESOCKET(3) option to
 curl_easy_getinfo(3) as the library can set up the connection and then
 the application can obtain the most recently used socket for special data
 transfers.
 
-Since 7.86.0, this option can be set to '2' and if HTTP or WebSocket are used,
-libcurl performs the request and reads all response headers before handing
-over control to the application.
+This option can be set to '2' and if WebSocket is used, libcurl performs the
+request and reads all response headers before handing over control to the
+application. For other protocols the behavior of '2' is undefined.
 
 Transfers marked connect only do not reuse any existing connections and
 connections marked connect only are not allowed to get reused.
@@ -64,12 +64,12 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
-    CURLcode ret;
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com/");
     curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 1L);
-    ret = curl_easy_perform(curl);
-    if(ret == CURLE_OK) {
-      /* only connected! */
+    result = curl_easy_perform(curl);
+    if(result == CURLE_OK) {
+      /* only connected */
     }
   }
 }
@@ -83,4 +83,7 @@ WS and WSS support added in 7.86.0.
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

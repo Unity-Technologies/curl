@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="US-ASCII"?>
 <testcase>
 <info>
 <keywords>
@@ -21,7 +22,7 @@ file
 missing file:// file
 </name>
 <command>
-file://localhost/%PWD/%LOGDIR/non-existent-file.txt
+file://localhost/%FILE_PWD/%LOGDIR/non-existent-file.txt
 </command>
 </client>
 

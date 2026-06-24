@@ -17,14 +17,14 @@
 #
 # or get into a shell in the build environment, for example
 #
-#   docker run --rm -it -u $(id -u):$(id -g) -v (pwd):/usr/src -w /usr/src curl/curl bash
+#   docker run --rm -it -u $(id -u):$(id -g) -v $(pwd):/usr/src -w /usr/src curl/curl bash
 #   $ autoreconf -fi
 #   $ ./configure --without-ssl --without-libpsl
 #   $ make
 #   $ ./scripts/maketgz 8.7.1
 
 # To update, get the latest digest e.g. from https://hub.docker.com/_/debian/tags
-FROM debian:bookworm-slim@sha256:903d3225acecaa272bbdd7273c6c312c2af8b73644058838d23a8c9e6e5c82cf
+FROM debian:bookworm-slim@sha256:f9c6a2fd2ddbc23e336b6257a5245e31f996953ef06cd13a59fa0a1df2d5c252
 
 RUN apt-get update -qq && apt-get install -qq -y --no-install-recommends \
     build-essential make autoconf automake libtool git perl zip zlib1g-dev gawk && \

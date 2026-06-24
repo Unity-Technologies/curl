@@ -147,7 +147,7 @@
 #define HAVE_WRITEV 1
 #define HAVE_ZLIB_H 1
 #define LT_OBJDIR ".libs/"
-#define OS "x86_64-pc-linux-gnu"
+#define CURL_OS "x86_64-pc-linux-gnu"
 #define PACKAGE "curl"
 #define PACKAGE_BUGREPORT "a suitable curl mailing list: https://curl.se/mail/"
 #define PACKAGE_NAME "curl"

@@ -51,13 +51,13 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
-    CURLcode res;
+    CURLcode result;
     struct curl_slist *options;
     options = curl_slist_append(NULL, "TTTYPE=vt100");
     options = curl_slist_append(options, "USER=foobar");
     curl_easy_setopt(curl, CURLOPT_URL, "telnet://example.com/");
     curl_easy_setopt(curl, CURLOPT_TELNETOPTIONS, options);
-    res = curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
     curl_easy_cleanup(curl);
     curl_slist_free_all(options);
   }
@@ -68,4 +68,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK if TELNET is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

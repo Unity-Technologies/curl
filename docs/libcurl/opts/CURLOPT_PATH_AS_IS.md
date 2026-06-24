@@ -16,7 +16,7 @@ Added-in: 7.42.0
 
 # NAME
 
-CURLOPT_PATH_AS_IS - do not handle dot dot sequences
+CURLOPT_PATH_AS_IS - do not handle dot-dot sequences
 
 # SYNOPSIS
 
@@ -35,11 +35,14 @@ This instructs libcurl to NOT squash sequences of "/../" or "/./" that may
 exist in the URL's path part and that is supposed to be removed according to
 RFC 3986 section 5.2.4.
 
-Some server implementations are known to (erroneously) require the dot dot
+Some server implementations are known to (erroneously) require the dot-dot
 sequences to remain in the path and some clients want to pass these on in
 order to try out server implementations.
 
 By default libcurl normalizes such sequences before using the path.
+
+This is a request for the *first* request libcurl issues. When following
+redirects, it may no longer apply.
 
 The corresponding flag for the curl_url_set(3) function is called
 **CURLU_PATH_AS_IS**.
@@ -57,12 +60,14 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL,
                      "https://example.com/../../etc/password");
 
     curl_easy_setopt(curl, CURLOPT_PATH_AS_IS, 1L);
 
-    curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
   }
 }
 ~~~
@@ -71,4 +76,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

@@ -16,7 +16,7 @@ Added-in: 7.19.4
 
 # NAME
 
-CURLINFO_CONDITION_UNMET - get info on unmet time conditional or 304 HTTP response.
+CURLINFO_CONDITION_UNMET - unmet time conditional or 304 HTTP response
 
 # SYNOPSIS
 
@@ -46,7 +46,7 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
-    CURLcode res;
+    CURLcode result;
 
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com");
 
@@ -54,18 +54,17 @@ int main(void)
     curl_easy_setopt(curl, CURLOPT_TIMEVALUE, 1577833200L);
 
     /* If-Modified-Since the above time stamp */
-    curl_easy_setopt(curl, CURLOPT_TIMECONDITION,
-                     (long)CURL_TIMECOND_IFMODSINCE);
+    curl_easy_setopt(curl, CURLOPT_TIMECONDITION, CURL_TIMECOND_IFMODSINCE);
 
     /* Perform the request */
-    res = curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
 
-    if(!res) {
+    if(result == CURLE_OK) {
       /* check the time condition */
       long unmet;
-      res = curl_easy_getinfo(curl, CURLINFO_CONDITION_UNMET, &unmet);
-      if(!res) {
-        printf("The time condition was %sfulfilled\n", unmet?"NOT":"");
+      result = curl_easy_getinfo(curl, CURLINFO_CONDITION_UNMET, &unmet);
+      if(result == CURLE_OK) {
+        printf("The time condition was %sfulfilled\n", unmet ? "NOT" : "");
       }
     }
   }
@@ -76,4 +75,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_getinfo(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

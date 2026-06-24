@@ -16,7 +16,7 @@ Added-in: 7.9.4
 
 # NAME
 
-CURLINFO_CONTENT_TYPE - get Content-Type
+CURLINFO_CONTENT_TYPE - Content-Type of response
 
 # SYNOPSIS
 
@@ -33,9 +33,9 @@ object. This is the value read from the Content-Type: field. If you get NULL,
 it means that the server did not send a valid Content-Type header or that the
 protocol used does not support this.
 
-The **ct** pointer is set to NULL or pointing to private memory. You MUST
-NOT free it - it gets freed when you call curl_easy_cleanup(3) on the
-corresponding CURL handle.
+The **ct** pointer is NULL or points to private memory. You **must not** free
+it. It gets freed automatically when you call curl_easy_cleanup(3) on the
+corresponding curl handle.
 
 The modern way to get this header from a response is to instead use the
 curl_easy_header(3) function.
@@ -49,16 +49,16 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
-    CURLcode res;
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com");
 
-    res = curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
 
-    if(!res) {
+    if(result == CURLE_OK) {
       /* extract the content-type */
       char *ct = NULL;
-      res = curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &ct);
-      if(!res && ct) {
+      result = curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &ct);
+      if(!result && ct) {
         printf("Content-Type: %s\n", ct);
       }
     }
@@ -71,4 +71,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_getinfo(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

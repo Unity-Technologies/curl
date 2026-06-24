@@ -51,10 +51,10 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
-    CURLcode res;
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "https://example.com/foo.bin");
     curl_easy_setopt(curl, CURLOPT_DNS_LOCAL_IP6, "fe80::a9ff:fe46:b619");
-    res = curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
     curl_easy_cleanup(curl);
   }
 }
@@ -69,6 +69,7 @@ supports this operation. The c-ares backend is the only such one.
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, CURLE_UNKNOWN_OPTION if not,
-CURLE_NOT_BUILT_IN if support was disabled at compile-time, or
-CURLE_BAD_FUNCTION_ARGUMENT when given a bad address.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

@@ -34,17 +34,11 @@ if(NOT VSFTPD)
 endif()
 mark_as_advanced(VSFTPD)
 
-find_program(HTTPD "apache2")  # /usr/sbin/apache2
+find_program(HTTPD NAMES "/usr/sbin/apache2" "httpd" "apache2")
 if(NOT HTTPD)
   set(HTTPD "")
 endif()
 mark_as_advanced(HTTPD)
-
-find_program(APACHECTL "apache2ctl")  # /usr/sbin/apache2ctl
-if(NOT APACHECTL)
-  set(APACHECTL "")
-endif()
-mark_as_advanced(APACHECTL)
 
 find_program(APXS "apxs")
 if(NOT APXS)
@@ -58,5 +52,23 @@ if(NOT HTTPD_NGHTTPX)
 endif()
 mark_as_advanced(HTTPD_NGHTTPX)
 
-# Consumed variables: APACHECTL, APXS, CADDY, HTTPD, HTTPD_NGHTTPX, VSFTPD
+find_program(DANTED "danted")
+if(NOT DANTED)
+  set(DANTED "")
+endif()
+mark_as_advanced(DANTED)
+
+find_program(SSHD "sshd" PATHS "/usr/sbin" "/usr/bin")
+if(NOT SSHD)
+  set(SSHD "")
+endif()
+mark_as_advanced(SSHD)
+
+find_program(SFTPD "sftp-server" PATHS "/usr/libexec" "/usr/lib/openssh")
+if(NOT SFTPD)
+  set(SFTPD "")
+endif()
+mark_as_advanced(SFTPD)
+
+# Consumed variables: APXS, CADDY, DANTED, HTTPD, HTTPD_NGHTTPX, SFTPD, SSHD, VSFTPD
 configure_file("config.ini.in" "${CMAKE_CURRENT_BINARY_DIR}/config.ini" @ONLY)

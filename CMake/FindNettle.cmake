@@ -25,32 +25,34 @@
 #
 # Input variables:
 #
-# NETTLE_INCLUDE_DIR   The nettle include directory
-# NETTLE_LIBRARY       Path to nettle library
+# - `NETTLE_INCLUDE_DIR`:  Absolute path to nettle include directory.
+# - `NETTLE_LIBRARY`:      Absolute path to `nettle` library.
 #
-# Result variables:
+# Defines:
 #
-# NETTLE_FOUND         System has nettle
-# NETTLE_INCLUDE_DIRS  The nettle include directories
-# NETTLE_LIBRARIES     The nettle library names
-# NETTLE_LIBRARY_DIRS  The nettle library directories
-# NETTLE_CFLAGS        Required compiler flags
-# NETTLE_VERSION       Version of nettle
+# - `NETTLE_FOUND`:        System has nettle.
+# - `NETTLE_VERSION`:      Version of nettle.
+# - `CURL::nettle`:        nettle library target.
+
+set(_nettle_pc_requires "nettle")
 
 if(CURL_USE_PKGCONFIG AND
    NOT DEFINED NETTLE_INCLUDE_DIR AND
    NOT DEFINED NETTLE_LIBRARY)
   find_package(PkgConfig QUIET)
-  pkg_check_modules(NETTLE "nettle")
+  pkg_check_modules(_nettle ${_nettle_pc_requires})
 endif()
 
-if(NETTLE_FOUND)
-  string(REPLACE ";" " " NETTLE_CFLAGS "${NETTLE_CFLAGS}")
-  message(STATUS "Found Nettle (via pkg-config): ${NETTLE_INCLUDE_DIRS} (found version \"${NETTLE_VERSION}\")")
+if(_nettle_FOUND)
+  set(Nettle_FOUND TRUE)
+  set(NETTLE_FOUND TRUE)
+  set(NETTLE_VERSION ${_nettle_VERSION})
+  message(STATUS "Found Nettle (via pkg-config): ${_nettle_INCLUDE_DIRS} (found version \"${NETTLE_VERSION}\")")
 else()
   find_path(NETTLE_INCLUDE_DIR NAMES "nettle/sha2.h")
   find_library(NETTLE_LIBRARY NAMES "nettle")
 
+  unset(NETTLE_VERSION CACHE)
   if(NETTLE_INCLUDE_DIR AND EXISTS "${NETTLE_INCLUDE_DIR}/nettle/version.h")
     set(_version_regex1 "#[\t ]*define[ \t]+NETTLE_VERSION_MAJOR[ \t]+([0-9]+).*")
     set(_version_regex2 "#[\t ]*define[ \t]+NETTLE_VERSION_MINOR[ \t]+([0-9]+).*")
@@ -75,9 +77,21 @@ else()
   )
 
   if(NETTLE_FOUND)
-    set(NETTLE_INCLUDE_DIRS ${NETTLE_INCLUDE_DIR})
-    set(NETTLE_LIBRARIES    ${NETTLE_LIBRARY})
+    set(_nettle_INCLUDE_DIRS ${NETTLE_INCLUDE_DIR})
+    set(_nettle_LIBRARIES    ${NETTLE_LIBRARY})
   endif()
 
   mark_as_advanced(NETTLE_INCLUDE_DIR NETTLE_LIBRARY)
+endif()
+
+if(NETTLE_FOUND)
+  if(NOT TARGET CURL::nettle)
+    add_library(CURL::nettle INTERFACE IMPORTED)
+    set_target_properties(CURL::nettle PROPERTIES
+      INTERFACE_LIBCURL_PC_MODULES "${_nettle_pc_requires}"
+      INTERFACE_COMPILE_OPTIONS "${_nettle_CFLAGS}"
+      INTERFACE_INCLUDE_DIRECTORIES "${_nettle_INCLUDE_DIRS}"
+      INTERFACE_LINK_DIRECTORIES "${_nettle_LIBRARY_DIRS}"
+      INTERFACE_LINK_LIBRARIES "${_nettle_LIBRARIES}")
+  endif()
 endif()

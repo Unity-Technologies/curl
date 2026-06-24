@@ -38,6 +38,9 @@ use strict;
 use warnings;
 use 5.006;
 
+use File::Basename;
+use Time::HiRes;
+
 BEGIN {
     use base qw(Exporter);
 
@@ -47,7 +50,6 @@ BEGIN {
         readtestkeywords
         restore_test_env
         runner_init
-        runnerac_clearlocks
         runnerac_shutdown
         runnerac_stopservers
         runnerac_test_preprocess
@@ -82,13 +84,10 @@ use Storable qw(
 
 use pathhelp qw(
     exe_ext
-    );
-use processhelp qw(
-    portable_sleep
+    shell_quote
     );
 use servers qw(
     checkcmd
-    clearlocks
     initserverconfig
     serverfortest
     stopserver
@@ -101,21 +100,23 @@ use testutil qw(
     clearlogs
     logmsg
     runclient
-    shell_quote
+    exerunner
+    subtextfile
+    subchars
     subbase64
     subsha256base64file
     substrippemfile
     subnewlines
     );
 use valgrind;
-
+use memanalyzer;
 
 #######################################################################
 # Global variables set elsewhere but used only by this package
 # These may only be set *before* runner_init is called
-our $DBGCURL=$CURL; #"../src/.libs/curl";  # alternative for debugging
-our $valgrind_logfile="--log-file";  # the option name for valgrind >=3
-our $valgrind_tool="--tool=memcheck";
+our $DBGCURL = $CURL; #"../src/.libs/curl";  # alternative for debugging
+our $valgrind_logfile = "--log-file";  # the option name for valgrind >=3
+our $valgrind_tool = "--tool=memcheck";
 our $gdb = checktestcmd("gdb");
 our $gdbthis = 0;  # run test case with debugger (gdb or lldb)
 our $gdbxwin;      # use windowed gdb when using gdb
@@ -126,8 +127,7 @@ our $tortalloc;
 
 # local variables
 my %oldenv;       # environment variables before test is started
-my $UNITDIR="./unit";
-my $CURLLOG="$LOGDIR/commands.log"; # all command lines run
+my $CURLLOG = "commands.log"; # all command lines run
 my $defserverlogslocktimeout = 5; # timeout to await server logs lock removal
 my $defpostcommanddelay = 0; # delay between command and postcheck sections
 my $multiprocess;   # nonzero with a separate test runner process
@@ -142,12 +142,12 @@ my %controllerw;    # pipe that controller writes to
 
 # redirected stdout/stderr to these files
 sub stdoutfilename {
-    my ($logdir, $testnum)=@_;
+    my ($logdir, $testnum) = @_;
     return "$logdir/stdout$testnum";
 }
 
 sub stderrfilename {
-    my ($logdir, $testnum)=@_;
+    my ($logdir, $testnum) = @_;
     return "$logdir/stderr$testnum";
 }
 
@@ -157,19 +157,19 @@ sub stderrfilename {
 # runnerac_* functions
 # Called by controller
 sub runner_init {
-    my ($logdir, $jobs)=@_;
+    my ($logdir, $jobs) = @_;
 
     $multiprocess = !!$jobs;
 
     # enable memory debugging if curl is compiled with it
     $ENV{'CURL_MEMDEBUG'} = "$logdir/$MEMDUMP";
-    $ENV{'CURL_ENTROPY'}="12345678";
-    $ENV{'CURL_FORCETIME'}=1; # for debug NTLM magic
-    $ENV{'CURL_GLOBAL_INIT'}=1; # debug curl_global_init/cleanup use
-    $ENV{'HOME'}=$pwd;
-    $ENV{'CURL_HOME'}=$ENV{'HOME'};
-    $ENV{'XDG_CONFIG_HOME'}=$ENV{'HOME'};
-    $ENV{'COLUMNS'}=79; # screen width!
+    delete $ENV{'CURL_ENTROPY'} if($ENV{'CURL_ENTROPY'});
+    $ENV{'CURL_FORCETIME'} = 1; # for debug NTLM magic
+    $ENV{'CURL_GLOBAL_INIT'} = 1; # debug curl_global_init/cleanup use
+    $ENV{'HOME'} = $pwd;
+    $ENV{'CURL_HOME'} = $ENV{'HOME'};
+    $ENV{'XDG_CONFIG_HOME'} = $ENV{'HOME'};
+    $ENV{'COLUMNS'} = 79; # screen width!
 
     # Incorporate the $logdir into the random seed and re-seed the PRNG.
     # This gives each runner a unique yet consistent seed which provides
@@ -192,7 +192,7 @@ sub runner_init {
             $SIG{INT} = 'IGNORE';
             $SIG{TERM} = 'IGNORE';
             eval {
-                # some msys2 perl versions don't define SIGUSR1
+                # some MSYS2 Perl versions do not define SIGUSR1, also missing from Win32 Perl
                 $SIG{USR1} = 'IGNORE';
             };
 
@@ -216,7 +216,7 @@ sub runner_init {
             # handle IPC calls
             event_loop();
 
-            # Can't rely on logmsg here in case it's buffered
+            # Cannot rely on logmsg here in case it is buffered
             print "Runner $thisrunnerid exiting\n" if($verbose);
 
             # To reach this point, either the controller has sent
@@ -236,7 +236,7 @@ sub runner_init {
         # Create our pid directory
         mkdir("$LOGDIR/$PIDDIR", 0777);
 
-        # Don't create a separate process
+        # Do not create a separate process
         $thisrunnerid = "integrated";
     }
 
@@ -251,7 +251,7 @@ sub runner_init {
 #######################################################################
 # Loop to execute incoming IPC calls until the shutdown call
 sub event_loop {
-    while () {
+    while() {
         if(ipcrecv()) {
             last;
         }
@@ -262,8 +262,8 @@ sub event_loop {
 # Check for a command in the PATH of the machine running curl.
 #
 sub checktestcmd {
-    my ($cmd)=@_;
-    my @testpaths=("$LIBDIR/.libs", "$LIBDIR");
+    my ($cmd) = @_;
+    my @testpaths = ($LIBDIR . ".libs", $LIBDIR);
     return checkcmd($cmd, @testpaths);
 }
 
@@ -301,7 +301,7 @@ sub prepro {
     my (@entiretest) = @_;
     my $show = 1;
     my @out;
-    my $data_crlf;
+    my $data_crlf = "";
     my @pshow;
     my @altshow;
     my $plvl;
@@ -353,28 +353,35 @@ sub prepro {
             next;
         }
         if($show) {
-            # The processor does CRLF replacements in the <data*> sections if
-            # necessary since those parts might be read by separate servers.
-            if($s =~ /^ *<data(.*)\>/) {
-                if($1 =~ /crlf="yes"/ ||
-                   ($feature{"hyper"} && ($keywords{"HTTP"} || $keywords{"HTTPS"}))) {
-                    $data_crlf = 1;
+            # The processor does CRLF replacements in the <data*> and <connect*>
+            # sections if necessary since those parts might be read by separate
+            # servers.
+            if($s =~ /^ *<(data|connect)(.*)\>/) {
+                if($2 =~ /crlf="yes"/) {
+                    $data_crlf = "yes";
+                }
+                elsif($2 =~ /crlf="headers"/) {
+                    $data_crlf = "headers";
                 }
             }
-            elsif(($s =~ /^ *<\/data/) && $data_crlf) {
-                $data_crlf = 0;
+            elsif(($s =~ /^ *<\/(data|connect)/) && $data_crlf ne "") {
+                $data_crlf = "";
             }
             subvariables(\$s, $testnum, "%");
+            if(subtextfile(\$s)) {
+                subvariables(\$s, $testnum, "%");
+            }
+            subchars(\$s);
             subbase64(\$s);
             subsha256base64file(\$s);
             substrippemfile(\$s);
-            subnewlines(0, \$s) if($data_crlf);
+            subnewlines(1, \$s) if($data_crlf eq "yes");
+            subnewlines(0, \$s) if($data_crlf eq "headers");
             push @out, $s;
         }
     }
     return @out;
 }
-
 
 #######################################################################
 # Load test keywords into %keywords hash
@@ -389,7 +396,6 @@ sub readtestkeywords {
         $keywords{$k} = 1;
     }
 }
-
 
 #######################################################################
 # Return a list of log locks that still exist
@@ -420,7 +426,7 @@ sub waitlockunlock {
         my $lockretry = $serverlogslocktimeout * 20;
         my @locks;
         while((@locks = logslocked()) && $lockretry--) {
-            portable_sleep(0.05);
+            Time::HiRes::sleep(0.05);
         }
         if(($lockretry < 0) &&
            ($serverlogslocktimeout >= $defserverlogslocktimeout)) {
@@ -446,8 +452,8 @@ sub torture {
     logmsg " CMD: $testcmd\n" if($verbose);
 
     # memanalyze -v is our friend, get the number of allocations made
-    my $count=0;
-    my @out = `$memanalyze -v "$LOGDIR/$MEMDUMP"`;
+    my $count = 0;
+    my @out = memanalyze("$LOGDIR/$MEMDUMP", 1, 0, 0);
     for(@out) {
         if(/^Operations: (\d+)/) {
             $count = $1;
@@ -459,18 +465,18 @@ sub torture {
         return 0;
     }
 
-    my @ttests = (1 .. $count);
+    my @torture_tests = (1 .. $count);
     if($shallow && ($shallow < $count)) {
-        my $discard = scalar(@ttests) - $shallow;
-        my $percent = sprintf("%.2f%%", $shallow * 100 / scalar(@ttests));
+        my $discard = scalar(@torture_tests) - $shallow;
+        my $percent = sprintf("%.2f%%", $shallow * 100 / scalar(@torture_tests));
         logmsg " $count functions found, but only fail $shallow ($percent)\n";
         while($discard) {
             my $rm;
             do {
                 # find a test to discard
-                $rm = rand(scalar(@ttests));
-            } while(!$ttests[$rm]);
-            $ttests[$rm] = undef;
+                $rm = rand(scalar(@torture_tests));
+            } while(!$torture_tests[$rm]);
+            $torture_tests[$rm] = undef;
             $discard--;
         }
     }
@@ -478,7 +484,7 @@ sub torture {
         logmsg " $count functions to make fail\n";
     }
 
-    for (@ttests) {
+    for (@torture_tests) {
         my $limit = $_;
         my $fail;
         my $dumped_core;
@@ -492,10 +498,10 @@ sub torture {
         }
 
         if($verbose) {
-            my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
+            my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) =
                 localtime(time());
             my $now = sprintf("%02d:%02d:%02d ", $hour, $min, $sec);
-            logmsg "Fail function no: $limit at $now\r";
+            logmsg "Fail function no: $limit at $now\n";
         }
 
         # make the memory allocation function number $limit return failure
@@ -505,19 +511,6 @@ sub torture {
         unlink("$LOGDIR/$MEMDUMP");
 
         my $cmd = $testcmd;
-        if($valgrind && !$gdbthis) {
-            my @valgrindoption = getpart("verify", "valgrind");
-            if((!@valgrindoption) || ($valgrindoption[0] !~ /disable/)) {
-                my $valgrindcmd = "$valgrind ";
-                $valgrindcmd .= "$valgrind_tool " if($valgrind_tool);
-                $valgrindcmd .= "--quiet --leak-check=yes ";
-                $valgrindcmd .= "--suppressions=$srcdir/valgrind.supp ";
-                # $valgrindcmd .= "--gen-suppressions=all ";
-                $valgrindcmd .= "--num-callers=16 ";
-                $valgrindcmd .= "${valgrind_logfile}=$LOGDIR/valgrind$testnum";
-                $cmd = "$valgrindcmd $testcmd";
-            }
-        }
         logmsg "*** Function number $limit is now set to fail ***\n" if($gdbthis);
 
         my $ret = 0;
@@ -533,7 +526,7 @@ sub torture {
         delete $ENV{'CURL_MEMLIMIT'} if($ENV{'CURL_MEMLIMIT'});
 
         if(-r "core") {
-            # there's core file present now!
+            # there is core file present now!
             logmsg " core dumped\n";
             $dumped_core = 1;
             $fail = 2;
@@ -553,26 +546,26 @@ sub torture {
             }
         }
 
-        # verify that it returns a proper error code, doesn't leak memory
-        # and doesn't core dump
+        # verify that it returns a proper error code, does not leak memory
+        # and does not core dump
         if(($ret & 255) || ($ret >> 8) >= 128) {
             logmsg " system() returned $ret\n";
-            $fail=1;
+            $fail = 1;
         }
         else {
-            my @memdata=`$memanalyze "$LOGDIR/$MEMDUMP"`;
-            my $leak=0;
+            my @memdata = memanalyze("$LOGDIR/$MEMDUMP", 0, 0, 0);
+            my $leak = 0;
             for(@memdata) {
                 if($_ ne "") {
                     # well it could be other memory problems as well, but
                     # we call it leak for short here
-                    $leak=1;
+                    $leak = 1;
                 }
             }
             if($leak) {
                 logmsg "** MEMORY FAILURE\n";
                 logmsg @memdata;
-                logmsg `$memanalyze -l "$LOGDIR/$MEMDUMP"`;
+                logmsg memanalyze("$LOGDIR/$MEMDUMP", 0, 0, 1);
                 $fail = 1;
             }
         }
@@ -588,7 +581,6 @@ sub torture {
     logmsg "torture OK\n";
     return 0;
 }
-
 
 #######################################################################
 # restore environment variables that were modified in test
@@ -607,7 +599,6 @@ sub restore_test_env {
     }
 }
 
-
 #######################################################################
 # Start the servers needed to run this test case
 sub singletest_startservers {
@@ -623,13 +614,9 @@ sub singletest_startservers {
 
     my $why;
     my $error;
-    if (!$listonly) {
+    if(!$listonly) {
         my @what = getpart("client", "server");
-        if(!$what[0]) {
-            warn "Test case $testnum has no server(s) specified";
-            $why = "no server specified";
-            $error = -1;
-        } else {
+        if($what[0]) {
             my $err;
             ($why, $err) = serverfortest(@what);
             if($err == 1) {
@@ -647,7 +634,6 @@ sub singletest_startservers {
     return ($why, $error);
 }
 
-
 #######################################################################
 # Generate preprocessed test file
 sub singletest_preprocess {
@@ -661,7 +647,7 @@ sub singletest_preprocess {
     @entiretest = prepro($testnum, @entiretest);
 
     # save the new version
-    open(my $fulltesth, ">", "$otest") || die "Failure writing test file";
+    open(my $fulltesth, ">", $otest) || die "Failure writing test file";
     foreach my $bytes (@entiretest) {
         print $fulltesth pack('a*', $bytes) or die "Failed to print '$bytes': $!";
     }
@@ -670,7 +656,6 @@ sub singletest_preprocess {
     # in case the process changed the file, reload it
     loadtest("$LOGDIR/test${testnum}");
 }
-
 
 #######################################################################
 # Set up the test environment to run this test case
@@ -681,30 +666,18 @@ sub singletest_setenv {
         if($s =~ /([^=]*)(.*)/) {
             my ($var, $content) = ($1, $2);
             # remember current setting, to restore it once test runs
-            $oldenv{$var} = ($ENV{$var})?"$ENV{$var}":'notset';
+            $oldenv{$var} = ($ENV{$var}) ? "$ENV{$var}" : 'notset';
 
             if($content =~ /^=(.*)/) {
                 # assign it
                 $content = $1;
-
-                if($var =~ /^LD_PRELOAD/) {
-                    if(exe_ext('TOOL') && (exe_ext('TOOL') eq '.exe')) {
-                        logmsg "Skipping LD_PRELOAD due to lack of OS support\n" if($verbose);
-                        next;
-                    }
-                    if($feature{"Debug"} || !$has_shared) {
-                        logmsg "Skipping LD_PRELOAD due to no release shared build\n" if($verbose);
-                        next;
-                    }
-                }
-                $ENV{$var} = "$content";
+                $ENV{$var} = $content;
                 logmsg "setenv $var = $content\n" if($verbose);
             }
             else {
                 # remove it
                 delete $ENV{$var} if($ENV{$var});
             }
-
         }
     }
     if($proxy_address) {
@@ -712,7 +685,6 @@ sub singletest_setenv {
         $ENV{HTTPS_PROXY} = $proxy_address;
     }
 }
-
 
 #######################################################################
 # Check that test environment is fine to run this test case
@@ -751,7 +723,6 @@ sub singletest_precheck {
     return $why;
 }
 
-
 #######################################################################
 # Prepare the test environment to run this test case
 sub singletest_prepare {
@@ -766,28 +737,33 @@ sub singletest_prepare {
     unlink("$LOGDIR/$SERVERIN");
     unlink("$LOGDIR/$PROXYIN");
 
-    # if this section exists, it might be FTP server instructions:
-    my @ftpservercmd = getpart("reply", "servercmd");
-    push @ftpservercmd, "Testnum $testnum\n";
+    # if this section exists, it might be server instructions:
+    my @servercmd = getpart("reply", "servercmd");
+    push @servercmd, "Testnum $testnum\n";
     # write the instructions to file
-    writearray("$LOGDIR/$SERVERCMD", \@ftpservercmd);
+    writearray("$LOGDIR/$SERVERCMD", \@servercmd);
+
+    # if this section exists, it might be DNS instructions:
+    my @dnscmd = getpart("reply", "dns");
+    # write the instructions to file
+    writearray("$LOGDIR/$DNSCMD", \@dnscmd);
+
+    # provide an environment variable
+    $ENV{'CURL_TESTNUM'} = $testnum;
 
     # create (possibly-empty) files before starting the test
     for my $partsuffix (('', '1', '2', '3', '4')) {
-        my @inputfile=getpart("client", "file".$partsuffix);
+        my @inputfile = getpart("client", "file".$partsuffix);
         my %fileattr = getpartattr("client", "file".$partsuffix);
-        my $filename=$fileattr{'name'};
+        my $filename = $fileattr{'name'};
         if(@inputfile || $filename) {
             if(!$filename) {
-                logmsg " $testnum: IGNORED: section client=>file has no name attribute\n";
+                logmsg " $testnum: IGNORED: Section client=>file has no name attribute\n";
                 return -1;
             }
-            my $fileContent = join('', @inputfile);
 
             # make directories if needed
-            my $path = $filename;
-            # cut off the file name part
-            $path =~ s/^(.*)\/[^\/]*/$1/;
+            my $path = dirname($filename);
             my @ldparts = split(/\//, $LOGDIR);
             my $nparts = @ldparts;
             my @parts = split(/\//, $path);
@@ -799,13 +775,17 @@ sub singletest_prepare {
                     mkdir $d; # 0777
                 }
             }
-            if (open(my $outfile, ">", "$filename")) {
+            if(open(my $outfile, ">", $filename)) {
                 binmode $outfile; # for crapage systems, use binary
+
                 if($fileattr{'nonewline'}) {
                     # cut off the final newline
-                    chomp($fileContent);
+                    chomp($inputfile[-1]);
                 }
-                print $outfile $fileContent;
+                if($fileattr{'crlf'}) {
+                    subnewlines(1, \$_) for @inputfile;
+                }
+                print $outfile join('', @inputfile);
                 close($outfile);
             } else {
                 logmsg "ERROR: cannot write $filename\n";
@@ -815,67 +795,71 @@ sub singletest_prepare {
     return 0;
 }
 
-
 #######################################################################
 # Run the test command
 sub singletest_run {
     my ($testnum, $testtimings) = @_;
 
     # get the command line options to use
-    my ($cmd, @blaha)= getpart("client", "command");
-    if($cmd) {
-        # make some nice replace operations
+    my $cmd;
+    my @cmd = getpart("client", "command");
+    if(@cmd) {
+        # allow splitting the command-line to multiple lines
+        $cmd = join(' ', @cmd);
         $cmd =~ s/\n//g; # no newlines please
+        chomp $cmd; # no newlines please
         # substitute variables in the command line
     }
     else {
         # there was no command given, use something silly
-        $cmd="-";
+        $cmd = "-";
     }
 
-    my $CURLOUT="$LOGDIR/curl$testnum.out"; # curl output if not stdout
+    my $CURLOUT = "$LOGDIR/curl$testnum.out"; # curl output if not stdout
 
     # if stdout section exists, we verify that the stdout contained this:
-    my $out="";
+    my $out = "";
     my %cmdhash = getpartattr("client", "command");
     if((!$cmdhash{'option'}) || ($cmdhash{'option'} !~ /no-output/)) {
         #We may slap on --output!
-        if (!partexists("verify", "stdout") ||
+        if(!partexists("verify", "stdout") ||
                 ($cmdhash{'option'} && $cmdhash{'option'} =~ /force-output/)) {
-            $out=" --output $CURLOUT ";
+            $out = " --output $CURLOUT ";
         }
     }
 
     my @codepieces = getpart("client", "tool");
-    my $tool="";
+    my $tool = "";
+    my $tool_name = "";  # without exe extension
     if(@codepieces) {
-        $tool = $codepieces[0];
-        chomp $tool;
-        $tool .= exe_ext('TOOL');
+        $tool_name = $codepieces[0];
+        chomp $tool_name;
+        $tool = $tool_name . exe_ext('TOOL');
     }
 
+    my $oldmemdebug;
     my $disablevalgrind;
-    my $CMDLINE="";
+    my $CMDLINE = "";
     my $cmdargs;
     my $cmdtype = $cmdhash{'type'} || "default";
     my $fail_due_event_based = $run_event_based;
     if($cmdtype eq "perl") {
         # run the command line prepended with "perl"
-        $cmdargs ="$cmd";
+        $cmdargs = $cmd;
         $CMDLINE = "$perl ";
-        $tool=$CMDLINE;
-        $disablevalgrind=1;
+        $tool = $CMDLINE;
+        $disablevalgrind = 1;
     }
     elsif($cmdtype eq "shell") {
         # run the command line prepended with "/bin/sh"
-        $cmdargs ="$cmd";
+        $cmdargs = $cmd;
         $CMDLINE = "/bin/sh ";
-        $tool=$CMDLINE;
-        $disablevalgrind=1;
+        $tool = $CMDLINE;
+        $disablevalgrind = 1;
     }
     elsif(!$tool && !$keywords{"unittest"}) {
         # run curl, add suitable command line options
-        my $inc="";
+        my $inc = "";
         if((!$cmdhash{'option'}) || ($cmdhash{'option'} !~ /no-include/)) {
             $inc = " --include";
         }
@@ -887,14 +871,25 @@ sub singletest_run {
         else {
             $cmdargs .= "--trace-ascii $LOGDIR/trace$testnum ";
         }
-        $cmdargs .= "--trace-config all ";
         $cmdargs .= "--trace-time ";
         if($run_event_based) {
             $cmdargs .= "--test-event ";
             $fail_due_event_based--;
         }
+        if($run_duphandle) {
+            $cmdargs .= "--test-duphandle ";
+            my @dis = getpart("client", "disable");
+            if(@dis) {
+                chomp $dis[0] if($dis[0]);
+                if($dis[0] eq "test-duphandle") {
+                    # marked to not run with duphandle
+                    logmsg " $testnum: IGNORED: Cannot run test-duphandle\n";
+                    return (-1, 0, 0, "", "", 0);
+                }
+            }
+        }
         $cmdargs .= $cmd;
-        if ($proxy_address) {
+        if($proxy_address) {
             $cmdargs .= " --proxy $proxy_address ";
         }
     }
@@ -904,21 +899,38 @@ sub singletest_run {
 
         # Default the tool to a unit test with the same name as the test spec
         if($keywords{"unittest"} && !$tool) {
-            $tool="unit$testnum";
+            $tool_name = "unit$testnum";
+            $tool = $tool_name . exe_ext('TOOL');
         }
 
         if($tool =~ /^lib/) {
-            $CMDLINE="$LIBDIR/$tool";
+            $tool = "libtests" . exe_ext('TOOL');
+            $CMDLINE = $LIBDIR . $tool;
+        }
+        elsif($tool =~ /^tool/) {
+            $tool = "tunits" . exe_ext('TOOL');
+            $CMDLINE = $TUNITDIR . $tool;
         }
         elsif($tool =~ /^unit/) {
-            $CMDLINE="$UNITDIR/$tool";
+            $tool = "units" . exe_ext('TOOL');
+            $CMDLINE = $UNITDIR . $tool;
         }
 
         if(! -f $CMDLINE) {
             logmsg " $testnum: IGNORED: The tool set in the test case for this: '$tool' does not exist\n";
             return (-1, 0, 0, "", "", 0);
         }
-        $DBGCURL=$CMDLINE;
+
+        $CMDLINE = exerunner() . $CMDLINE;
+
+        if($gdbthis) {
+            $cmdargs = " $tool_name$cmdargs";
+        }
+        else {
+            $CMDLINE .= " $tool_name";
+        }
+
+        $DBGCURL = $CMDLINE;
     }
 
     if($fail_due_event_based) {
@@ -930,18 +942,22 @@ sub singletest_run {
         # gdb is incompatible with valgrind, so disable it when debugging
         # Perhaps a better approach would be to run it under valgrind anyway
         # with --db-attach=yes or --vgdb=yes.
-        $disablevalgrind=1;
+        $disablevalgrind = 1;
     }
 
     my @stdintest = getpart("client", "stdin");
 
     if(@stdintest) {
-        my $stdinfile="$LOGDIR/stdin-for-$testnum";
+        my $stdinfile = "$LOGDIR/stdin-for-$testnum";
 
         my %hash = getpartattr("client", "stdin");
         if($hash{'nonewline'}) {
             # cut off the final newline from the final line of the stdin data
             chomp($stdintest[-1]);
+        }
+
+        if($hash{'crlf'}) {
+            subnewlines(1, \$_) for @stdintest;
         }
 
         writearray($stdinfile, \@stdintest);
@@ -950,9 +966,12 @@ sub singletest_run {
     }
 
     if(!$tool) {
-        $CMDLINE=shell_quote($CURL);
+        $CMDLINE = exerunner() . shell_quote($CURL);
         if((!$cmdhash{'option'}) || ($cmdhash{'option'} !~ /no-q/)) {
             $CMDLINE .= " -q";
+        }
+        if($maxtime) {
+            $CMDLINE .= " --max-time $maxtime";
         }
     }
 
@@ -974,7 +993,8 @@ sub singletest_run {
         logmsg "$CMDLINE\n";
     }
 
-    open(my $cmdlog, ">", $CURLLOG) || die "Failure writing log file";
+    open(my $cmdlog, ">", "$LOGDIR/$CURLLOG") ||
+        die "Failure writing log file";
     print $cmdlog "$CMDLINE\n";
     close($cmdlog) || die "Failure writing log file";
 
@@ -1003,8 +1023,13 @@ sub singletest_run {
     # timestamp starting of test command
     $$testtimings{"timetoolini"} = Time::HiRes::time();
 
+    if($cmdhash{'option'} && ($cmdhash{'option'} =~ /no-memdebug/)) {
+        $oldmemdebug = $ENV{'CURL_MEMDEBUG'};
+        delete $ENV{'CURL_MEMDEBUG'};
+    }
+
     # run the command line we built
-    if ($torture) {
+    if($torture) {
         $cmdres = torture($CMDLINE,
                           $testnum,
                           "$gdb --directory $LIBDIR " . shell_quote($DBGCURL) . " -x $LOGDIR/gdbcmd");
@@ -1013,17 +1038,22 @@ sub singletest_run {
         # gdb
         my $GDBW = ($gdbxwin) ? "-w" : "";
         runclient("$gdb --directory $LIBDIR " . shell_quote($DBGCURL) . " $GDBW -x $LOGDIR/gdbcmd");
-        $cmdres=0; # makes it always continue after a debugged run
+        $cmdres = 0; # makes it always continue after a debugged run
     }
     elsif($gdbthis == 2) {
         # $gdb is "lldb"
         print "runs lldb -- $CURL $cmdargs\n";
         runclient("lldb -- $CURL $cmdargs");
-        $cmdres=0; # makes it always continue after a debugged run
+        $cmdres = 0; # makes it always continue after a debugged run
     }
     else {
         # Convert the raw result code into a more useful one
-        ($cmdres, $dumped_core) = normalize_cmdres(runclient("$CMDLINE"));
+        ($cmdres, $dumped_core) = normalize_cmdres(runclient($CMDLINE));
+    }
+
+    # restore contents
+    if($oldmemdebug) {
+        $ENV{'CURL_MEMDEBUG'} = $oldmemdebug;
     }
 
     # timestamp finishing of test command
@@ -1032,15 +1062,14 @@ sub singletest_run {
     return (0, $cmdres, $dumped_core, $CURLOUT, $tool, use_valgrind() && !$disablevalgrind);
 }
 
-
 #######################################################################
 # Clean up after test command
 sub singletest_clean {
-    my ($testnum, $dumped_core, $testtimings)=@_;
+    my ($testnum, $dumped_core, $testtimings) = @_;
 
     if(!$dumped_core) {
         if(-r "core") {
-            # there's core file present now!
+            # there is core file present now!
             $dumped_core = 1;
         }
     }
@@ -1081,7 +1110,7 @@ sub singletest_clean {
         }
     }
 
-    portable_sleep($postcommanddelay) if($postcommanddelay);
+    Time::HiRes::sleep($postcommanddelay) if($postcommanddelay);
 
     my @killtestservers = getpart("client", "killserver");
     if(@killtestservers) {
@@ -1109,33 +1138,42 @@ sub singletest_clean {
 #######################################################################
 # Verify that the postcheck succeeded
 sub singletest_postcheck {
-    my ($testnum)=@_;
+    my ($testnum) = @_;
 
     # run the postcheck command
-    my @postcheck= getpart("client", "postcheck");
+    my @postcheck = getpart("client", "postcheck");
+    if(@postcheck) {
+        die "test$testnum uses client/postcheck";
+    }
+
+    @postcheck = getpart("verify", "postcheck");
     if(@postcheck) {
         my $cmd = join("", @postcheck);
         chomp $cmd;
         if($cmd) {
             logmsg "postcheck $cmd\n" if($verbose);
-            my $rc = runclient("$cmd");
+            my $rc = runclient($cmd);
             # Must run the postcheck command in torture mode in order
-            # to clean up, but the result can't be relied upon.
+            # to clean up, but the result cannot be relied upon.
             if($rc != 0 && !$torture) {
                 logmsg " $testnum: postcheck FAILED\n";
                 return -1;
             }
         }
     }
+
+    if(checktest("${TESTDIR}/test${testnum}")) {
+        logmsg " $testnum: postcheck FAILED: issue(s) found in test data\n";
+        return -1;
+    }
+
     return 0;
 }
-
-
 
 ###################################################################
 # Get ready to run a single test case
 sub runner_test_preprocess {
-    my ($testnum)=@_;
+    my ($testnum) = @_;
     my %testtimings;
 
     if(clearlogs()) {
@@ -1152,7 +1190,7 @@ sub runner_test_preprocess {
     # ignore any error here--if there were one, it would have been
     # caught during the selection phase and this test would not be
     # running now
-    loadtest("${TESTDIR}/test${testnum}");
+    loadtest("${TESTDIR}/test${testnum}", 1);
     readtestkeywords();
 
     ###################################################################
@@ -1181,7 +1219,7 @@ sub runner_test_preprocess {
 
         ###############################################################
         # Check that the test environment is fine to run this test case
-        if (!$listonly) {
+        if(!$listonly) {
             $why = singletest_precheck($testnum);
             $error = -1;
         }
@@ -1189,14 +1227,13 @@ sub runner_test_preprocess {
     return ($why, $error, clearlogs(), \%testtimings);
 }
 
-
 ###################################################################
 # Run a single test case with an environment that already been prepared
 # Returns 0=success, -1=skippable failure, -2=permanent error,
 #   1=unskippable test failure, as first integer, plus any log messages,
 #   plus more return values when error is 0
 sub runner_test_run {
-    my ($testnum)=@_;
+    my ($testnum) = @_;
 
     if(clearlogs()) {
         logmsg "Warning: log messages were lost\n";
@@ -1243,18 +1280,12 @@ sub runner_test_run {
     return (0, clearlogs(), \%testtimings, $cmdres, $CURLOUT, $tool, $usedvalgrind);
 }
 
-# Async call runner_clearlocks
-# Called by controller
-sub runnerac_clearlocks {
-    return controlleripccall(\&runner_clearlocks, @_);
-}
-
 # Async call runner_shutdown
 # This call does NOT generate an IPC response and must be the last IPC call
 # received.
 # Called by controller
 sub runnerac_shutdown {
-    my ($runnerid)=$_[0];
+    my ($runnerid) = $_[0];
     my $err = controlleripccall(\&runner_shutdown, @_);
 
     # These have no more use
@@ -1294,7 +1325,7 @@ sub controlleripccall {
     # Get the name of the function from the reference
     my $cv = svref_2object($funcref);
     my $gv = $cv->GV;
-    # Prepend the name to the function arguments so it's marshalled along with them
+    # Prepend the name to the function arguments so it is marshalled along with them
     unshift @_, $gv->NAME;
     # Marshall the arguments into a flat string
     my $margs = freeze \@_;
@@ -1312,8 +1343,8 @@ sub controlleripccall {
     if(!$multiprocess) {
         # Call the remote function here in single process mode
         ipcrecv();
-     }
-     return 0;
+    }
+    return 0;
 }
 
 ###################################################################
@@ -1331,7 +1362,7 @@ sub runnerar {
         }
         # system call was interrupted, probably by ^C; restart it so we stay in sync
     }
-    my $len=unpack("L", $datalen);
+    my $len = unpack("L", $datalen);
     my $buf;
     while(! defined ($err = sysread($controllerr{$runnerid}, $buf, $len)) || $err <= 0) {
         if((!defined $err && ! $!{EINTR}) || (defined $err && $err == 0)) {
@@ -1345,7 +1376,7 @@ sub runnerar {
     my $resarrayref = thaw $buf;
 
     # First argument is runner ID
-    # TODO: remove this; it's unneeded since it's passed in
+    # TODO: remove this; it is unneeded since it is passed in
     unshift @$resarrayref, $runnerid;
     return @$resarrayref;
 }
@@ -1353,17 +1384,18 @@ sub runnerar {
 ###################################################################
 # Returns runner ID if a response from an async call is ready or error
 # First value is ready, second is error, however an error case shows up
-# as ready in Linux, so you can't trust it.
+# as ready in Linux, so you cannot trust it.
 # argument is 0 for nonblocking, undef for blocking, anything else for timeout
 # Called by controller
 sub runnerar_ready {
     my ($blocking) = @_;
-    my $rin = "";
+    my $r_in = "";
     my %idbyfileno;
-    my $maxfileno=0;
+    my $maxfileno = 0;
+    my @ready_runners = ();
     foreach my $p (keys(%controllerr)) {
         my $fd = fileno($controllerr{$p});
-        vec($rin, $fd, 1) = 1;
+        vec($r_in, $fd, 1) = 1;
         $idbyfileno{$fd} = $p;  # save the runner ID for each pipe fd
         if($fd > $maxfileno) {
             $maxfileno = $fd;
@@ -1375,22 +1407,22 @@ sub runnerar_ready {
     # This may be interrupted and return EINTR, but this is ignored and the
     # caller will need to later call this function again.
     # TODO: this is relatively slow with hundreds of fds
-    my $ein = $rin;
-    if(select(my $rout=$rin, undef, my $eout=$ein, $blocking) >= 1) {
+    my $e_in = $r_in;
+    if(select(my $r_out = $r_in, undef, my $e_out = $e_in, $blocking) >= 1) {
         for my $fd (0..$maxfileno) {
-            # Return an error condition first in case it's both
-            if(vec($eout, $fd, 1)) {
+            # Return an error condition first in case it is both
+            if(vec($e_out, $fd, 1)) {
                 return (undef, $idbyfileno{$fd});
             }
-            if(vec($rout, $fd, 1)) {
-                return ($idbyfileno{$fd}, undef);
+            if(vec($r_out, $fd, 1)) {
+                push(@ready_runners, $idbyfileno{$fd});
             }
         }
-        die "Internal pipe readiness inconsistency\n";
+        die "Internal pipe readiness inconsistency\n" if(!@ready_runners);
+        return (@ready_runners, undef);
     }
     return (undef, undef);
 }
-
 
 ###################################################################
 # Cleanly abort and exit the runner
@@ -1419,7 +1451,7 @@ sub ipcrecv {
         }
         # system call was interrupted, probably by ^C; restart it so we stay in sync
     }
-    my $len=unpack("L", $datalen);
+    my $len = unpack("L", $datalen);
     my $buf;
     while(! defined ($err = sysread($runnerr, $buf, $len)) || $err <= 0) {
         if((!defined $err && ! $!{EINTR}) || (defined $err && $err == 0)) {
@@ -1440,10 +1472,7 @@ sub ipcrecv {
     # print "ipcrecv $funcname\n";
     # Synchronously call the desired function
     my @res;
-    if($funcname eq "runner_clearlocks") {
-        @res = runner_clearlocks(@$argsarrayref);
-    }
-    elsif($funcname eq "runner_shutdown") {
+    if($funcname eq "runner_shutdown") {
         runner_shutdown(@$argsarrayref);
         # Special case: no response will be forthcoming
         return 1;
@@ -1478,18 +1507,6 @@ sub ipcrecv {
 }
 
 ###################################################################
-# Kill the server processes that still have lock files in a directory
-sub runner_clearlocks {
-    my ($lockdir)=@_;
-    if(clearlogs()) {
-        logmsg "Warning: log messages were lost\n";
-    }
-    clearlocks($lockdir);
-    return clearlogs();
-}
-
-
-###################################################################
 # Kill all server processes
 sub runner_stopservers {
     my $error = stopservers($verbose);
@@ -1505,6 +1522,5 @@ sub runner_shutdown {
     close($runnerw);
     undef $runnerw;
 }
-
 
 1;

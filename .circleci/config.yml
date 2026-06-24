@@ -28,30 +28,6 @@
 version: 2.1
 
 commands:
-  configure:
-    steps:
-      - run:
-          command: |
-            autoreconf -fi
-            ./configure --enable-warnings --enable-werror --with-openssl \
-              || { tail -1000 config.log; false; }
-
-  configure-openssl-no-verbose:
-    steps:
-      - run:
-          command: |
-            autoreconf -fi
-            ./configure --disable-verbose --enable-werror --with-openssl \
-              || { tail -1000 config.log; false; }
-
-  configure-no-proxy:
-    steps:
-      - run:
-          command: |
-            autoreconf -fi
-            ./configure --disable-proxy --enable-werror --with-openssl \
-              || { tail -1000 config.log; false; }
-
   install-cares:
     steps:
       - run:
@@ -62,63 +38,51 @@ commands:
     steps:
       - run:
           command: |
+            export DEBIAN_FRONTEND=noninteractive
             sudo apt-get update && sudo apt-get install -y libssh-dev
 
   install-deps:
     steps:
       - run:
           command: |
-            sudo apt-get update && sudo apt-get install -y libpsl-dev libbrotli-dev libzstd-dev zlib1g-dev python3-pip libpsl-dev
-            sudo python3 -m pip install impacket
+            sudo apt-get update && sudo apt-get install -y libpsl-dev libbrotli-dev libzstd-dev zlib1g-dev python3-pip
+            python3 -m venv ~/venv
+            ~/venv/bin/pip --disable-pip-version-check --no-input --no-cache-dir install --progress-bar off --prefer-binary -r tests/requirements.txt
+
+  configure:
+    steps:
+      - run:
+          command: |
+            autoreconf -fi
+            ./configure --disable-dependency-tracking --enable-option-checking=fatal --enable-unity --enable-werror --enable-warnings \
+              --with-openssl \
+              || { tail -1000 config.log; false; }
+
+  configure-no-proxy:
+    steps:
+      - run:
+          command: |
+            autoreconf -fi
+            ./configure --disable-dependency-tracking --enable-option-checking=fatal --enable-unity --enable-werror \
+              --with-openssl --disable-proxy \
+              || { tail -1000 config.log; false; }
 
   configure-libssh:
     steps:
       - run:
           command: |
             autoreconf -fi
-            ./configure --enable-warnings --enable-werror --with-openssl --with-libssh \
+            ./configure --disable-dependency-tracking --enable-option-checking=fatal --enable-unity --enable-werror --enable-warnings \
+              --with-openssl --with-libssh \
               || { tail -1000 config.log; false; }
-
-  install-wolfssl:
-    steps:
-      - run:
-          command: |
-            source .github/scripts/VERSIONS
-            echo "Installing wolfSSL $WOLFSSL_VER"
-            curl -LOsSf --retry 6 --retry-connrefused --max-time 999 https://github.com/wolfSSL/wolfssl/archive/v$WOLFSSL_VER-stable.tar.gz
-            tar -xzf v$WOLFSSL_VER-stable.tar.gz
-            cd wolfssl-$WOLFSSL_VER-stable
-            ./autogen.sh
-            ./configure --enable-tls13 --enable-all --enable-harden --prefix=$HOME/wssl
-            make install
-
-  install-wolfssh:
-    steps:
-      - run:
-          command: |
-            source .github/scripts/VERSIONS
-            echo "Installing wolfSSH $WOLFSSH_VER"
-            curl -LOsSf --retry 6 --retry-connrefused --max-time 999 https://github.com/wolfSSL/wolfssh/archive/v$WOLFSSH_VER-stable.tar.gz
-            tar -xzf v$WOLFSSH_VER-stable.tar.gz
-            cd wolfssh-$WOLFSSH_VER-stable
-            ./autogen.sh
-            ./configure --with-wolfssl=$HOME/wssl --prefix=$HOME/wssh --enable-scp --enable-sftp --disable-examples
-            make install
 
   configure-cares:
     steps:
       - run:
           command: |
             autoreconf -fi
-            ./configure --enable-warnings --enable-werror --with-openssl --enable-ares \
-              || { tail -1000 config.log; false; }
-
-  configure-wolfssh:
-    steps:
-      - run:
-          command: |
-            autoreconf -fi
-            LDFLAGS="-Wl,-rpath,$HOME/wssh/lib" ./configure --enable-warnings --enable-werror --with-wolfssl=$HOME/wssl --with-wolfssh=$HOME/wssh \
+            ./configure --disable-dependency-tracking --enable-option-checking=fatal --enable-unity --enable-werror --enable-warnings \
+              --with-openssl --enable-ares \
               || { tail -1000 config.log; false; }
 
   configure-cares-debug:
@@ -126,22 +90,31 @@ commands:
       - run:
           command: |
             autoreconf -fi
-            ./configure --enable-debug --enable-werror --with-openssl --enable-ares \
+            ./configure --disable-dependency-tracking --enable-option-checking=fatal --enable-unity --enable-werror --enable-debug \
+              --with-openssl --enable-ares \
               || { tail -1000 config.log; false; }
 
   build:
     steps:
       - run: make -j3 V=1
+      - run: src/curl --disable --version
       - run: make -j3 V=1 examples
 
   test:
     steps:
-      - run: make -j3 V=1 test-ci TFLAGS='-j14'
+      - run:
+          command: |
+            source ~/venv/bin/activate
+            # Revert a CircleCI-specific local setting that makes test 1459
+            # return 67 (CURLE_LOGIN_DENIED) instead of the
+            # expected 60 (CURLE_PEER_FAILED_VERIFICATION).
+            echo 'StrictHostKeyChecking yes' >> ~/.ssh/config
+            make -j3 V=1 test-ci TFLAGS='-j14'
 
 executors:
   ubuntu:
     machine:
-      image: ubuntu-2004:2024.01.1
+      image: ubuntu-2204:2025.09.1
 
 jobs:
   basic:
@@ -152,24 +125,6 @@ jobs:
       - configure
       - build
       - test
-
-  no-verbose:
-    executor: ubuntu
-    steps:
-      - checkout
-      - install-deps
-      - configure-openssl-no-verbose
-      - build
-
-  wolfssh:
-    executor: ubuntu
-    steps:
-      - checkout
-      - install-deps
-      - install-wolfssl
-      - install-wolfssh
-      - configure-wolfssh
-      - build
 
   no-proxy:
     executor: ubuntu
@@ -202,7 +157,7 @@ jobs:
 
   arm:
     machine:
-      image: ubuntu-2004:2024.01.1
+      image: ubuntu-2204:2025.09.1
     resource_class: arm.medium
     steps:
       - checkout
@@ -213,7 +168,7 @@ jobs:
 
   arm-cares:
     machine:
-      image: ubuntu-2004:2024.01.1
+      image: ubuntu-2204:2025.09.1
     resource_class: arm.medium
     steps:
       - checkout
@@ -239,14 +194,6 @@ workflows:
   openssl-no-proxy:
     jobs:
       - no-proxy
-
-  openssl-no-verbose:
-    jobs:
-      - no-verbose
-
-  wolfssl-wolfssh:
-    jobs:
-      - wolfssh
 
   arm-openssl:
     jobs:

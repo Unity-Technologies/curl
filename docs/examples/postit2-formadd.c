@@ -25,7 +25,6 @@
  * HTTP Multipart formpost with file upload and two additional parts.
  * </DESC>
  */
-
 /*
  * Example code that uploads a filename 'foo' to a remote script that accepts
  * "HTML form based" (as described in RFC 1738) uploads using HTTP POST.
@@ -41,50 +40,47 @@
  * <input type="submit" value="send" name="submit">
  * </form>
  */
-
 #include <stdio.h>
 #include <string.h>
 
 #include <curl/curl.h>
 
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#endif
-
-int main(int argc, char *argv[])
+int main(int argc, const char *argv[])
 {
   CURL *curl;
-  CURLcode res;
+  CURLcode result;
 
   struct curl_httppost *formpost = NULL;
   struct curl_httppost *lastptr = NULL;
   struct curl_slist *headerlist = NULL;
   static const char buf[] = "Expect:";
 
-  curl_global_init(CURL_GLOBAL_ALL);
+  result = curl_global_init(CURL_GLOBAL_ALL);
+  if(result != CURLE_OK)
+    return (int)result;
 
-  /* Fill in the file upload field */
-  curl_formadd(&formpost,
-               &lastptr,
-               CURLFORM_COPYNAME, "sendfile",
-               CURLFORM_FILE, "postit2-formadd.c",
-               CURLFORM_END);
+  CURL_IGNORE_DEPRECATION(
+    /* Fill in the file upload field */
+    curl_formadd(&formpost,
+                 &lastptr,
+                 CURLFORM_COPYNAME, "sendfile",
+                 CURLFORM_FILE, "postit2-formadd.c",
+                 CURLFORM_END);
 
-  /* Fill in the filename field */
-  curl_formadd(&formpost,
-               &lastptr,
-               CURLFORM_COPYNAME, "filename",
-               CURLFORM_COPYCONTENTS, "postit2-formadd.c",
-               CURLFORM_END);
+    /* Fill in the filename field */
+    curl_formadd(&formpost,
+                 &lastptr,
+                 CURLFORM_COPYNAME, "filename",
+                 CURLFORM_COPYCONTENTS, "postit2-formadd.c",
+                 CURLFORM_END);
 
-
-  /* Fill in the submit field too, even if this is rarely needed */
-  curl_formadd(&formpost,
-               &lastptr,
-               CURLFORM_COPYNAME, "submit",
-               CURLFORM_COPYCONTENTS, "send",
-               CURLFORM_END);
+    /* Fill in the submit field too, even if this is rarely needed */
+    curl_formadd(&formpost,
+                 &lastptr,
+                 CURLFORM_COPYNAME, "submit",
+                 CURLFORM_COPYCONTENTS, "send",
+                 CURLFORM_END);
+  )
 
   curl = curl_easy_init();
   /* initialize custom header list (stating that Expect: 100-continue is not
@@ -96,26 +92,30 @@ int main(int argc, char *argv[])
     if((argc == 2) && (!strcmp(argv[1], "noexpectheader")))
       /* only disable 100-continue header if explicitly requested */
       curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerlist);
-    curl_easy_setopt(curl, CURLOPT_HTTPPOST, formpost);
+    CURL_IGNORE_DEPRECATION(
+      curl_easy_setopt(curl, CURLOPT_HTTPPOST, formpost);
+    )
 
-    /* Perform the request, res gets the return code */
-    res = curl_easy_perform(curl);
+    /* Perform the request, result gets the return code */
+    result = curl_easy_perform(curl);
     /* Check for errors */
-    if(res != CURLE_OK)
+    if(result != CURLE_OK)
       fprintf(stderr, "curl_easy_perform() failed: %s\n",
-              curl_easy_strerror(res));
+              curl_easy_strerror(result));
 
     /* always cleanup */
     curl_easy_cleanup(curl);
 
-    /* then cleanup the formpost chain */
-    curl_formfree(formpost);
+    CURL_IGNORE_DEPRECATION(
+      /* then cleanup the formpost chain */
+      curl_formfree(formpost);
+    )
+
     /* free slist */
     curl_slist_free_all(headerlist);
   }
+
+  curl_global_cleanup();
+
   return 0;
 }
-
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif

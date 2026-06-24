@@ -59,12 +59,12 @@ int main(void)
 {
   CURL *curl = curl_easy_init();
   if(curl) {
-    CURLcode res;
+    CURLcode result;
     curl_easy_setopt(curl, CURLOPT_URL, "imap://example.com/");
     curl_easy_setopt(curl, CURLOPT_USERNAME, "Kurt");
     curl_easy_setopt(curl, CURLOPT_PASSWORD, "xipj3plmq");
     curl_easy_setopt(curl, CURLOPT_SASL_AUTHZID, "Ursel");
-    res = curl_easy_perform(curl);
+    result = curl_easy_perform(curl);
     curl_easy_cleanup(curl);
   }
 }
@@ -74,4 +74,7 @@ int main(void)
 
 # RETURN VALUE
 
-Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+curl_easy_setopt(3) returns a CURLcode indicating success or error.
+
+CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

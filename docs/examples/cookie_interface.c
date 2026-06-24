@@ -25,6 +25,11 @@
  * Import and export cookies with COOKIELIST.
  * </DESC>
  */
+#ifdef _MSC_VER
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS  /* for _snprintf() */
+#endif
+#endif
 
 #include <stdio.h>
 #include <string.h>
@@ -33,20 +38,23 @@
 
 #include <curl/curl.h>
 
-static void
-print_cookies(CURL *curl)
+#if defined(_MSC_VER) && (_MSC_VER < 1900)
+#define snprintf _snprintf
+#endif
+
+static int print_cookies(CURL *curl)
 {
-  CURLcode res;
+  CURLcode result;
   struct curl_slist *cookies;
   struct curl_slist *nc;
   int i;
 
   printf("Cookies, curl knows:\n");
-  res = curl_easy_getinfo(curl, CURLINFO_COOKIELIST, &cookies);
-  if(res != CURLE_OK) {
-    fprintf(stderr, "Curl curl_easy_getinfo failed: %s\n",
-            curl_easy_strerror(res));
-    exit(1);
+  result = curl_easy_getinfo(curl, CURLINFO_COOKIELIST, &cookies);
+  if(result != CURLE_OK) {
+    fprintf(stderr, "curl curl_easy_getinfo failed: %s\n",
+            curl_easy_strerror(result));
+    return 1;
   }
   nc = cookies;
   i = 1;
@@ -59,15 +67,19 @@ print_cookies(CURL *curl)
     printf("(none)\n");
   }
   curl_slist_free_all(cookies);
+
+  return 0;
 }
 
-int
-main(void)
+int main(void)
 {
   CURL *curl;
-  CURLcode res;
+  CURLcode result;
 
-  curl_global_init(CURL_GLOBAL_ALL);
+  result = curl_global_init(CURL_GLOBAL_ALL);
+  if(result != CURLE_OK)
+    return (int)result;
+
   curl = curl_easy_init();
   if(curl) {
     char nline[512];
@@ -75,9 +87,9 @@ main(void)
     curl_easy_setopt(curl, CURLOPT_URL, "https://www.example.com/");
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
     curl_easy_setopt(curl, CURLOPT_COOKIEFILE, ""); /* start cookie engine */
-    res = curl_easy_perform(curl);
-    if(res != CURLE_OK) {
-      fprintf(stderr, "Curl perform failed: %s\n", curl_easy_strerror(res));
+    result = curl_easy_perform(curl);
+    if(result != CURLE_OK) {
+      fprintf(stderr, "curl perform failed: %s\n", curl_easy_strerror(result));
       return 1;
     }
 
@@ -90,18 +102,15 @@ main(void)
 
     printf("-----------------------------------------------\n"
            "Setting a cookie \"PREF\" via cookie interface:\n");
-#ifdef _WIN32
-#define snprintf _snprintf
-#endif
     /* Netscape format cookie */
     snprintf(nline, sizeof(nline), "%s\t%s\t%s\t%s\t%.0f\t%s\t%s",
              ".example.com", "TRUE", "/", "FALSE",
              difftime(time(NULL) + 31337, (time_t)0),
-             "PREF", "hello example, i like you!");
-    res = curl_easy_setopt(curl, CURLOPT_COOKIELIST, nline);
-    if(res != CURLE_OK) {
-      fprintf(stderr, "Curl curl_easy_setopt failed: %s\n",
-              curl_easy_strerror(res));
+             "PREF", "hello example, I like you!");
+    result = curl_easy_setopt(curl, CURLOPT_COOKIELIST, nline);
+    if(result != CURLE_OK) {
+      fprintf(stderr, "curl curl_easy_setopt failed: %s\n",
+              curl_easy_strerror(result));
       return 1;
     }
 
@@ -113,25 +122,25 @@ main(void)
     snprintf(nline, sizeof(nline),
       "Set-Cookie: OLD_PREF=3d141414bf4209321; "
       "expires=Sun, 17-Jan-2038 19:14:07 GMT; path=/; domain=.example.com");
-    res = curl_easy_setopt(curl, CURLOPT_COOKIELIST, nline);
-    if(res != CURLE_OK) {
-      fprintf(stderr, "Curl curl_easy_setopt failed: %s\n",
-              curl_easy_strerror(res));
+    result = curl_easy_setopt(curl, CURLOPT_COOKIELIST, nline);
+    if(result != CURLE_OK) {
+      fprintf(stderr, "curl curl_easy_setopt failed: %s\n",
+              curl_easy_strerror(result));
       return 1;
     }
 
     print_cookies(curl);
 
-    res = curl_easy_perform(curl);
-    if(res != CURLE_OK) {
-      fprintf(stderr, "Curl perform failed: %s\n", curl_easy_strerror(res));
+    result = curl_easy_perform(curl);
+    if(result != CURLE_OK) {
+      fprintf(stderr, "curl perform failed: %s\n", curl_easy_strerror(result));
       return 1;
     }
 
     curl_easy_cleanup(curl);
   }
   else {
-    fprintf(stderr, "Curl init failed!\n");
+    fprintf(stderr, "curl init failed!\n");
     return 1;
   }
 

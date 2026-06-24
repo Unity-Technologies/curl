@@ -41,11 +41,6 @@ libcurl only keeps one single pointer associated with a socket, so calling
 this function several times for the same socket makes the last set pointer get
 used.
 
-The idea here being that this association (socket to private pointer) is
-something that just about every application that uses this API needs and then
-libcurl can just as well do it since it already has the necessary
-functionality.
-
 It is acceptable to call this function from your multi callback functions.
 
 # %PROTOCOLS%
@@ -56,13 +51,13 @@ It is acceptable to call this function from your multi callback functions.
 int main(void)
 {
   CURLM *multi = curl_multi_init();
-  void *ourstructp; /* pointer to our data */
-  curl_socket_t fd; /* file descriptor to associate our data with */
+  int private = 123;
+  curl_socket_t fd = 0; /* file descriptor to associate our data with */
 
   /* make our struct pointer associated with socket fd */
-  CURLMcode mc = curl_multi_assign(multi, fd, ourstructp);
-  if(mc)
-    printf("error: %s\n", curl_multi_strerror(mc));
+  CURLMcode mresult = curl_multi_assign(multi, fd, &private);
+  if(mresult)
+    printf("error: %s\n", curl_multi_strerror(mresult));
 }
 ~~~
 
@@ -81,4 +76,7 @@ do not have to find the struct associated with this socket by ourselves.
 
 # RETURN VALUE
 
-The standard CURLMcode for multi interface error codes.
+This function returns a CURLMcode indicating success or error.
+
+CURLM_OK (0) means everything was OK, non-zero means an error occurred, see
+libcurl-errors(3).

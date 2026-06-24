@@ -29,8 +29,6 @@
 
 #include "terminal.h"
 
-#include "memdebug.h" /* keep this as LAST include */
-
 #ifdef HAVE_TERMIOS_H
 #  include <termios.h>
 #elif defined(HAVE_TERMIO_H)
@@ -39,18 +37,16 @@
 
 /*
  * get_terminal_columns() returns the number of columns in the current
- * terminal. It will return 79 on failure. Also, the number can be very big.
+ * terminal. It returns 79 on failure. Also, the number can be big.
  */
-
 unsigned int get_terminal_columns(void)
 {
   unsigned int width = 0;
   char *colp = curl_getenv("COLUMNS");
   if(colp) {
-    char *endptr;
-    long num = strtol(colp, &endptr, 10);
-    if((endptr != colp) && (endptr == colp + strlen(colp)) && (num > 20) &&
-       (num < 10000))
+    curl_off_t num;
+    const char *p = colp;
+    if(!curlx_str_number(&p, &num, 10000) && (num > 20))
       width = (unsigned int)num;
     curl_free(colp);
   }
@@ -66,19 +62,18 @@ unsigned int get_terminal_columns(void)
     struct winsize ts;
     if(!ioctl(STDIN_FILENO, TIOCGWINSZ, &ts))
       cols = (int)ts.ws_col;
-#elif defined(_WIN32) && !defined(CURL_WINDOWS_APP)
+#elif defined(_WIN32) && !defined(CURL_WINDOWS_UWP)
     {
-      HANDLE  stderr_hnd = GetStdHandle(STD_ERROR_HANDLE);
+      HANDLE stderr_hnd = GetStdHandle(STD_ERROR_HANDLE);
       CONSOLE_SCREEN_BUFFER_INFO console_info;
 
       if((stderr_hnd != INVALID_HANDLE_VALUE) &&
          GetConsoleScreenBufferInfo(stderr_hnd, &console_info)) {
         /*
          * Do not use +1 to get the true screen-width since writing a
-         * character at the right edge will cause a line wrap.
+         * character at the right edge causes a line wrap.
          */
-        cols = (int)
-          (console_info.srWindow.Right - console_info.srWindow.Left);
+        cols = (int)(console_info.srWindow.Right - console_info.srWindow.Left);
       }
     }
 #endif /* TIOCGSIZE */
@@ -87,5 +82,5 @@ unsigned int get_terminal_columns(void)
   }
   if(!width)
     width = 79;
-  return width; /* 79 for unknown, might also be very small or very big */
+  return width; /* 79 for unknown, might also be tiny or enormous */
 }
