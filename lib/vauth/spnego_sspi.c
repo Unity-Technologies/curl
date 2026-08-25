@@ -310,16 +310,19 @@ CURLcode Curl_auth_create_spnego_message(struct negotiatedata *nego,
  */
 void Curl_auth_cleanup_spnego(struct negotiatedata *nego)
 {
-  /* Free our security context */
+  /* Free our security context; Curl_pSecFn is NULL after
+     curl_global_cleanup(), the OS then reclaims handles at process exit */
   if(nego->context) {
-    Curl_pSecFn->DeleteSecurityContext(nego->context);
+    if(Curl_pSecFn)
+      Curl_pSecFn->DeleteSecurityContext(nego->context);
     curlx_free(nego->context);
     nego->context = NULL;
   }
 
   /* Free our credentials handle */
   if(nego->credentials) {
-    Curl_pSecFn->FreeCredentialsHandle(nego->credentials);
+    if(Curl_pSecFn)
+      Curl_pSecFn->FreeCredentialsHandle(nego->credentials);
     curlx_free(nego->credentials);
     nego->credentials = NULL;
   }

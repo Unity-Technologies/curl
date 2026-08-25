@@ -425,16 +425,19 @@ out:
  */
 void Curl_auth_cleanup_gssapi(struct kerberos5data *krb5)
 {
-  /* Free our security context */
+  /* Free our security context; Curl_pSecFn is NULL after
+     curl_global_cleanup(), the OS then reclaims handles at process exit */
   if(krb5->context) {
-    Curl_pSecFn->DeleteSecurityContext(krb5->context);
+    if(Curl_pSecFn)
+      Curl_pSecFn->DeleteSecurityContext(krb5->context);
     curlx_free(krb5->context);
     krb5->context = NULL;
   }
 
   /* Free our credentials handle */
   if(krb5->credentials) {
-    Curl_pSecFn->FreeCredentialsHandle(krb5->credentials);
+    if(Curl_pSecFn)
+      Curl_pSecFn->FreeCredentialsHandle(krb5->credentials);
     curlx_free(krb5->credentials);
     krb5->credentials = NULL;
   }

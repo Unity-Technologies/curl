@@ -322,16 +322,19 @@ CURLcode Curl_auth_create_ntlm_type3_message(struct Curl_easy *data,
  */
 void Curl_auth_cleanup_ntlm(struct ntlmdata *ntlm)
 {
-  /* Free our security context */
+  /* Free our security context; Curl_pSecFn is NULL after
+     curl_global_cleanup(), the OS then reclaims handles at process exit */
   if(ntlm->context) {
-    Curl_pSecFn->DeleteSecurityContext(ntlm->context);
+    if(Curl_pSecFn)
+      Curl_pSecFn->DeleteSecurityContext(ntlm->context);
     curlx_free(ntlm->context);
     ntlm->context = NULL;
   }
 
   /* Free our credentials handle */
   if(ntlm->credentials) {
-    Curl_pSecFn->FreeCredentialsHandle(ntlm->credentials);
+    if(Curl_pSecFn)
+      Curl_pSecFn->FreeCredentialsHandle(ntlm->credentials);
     curlx_free(ntlm->credentials);
     ntlm->credentials = NULL;
   }
