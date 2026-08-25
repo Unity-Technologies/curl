@@ -642,8 +642,7 @@ void Curl_auth_digest_cleanup(struct digestdata *digest)
   /* Reset any variables */
   digest->input_token_len = 0;
 
-  /* Delete security context; Curl_pSecFn is NULL after
-     curl_global_cleanup(), the OS then reclaims handles at process exit */
+  /* Delete security context */
   if(digest->http_context) {
     if(Curl_pSecFn)
       Curl_pSecFn->DeleteSecurityContext(digest->http_context);
