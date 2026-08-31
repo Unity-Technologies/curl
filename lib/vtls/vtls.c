@@ -61,6 +61,7 @@
 #include "vtls/unitytls.h"       /* UnityTls version */
 
 #include "slist.h"
+#include "multiif.h"
 #include "curl_trc.h"
 #include "strcase.h"
 #include "url.h"
@@ -203,6 +204,8 @@ static bool match_ssl_primary_config(struct Curl_easy *data,
      (c1->verifypeer == c2->verifypeer) &&
      (c1->verifyhost == c2->verifyhost) &&
      (c1->verifystatus == c2->verifystatus) &&
+     (c1->unity_certverify == c2->unity_certverify) &&
+     (c1->unity_certverify_userp == c2->unity_certverify_userp) &&
      blobcmp(c1->cert_blob, c2->cert_blob) &&
      blobcmp(c1->ca_info_blob, c2->ca_info_blob) &&
      blobcmp(c1->issuercert_blob, c2->issuercert_blob) &&
@@ -223,6 +226,36 @@ static bool match_ssl_primary_config(struct Curl_easy *data,
     return TRUE;
 
   return FALSE;
+}
+
+CURLcode Curl_unity_certverify(struct Curl_cfilter *cf,
+                               struct Curl_easy *data,
+                               const unsigned char *der,
+                               size_t derlen)
+{
+  struct ssl_primary_config *conn_config = Curl_ssl_cf_get_primary_config(cf);
+  CURLcode result;
+
+  DEBUGASSERT(conn_config->unity_certverify);
+
+  /* Fail closed: without a certificate the callback cannot make a decision. */
+  if(!der || !derlen) {
+    failf(data, "TLS: no peer certificate to verify");
+    return CURLE_PEER_FAILED_VERIFICATION;
+  }
+
+  Curl_set_in_callback(data, TRUE);
+  result = conn_config->unity_certverify(data, der, derlen,
+                                         conn_config->unity_certverify_userp);
+  Curl_set_in_callback(data, FALSE);
+
+  if(result) {
+    failf(data, "TLS: peer certificate rejected by verification callback");
+    return CURLE_PEER_FAILED_VERIFICATION;
+  }
+
+  infof(data, "TLS: peer certificate accepted by verification callback");
+  return CURLE_OK;
 }
 
 bool Curl_ssl_conn_config_match(struct Curl_easy *data,
@@ -250,6 +283,8 @@ static bool clone_ssl_primary_config(struct ssl_primary_config *source,
   dest->verifystatus = source->verifystatus;
   dest->cache_session = source->cache_session;
   dest->ssl_options = source->ssl_options;
+  dest->unity_certverify = source->unity_certverify;
+  dest->unity_certverify_userp = source->unity_certverify_userp;
 
   CLONE_BLOB(cert_blob);
   CLONE_BLOB(ca_info_blob);

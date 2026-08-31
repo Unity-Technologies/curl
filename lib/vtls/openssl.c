@@ -4771,6 +4771,20 @@ CURLcode Curl_ossl_check_peer_cert(struct Curl_cfilter *cf,
   infof_certstack(data, octx->ssl);
 #endif
 
+  if(conn_config->unity_certverify) {
+    unsigned char *der = NULL;
+    int derlen = i2d_X509(server_cert, &der);
+
+    if(derlen <= 0) {
+      failf(data, "SSL: could not DER encode peer certificate");
+      result = CURLE_PEER_FAILED_VERIFICATION;
+      goto out;
+    }
+    result = Curl_unity_certverify(cf, data, der, (size_t)derlen);
+    OPENSSL_free(der);
+    goto out;
+  }
+
   if(conn_config->verifyhost) {
     result = ossl_verifyhost(data, conn, peer, server_cert);
     if(result)

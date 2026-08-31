@@ -865,6 +865,9 @@ static CURLcode schannel_connect_step1(struct Curl_cfilter *cf,
   else
     backend->use_manual_cred_validation = FALSE;
 
+  if(conn_config->unity_certverify)
+    backend->use_manual_cred_validation = TRUE;
+
   backend->cred = NULL;
 
   /* check for an existing reusable credential handle */
@@ -1469,7 +1472,8 @@ static CURLcode schannel_connect_step2(struct Curl_cfilter *cf,
     }
   }
 
-  if(conn_config->verifypeer && backend->use_manual_cred_validation) {
+  if(backend->use_manual_cred_validation &&
+     (conn_config->verifypeer || conn_config->unity_certverify)) {
     /* Certificate verification also verifies the hostname if verifyhost */
     return Curl_verify_certificate(cf, data);
   }

@@ -290,6 +290,40 @@ static unitytls_x509verify_result unitytls_on_verify(void* userData, unitytls_x5
   const char* const hostname = connssl->peer.hostname;
   unitytls_x509verify_result verify_result = UNITYTLS_X509VERIFY_SUCCESS;
 
+  if(conn_config->unity_certverify) {
+    const unitytls_x509verify_result fatal =
+      (unitytls_x509verify_result)UNITYTLS_X509VERIFY_FATAL_ERROR;
+    unitytls_x509_ref leaf;
+    size_t derlen;
+    UInt8* der;
+    CURLcode result;
+
+    leaf = unitytls->unitytls_x509list_get_x509(chain, 0, errorState);
+    if(errorState->code != UNITYTLS_SUCCESS)
+      return fatal;
+
+    derlen = unitytls->unitytls_x509_export_der(leaf, NULL, 0, errorState);
+    if(errorState->code != UNITYTLS_SUCCESS || !derlen)
+      return fatal;
+
+    der = curlx_malloc(derlen);
+    if(!der)
+      return fatal;
+
+    unitytls->unitytls_x509_export_der(leaf, der, derlen, errorState);
+    if(errorState->code != UNITYTLS_SUCCESS) {
+      curlx_free(der);
+      return fatal;
+    }
+
+    result = Curl_unity_certverify(cf, CF_DATA_CURRENT(cf), der, derlen);
+    curlx_free(der);
+
+    if(result)
+      return (unitytls_x509verify_result)UNITYTLS_X509VERIFY_FLAG_NOT_TRUSTED;
+    return (unitytls_x509verify_result)UNITYTLS_X509VERIFY_SUCCESS;
+  }
+
   /* According to documentation the options verifypeer and verifyhost are independent of each other! */
   /* UnityTls however, verifies both the certificate as well as the hostname in the same call. */
   if(verifypeer || verifyhost) {

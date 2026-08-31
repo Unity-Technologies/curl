@@ -684,6 +684,14 @@ CURLcode Curl_verify_certificate(struct Curl_cfilter *cf,
     result = CURLE_PEER_FAILED_VERIFICATION;
   }
 
+  if(result == CURLE_OK && conn_config->unity_certverify) {
+    result = Curl_unity_certverify(cf, data,
+                                   pCertContextServer->pbCertEncoded,
+                                   pCertContextServer->cbCertEncoded);
+    CertFreeCertificateContext(pCertContextServer);
+    return result;
+  }
+
   if(result == CURLE_OK &&
      (conn_config->CAfile || conn_config->ca_info_blob) &&
      BACKEND->use_manual_cred_validation) {

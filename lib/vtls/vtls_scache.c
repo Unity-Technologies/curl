@@ -186,6 +186,12 @@ CURLcode Curl_ssl_peer_key_make(struct Curl_cfilter *cf,
     if(r)
       goto out;
   }
+  if(ssl->unity_certverify) {
+    r = curlx_dyn_addf(&buf, ":UNITY-CERTVERIFY-%p",
+                       ssl->unity_certverify_userp);
+    if(r)
+      goto out;
+  }
   if(!ssl->verifypeer || !ssl->verifyhost) {
     if(cf->conn->bits.conn_to_host) {
       r = curlx_dyn_addf(&buf, ":CHOST-%s", cf->conn->conn_to_host.name);
