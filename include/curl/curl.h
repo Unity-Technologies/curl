@@ -788,6 +788,7 @@ typedef CURLcode (*curl_ssl_ctx_callback)(CURL *curl,    /* easy handle */
                                                           mbedtls_ssl_config */
                                           void *userptr);
 
+#if UNITY_CERTVERIFY
 /* Unity extension: CURLOPT_UNITY_CERTVERIFY_FUNCTION callback prototype.
    Called with the DER-encoded leaf certificate of the peer once it is
    available, and fully replaces the TLS backend's own peer verification.
@@ -798,6 +799,7 @@ typedef CURLcode (*curl_unity_certverify_callback)(CURL *curl,
                                                    const unsigned char *der,
                                                    size_t derlen,
                                                    void *userptr);
+#endif /* UNITY_CERTVERIFY */
 
 #define CURLPROXY_HTTP            0L /* added in 7.10, new in 7.19.4 default is
                                         to use CONNECT HTTP/1.1 */
@@ -2270,6 +2272,7 @@ typedef enum {
   /* set TLS supported signature algorithms */
   CURLOPT(CURLOPT_SSL_SIGNATURE_ALGORITHMS, CURLOPTTYPE_STRINGPOINT, 328),
 
+#if UNITY_CERTVERIFY
   /* Unity extensions. Numbered from 900 to stay clear of upstream option
      numbers, so a curl update can never silently collide with these. */
 
@@ -2281,6 +2284,7 @@ typedef enum {
      verifier for connection reuse: connections are only shared between
      transfers using the same callback and userdata. */
   CURLOPT(CURLOPT_UNITY_CERTVERIFY_DATA, CURLOPTTYPE_CBPOINT, 901),
+#endif /* UNITY_CERTVERIFY */
 
   CURLOPT_LASTENTRY /* the last unused */
 } CURLoption;

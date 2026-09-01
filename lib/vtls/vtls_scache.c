@@ -186,12 +186,19 @@ CURLcode Curl_ssl_peer_key_make(struct Curl_cfilter *cf,
     if(r)
       goto out;
   }
+#if UNITY_CERTVERIFY
+  /* A verification callback replaces the backend's own peer verification, and
+     on Schannel it also changes the credential flags cached under this key
+     (SCH_CRED_MANUAL_CRED_VALIDATION). Without this, a credential established
+     under a callback could be picked up by a transfer that has none, which
+     would then neither validate automatically nor call a callback. */
   if(ssl->unity_certverify) {
     r = curlx_dyn_addf(&buf, ":UNITY-CERTVERIFY-%p",
                        ssl->unity_certverify_userp);
     if(r)
       goto out;
   }
+#endif /* UNITY_CERTVERIFY */
   if(!ssl->verifypeer || !ssl->verifyhost) {
     if(cf->conn->bits.conn_to_host) {
       r = curlx_dyn_addf(&buf, ":CHOST-%s", cf->conn->conn_to_host.name);

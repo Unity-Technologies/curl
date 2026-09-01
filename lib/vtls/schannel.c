@@ -865,8 +865,13 @@ static CURLcode schannel_connect_step1(struct Curl_cfilter *cf,
   else
     backend->use_manual_cred_validation = FALSE;
 
+#if UNITY_CERTVERIFY
+  /* Schannel must not reject the peer during the handshake when a verification
+     callback is installed; the callback has the final say. Manual validation
+     moves the decision into Curl_verify_certificate, where it is consulted. */
   if(conn_config->unity_certverify)
     backend->use_manual_cred_validation = TRUE;
+#endif /* UNITY_CERTVERIFY */
 
   backend->cred = NULL;
 
@@ -1472,8 +1477,14 @@ static CURLcode schannel_connect_step2(struct Curl_cfilter *cf,
     }
   }
 
+#if UNITY_CERTVERIFY
+  /* A verification callback needs the peer certificate whether or not
+     verifypeer is set, and Curl_verify_certificate hands it over. */
   if(backend->use_manual_cred_validation &&
      (conn_config->verifypeer || conn_config->unity_certverify)) {
+#else
+  if(conn_config->verifypeer && backend->use_manual_cred_validation) {
+#endif /* UNITY_CERTVERIFY */
     /* Certificate verification also verifies the hostname if verifyhost */
     return Curl_verify_certificate(cf, data);
   }

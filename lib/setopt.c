@@ -2074,6 +2074,7 @@ static CURLcode setopt_cptr(struct Curl_easy *data, CURLoption option,
      */
     s->ioctl_client = ptr;
     break;
+#if UNITY_CERTVERIFY
   case CURLOPT_UNITY_CERTVERIFY_DATA:
     /*
      * Unity: userdata for CURLOPT_UNITY_CERTVERIFY_FUNCTION. Might be NULL.
@@ -2084,6 +2085,7 @@ static CURLcode setopt_cptr(struct Curl_easy *data, CURLoption option,
 #else
     return CURLE_NOT_BUILT_IN;
 #endif
+#endif /* UNITY_CERTVERIFY */
   case CURLOPT_SSL_CTX_DATA:
     /*
      * Set an SSL_CTX callback parameter pointer
@@ -2632,6 +2634,7 @@ static CURLcode setopt_func(struct Curl_easy *data, CURLoption option,
 #endif
       return CURLE_NOT_BUILT_IN;
 
+#if UNITY_CERTVERIFY
   case CURLOPT_UNITY_CERTVERIFY_FUNCTION:
     /*
      * Unity: set a callback that verifies the peer certificate.
@@ -2643,6 +2646,7 @@ static CURLcode setopt_func(struct Curl_easy *data, CURLoption option,
 #else
     return CURLE_NOT_BUILT_IN;
 #endif
+#endif /* UNITY_CERTVERIFY */
 
   case CURLOPT_SOCKOPTFUNCTION:
     /*

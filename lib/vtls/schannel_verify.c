@@ -684,6 +684,7 @@ CURLcode Curl_verify_certificate(struct Curl_cfilter *cf,
     result = CURLE_PEER_FAILED_VERIFICATION;
   }
 
+#if UNITY_CERTVERIFY
   if(result == CURLE_OK && conn_config->unity_certverify) {
     result = Curl_unity_certverify(cf, data,
                                    pCertContextServer->pbCertEncoded,
@@ -691,6 +692,7 @@ CURLcode Curl_verify_certificate(struct Curl_cfilter *cf,
     CertFreeCertificateContext(pCertContextServer);
     return result;
   }
+#endif /* UNITY_CERTVERIFY */
 
   if(result == CURLE_OK &&
      (conn_config->CAfile || conn_config->ca_info_blob) &&
