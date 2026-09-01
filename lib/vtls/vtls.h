@@ -144,6 +144,19 @@ bool Curl_ssl_conn_config_match(struct Curl_easy *data,
  * `verifyhost` and `verifystatus`. */
 void Curl_ssl_conn_config_update(struct Curl_easy *data, bool for_proxy);
 
+#if UNITY_CERTVERIFY
+/**
+ * Unity: hand the DER-encoded peer certificate to the
+ * CURLOPT_UNITY_CERTVERIFY_FUNCTION callback and translate its answer into a
+ * CURLcode. Only call this when `unity_certverify` is set on the connection's
+ * primary SSL config; it then replaces the backend's own peer verification.
+ */
+CURLcode Curl_unity_certverify(struct Curl_cfilter *cf,
+                               struct Curl_easy *data,
+                               const unsigned char *der,
+                               size_t derlen);
+#endif /* UNITY_CERTVERIFY */
+
 /**
  * Init SSL peer information for filter. Can be called repeatedly.
  */

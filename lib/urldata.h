@@ -156,6 +156,14 @@ struct ssl_primary_config {
   char *password; /* TLS password (for, e.g., SRP) */
 #endif
   char *curves;          /* list of curves to use */
+#if UNITY_CERTVERIFY
+  /* Unity: peer verification callback and its userdata. These live in the
+     primary config rather than in ssl_config_data so that they take part in
+     the connection reuse check, i.e. a connection verified by one callback is
+     never reused by a transfer carrying a different one. */
+  curl_unity_certverify_callback unity_certverify;
+  void *unity_certverify_userp;
+#endif /* UNITY_CERTVERIFY */
   uint32_t version_max; /* max supported version the client wants to use */
   uint8_t ssl_options;  /* the CURLOPT_SSL_OPTIONS bitmask */
   uint8_t version;    /* what version the client wants to use */
