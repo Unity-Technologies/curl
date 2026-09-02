@@ -471,10 +471,10 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
   }
 
   /* Load the client private key */
-  if(ssl_config->key) {
-    backend->pk = unitytls_key_parse_pem_from_file(ssl_config->key, ssl_config->key_passwd, &err);
+  if(ssl_config->primary.key) {
+    backend->pk = unitytls_key_parse_pem_from_file(ssl_config->primary.key, ssl_config->primary.key_passwd, &err);
     if(!backend->pk || err.code != UNITYTLS_SUCCESS) {
-      failf(data, "Error reading private key %s", ssl_config->key);
+      failf(data, "Error reading private key %s", ssl_config->primary.key);
       return CURLE_SSL_CERTPROBLEM;
     }
   }
