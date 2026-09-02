@@ -479,7 +479,7 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
     }
   }
   else if(ssl_key_blob) {
-    backend->pk = unitytls_key_parse_pem_from_blob(ssl_key_blob, ssl_config->key_passwd, &err);
+    backend->pk = unitytls_key_parse_pem_from_blob(ssl_key_blob, ssl_config->primary.key_passwd, &err);
     if(!backend->pk || err.code != UNITYTLS_SUCCESS) {
       failf(data, "Error parsing private key blob");
       return CURLE_SSL_CERTPROBLEM;
