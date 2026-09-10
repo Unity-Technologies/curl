@@ -287,7 +287,7 @@ static unitytls_x509verify_result unitytls_on_verify(void* userData, unitytls_x5
   struct ssl_primary_config *conn_config = Curl_ssl_cf_get_primary_config(cf);
   const bool verifypeer = conn_config->verifypeer;
   const bool verifyhost = conn_config->verifyhost;
-  const char* const hostname = connssl->peer.hostname;
+  const char* const hostname = connssl->peer.origin->hostname;
   unitytls_x509verify_result verify_result = UNITYTLS_X509VERIFY_SUCCESS;
 
   /* According to documentation the options verifypeer and verifyhost are independent of each other! */
@@ -404,8 +404,8 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
   const char* const ssl_capath = conn_config->CApath;
   char* const ssl_cert = ssl_config->primary.clientcert;
   const struct curl_blob *ssl_cert_blob = ssl_config->primary.cert_blob;
-  const struct curl_blob *ssl_key_blob = ssl_config->key_blob;
-  const char* const hostname = connssl->peer.hostname;
+  const struct curl_blob *ssl_key_blob = ssl_config->primary.key_blob;
+  const char* const hostname = connssl->peer.origin->hostname;
 
   unitytls_errorstate err = unitytls->unitytls_errorstate_create();
 
@@ -471,15 +471,15 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
   }
 
   /* Load the client private key */
-  if(ssl_config->key) {
-    backend->pk = unitytls_key_parse_pem_from_file(ssl_config->key, ssl_config->key_passwd, &err);
+  if(ssl_config->primary.key) {
+    backend->pk = unitytls_key_parse_pem_from_file(ssl_config->primary.key, ssl_config->primary.key_passwd, &err);
     if(!backend->pk || err.code != UNITYTLS_SUCCESS) {
-      failf(data, "Error reading private key %s", ssl_config->key);
+      failf(data, "Error reading private key %s", ssl_config->primary.key);
       return CURLE_SSL_CERTPROBLEM;
     }
   }
   else if(ssl_key_blob) {
-    backend->pk = unitytls_key_parse_pem_from_blob(ssl_key_blob, ssl_config->key_passwd, &err);
+    backend->pk = unitytls_key_parse_pem_from_blob(ssl_key_blob, ssl_config->primary.key_passwd, &err);
     if(!backend->pk || err.code != UNITYTLS_SUCCESS) {
       failf(data, "Error parsing private key blob");
       return CURLE_SSL_CERTPROBLEM;
