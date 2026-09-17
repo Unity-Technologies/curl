@@ -133,7 +133,7 @@ struct easy_pollset {
 #define CURL_EASY_POLLSET_MAGIC  0x7a657370
 #endif
 
-/* allocate and initialise */
+/* allocate and initialize */
 struct easy_pollset *Curl_pollset_create(void);
 
 /* Initialize before first use */
