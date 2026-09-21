@@ -34,8 +34,7 @@ if(!$cmake) {
     exit;
 }
 
-# this lists complete lines that will be removed from the output if
-# matching
+# this lists complete lines that are removed from the output if matching
 my %remove = (
     '#define CURL_EXTERN_SYMBOL' => 1,
     '#define CURL_OS "Linux"' => 1,
@@ -89,6 +88,7 @@ my %remove = (
     '#define PACKAGE_TARNAME "curl"' => 1,
     '#define PACKAGE_URL ""' => 1,
     '#define PACKAGE_VERSION "-"' => 1,
+    '#define STDC_HEADERS 1' => 1,
     '#define VERSION "-"' => 1,
     '#define _FILE_OFFSET_BITS 64' => 1,
     );
@@ -106,7 +106,7 @@ sub grepit {
     my ($input, $output) = @_;
     my @defines;
     # first get all the #define lines
-    open(F, "<$input");
+    open(F, "<", $input);
     while(<F>) {
         if($_ =~ /^#def/) {
             chomp;
@@ -115,7 +115,7 @@ sub grepit {
     }
     close(F);
 
-    open(O, ">$output");
+    open(O, ">", $output);
 
     # output the sorted list through the filter
     foreach my $d(sort @defines) {

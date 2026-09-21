@@ -7,6 +7,7 @@ Source: libcurl
 See-also:
   - curl_multi_setopt (3)
   - curl_multi_socket_action (3)
+  - CURLMOPT_SOCKETFUNCTION (3)
 Protocol:
   - All
 Added-in: 7.15.5
@@ -31,11 +32,12 @@ This function creates an association in the multi handle between the given
 socket and a private pointer of the application. This is designed for
 curl_multi_socket_action(3) uses.
 
-When set, the *sockptr* pointer is passed to all future socket callbacks
-for the specific *sockfd* socket.
+When set, the *sockptr* pointer is passed to all future socket callbacks for
+the specific *sockfd* socket, until the socket stops being monitored
+(CURL_POLL_REMOVE is sent to the CURLMOPT_SOCKETFUNCTION(3) callback).
 
-If the given *sockfd* is not already in use by libcurl, this function
-returns an error.
+If the given *sockfd* is not already in use by libcurl, this function returns
+an error.
 
 libcurl only keeps one single pointer associated with a socket, so calling
 this function several times for the same socket makes the last set pointer get
@@ -51,11 +53,11 @@ It is acceptable to call this function from your multi callback functions.
 int main(void)
 {
   CURLM *multi = curl_multi_init();
-  int private = 123;
+  int private_data = 123;
   curl_socket_t fd = 0; /* file descriptor to associate our data with */
 
   /* make our struct pointer associated with socket fd */
-  CURLMcode mresult = curl_multi_assign(multi, fd, &private);
+  CURLMcode mresult = curl_multi_assign(multi, fd, &private_data);
   if(mresult)
     printf("error: %s\n", curl_multi_strerror(mresult));
 }

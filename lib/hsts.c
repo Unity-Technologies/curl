@@ -96,7 +96,7 @@ void Curl_hsts_cleanup(struct hsts **hp)
 static void hsts_append(struct hsts *h, struct stsentry *sts)
 {
   if(Curl_llist_count(&h->list) == MAX_HSTS_ENTRIES) {
-    /* It's full. Remove the first entry in the list */
+    /* It is full. Remove the first entry in the list */
     struct Curl_llist_node *e = Curl_llist_head(&h->list);
     struct stsentry *oldsts = Curl_node_elem(e);
     Curl_node_remove(e);
@@ -121,7 +121,7 @@ static CURLcode hsts_create(struct hsts *h,
     struct stsentry *sts = curlx_calloc(1, sizeof(struct stsentry) + hlen);
     if(!sts)
       return CURLE_OUT_OF_MEMORY;
-    /* the null terminator is already there */
+    /* the null-terminator is already there */
     memcpy(sts->host, hostname, hlen);
     sts->expires = expires;
     sts->includeSubDomains = subdomains;
@@ -130,114 +130,38 @@ static CURLcode hsts_create(struct hsts *h,
   return CURLE_OK;
 }
 
-CURLcode Curl_hsts_parse(struct hsts *h, const char *hostname,
-                         const char *header)
+/* Copy all live entries from src into dst. Used by curl_easy_duphandle so the
+ * clone inherits entries learned at runtime. E.g. Strict-Transport-Security.
+ */
+CURLcode Curl_hsts_copy(struct hsts *dst, struct hsts *src)
 {
-  const char *p = header;
-  curl_off_t expires = 0;
-  bool gotma = FALSE;
-  bool gotinc = FALSE;
-  bool subdomains = FALSE;
-  struct stsentry *sts;
+  struct Curl_llist_node *e;
   time_t now = time(NULL);
-  size_t hlen = strlen(hostname);
-
-  if(Curl_host_is_ipnum(hostname))
-    /* "explicit IP address identification of all forms is excluded."
-       / RFC 6797 */
-    return CURLE_OK;
-
-  do {
-    curlx_str_passblanks(&p);
-    if(curl_strnequal("max-age", p, 7)) {
-      bool quoted = FALSE;
-      int rc;
-
-      if(gotma)
-        return CURLE_BAD_FUNCTION_ARGUMENT;
-
-      p += 7;
-      curlx_str_passblanks(&p);
-      if(curlx_str_single(&p, '='))
-        return CURLE_BAD_FUNCTION_ARGUMENT;
-      curlx_str_passblanks(&p);
-
-      if(!curlx_str_single(&p, '\"'))
-        quoted = TRUE;
-
-      rc = curlx_str_number(&p, &expires, TIME_T_MAX);
-      if(rc == STRE_OVERFLOW)
-        expires = CURL_OFF_T_MAX;
-      else if(rc)
-        /* invalid max-age */
-        return CURLE_BAD_FUNCTION_ARGUMENT;
-
-      if(quoted) {
-        if(*p != '\"')
-          return CURLE_BAD_FUNCTION_ARGUMENT;
-        p++;
-      }
-      gotma = TRUE;
+  for(e = Curl_llist_head(&src->list); e; e = Curl_node_next(e)) {
+    struct stsentry *sts = Curl_node_elem(e);
+    if(sts->expires > now) {
+      CURLcode result = hsts_create(dst, sts->host, strlen(sts->host),
+                                    sts->includeSubDomains != 0, sts->expires);
+      if(result)
+        return result;
     }
-    else if(curl_strnequal("includesubdomains", p, 17)) {
-      if(gotinc)
-        return CURLE_BAD_FUNCTION_ARGUMENT;
-      subdomains = TRUE;
-      p += 17;
-      gotinc = TRUE;
-    }
-    else {
-      /* unknown directive, do a lame attempt to skip */
-      while(*p && (*p != ';'))
-        p++;
-    }
-
-    curlx_str_passblanks(&p);
-    if(*p == ';')
-      p++;
-  } while(*p);
-
-  if(!gotma)
-    /* max-age is mandatory */
-    return CURLE_BAD_FUNCTION_ARGUMENT;
-
-  if(!expires) {
-    /* remove the entry if present verbatim (without subdomain match) */
-    sts = Curl_hsts(h, hostname, hlen, FALSE);
-    if(sts) {
-      Curl_node_remove(&sts->node);
-      hsts_free(sts);
-    }
-    return CURLE_OK;
   }
-
-  if(CURL_OFF_T_MAX - now < expires)
-    /* would overflow, use maximum value */
-    expires = CURL_OFF_T_MAX;
-  else
-    expires += now;
-
-  /* check if it already exists */
-  sts = Curl_hsts(h, hostname, hlen, FALSE);
-  if(sts) {
-    /* update these fields */
-    sts->expires = expires;
-    sts->includeSubDomains = subdomains;
-  }
-  else
-    return hsts_create(h, hostname, hlen, subdomains, expires);
-
   return CURLE_OK;
 }
 
 /*
- * Return TRUE if the given hostname is currently an HSTS one.
+ * Return the matching HSTS entry, or NULL if the given hostname is not
+ * currently an HSTS one.
  *
  * The 'subdomain' argument tells the function if subdomain matching should be
  * attempted.
+ *
+ * @unittest 1660
  */
-struct stsentry *Curl_hsts(struct hsts *h, const char *hostname,
-                           size_t hlen, bool subdomain)
+UNITTEST struct stsentry *hsts_check(struct hsts *h, const char *hostname,
+                                     size_t hlen, bool subdomain);
+UNITTEST struct stsentry *hsts_check(struct hsts *h, const char *hostname,
+                                     size_t hlen, bool subdomain)
 {
   struct stsentry *bestsub = NULL;
   if(h) {
@@ -279,6 +203,108 @@ struct stsentry *Curl_hsts(struct hsts *h, const char *hostname,
     }
   }
   return bestsub;
+}
+
+CURLcode Curl_hsts_parse(struct hsts *h, const char *hostname,
+                         const char *header)
+{
+  const char *p = header;
+  curl_off_t expires = 0;
+  bool gotma = FALSE;
+  bool gotinc = FALSE;
+  bool subdomains = FALSE;
+  struct stsentry *sts;
+  time_t now = time(NULL);
+  size_t hlen = strlen(hostname);
+
+  if(Curl_host_is_ipnum(hostname))
+    /* "explicit IP address identification of all forms is excluded."
+       / RFC 6797 */
+    return CURLE_OK;
+
+  do {
+    struct Curl_str word;
+    struct Curl_str val = { 0 };
+    int rc;
+    bool assign = FALSE;
+
+    do {
+      curlx_str_passblanks(&p);
+      if(*p == ';')
+        p++;
+      else
+        break;
+    } while(1);
+    if(curlx_str_cspn(&p, &word, ";=\r\n \t"))
+      break;
+
+    curlx_str_passblanks(&p);
+    if(!curlx_str_single(&p, '=')) {
+      assign = TRUE;
+      curlx_str_passblanks(&p);
+
+      if(*p == '\"') {
+        if(curlx_str_quotedword(&p, &val, MAX_HSTS_LINE))
+          break;
+      }
+      else {
+        if(curlx_str_cspn(&p, &val, ", ;\r\n"))
+          break;
+      }
+    }
+
+    if(assign && curlx_str_casecompare(&word, "max-age")) {
+      const char *vp = curlx_str(&val);
+      if(gotma)
+        return CURLE_BAD_FUNCTION_ARGUMENT;
+      rc = curlx_str_number(&vp, &expires, TIME_T_MAX);
+      if(rc == STRE_OVERFLOW)
+        expires = CURL_OFF_T_MAX;
+      else if(rc)
+        /* invalid max-age */
+        return CURLE_BAD_FUNCTION_ARGUMENT;
+
+      gotma = TRUE;
+    }
+    else if(curlx_str_casecompare(&word, "includesubdomains")) {
+      if(gotinc)
+        return CURLE_BAD_FUNCTION_ARGUMENT;
+      subdomains = TRUE;
+      gotinc = TRUE;
+    }
+  } while(*p);
+
+  if(!gotma)
+    /* max-age is mandatory */
+    return CURLE_BAD_FUNCTION_ARGUMENT;
+
+  if(!expires) {
+    /* remove the entry if present verbatim (without subdomain match) */
+    sts = hsts_check(h, hostname, hlen, FALSE);
+    if(sts) {
+      Curl_node_remove(&sts->node);
+      hsts_free(sts);
+    }
+    return CURLE_OK;
+  }
+
+  if(CURL_OFF_T_MAX - now < expires)
+    /* would overflow, use maximum value */
+    expires = CURL_OFF_T_MAX;
+  else
+    expires += now;
+
+  /* check if it already exists */
+  sts = hsts_check(h, hostname, hlen, FALSE);
+  if(sts) {
+    /* update these fields */
+    sts->expires = expires;
+    sts->includeSubDomains = subdomains;
+  }
+  else
+    return hsts_create(h, hostname, hlen, subdomains, expires);
+
+  return CURLE_OK;
 }
 
 /*
@@ -437,10 +463,10 @@ static CURLcode hsts_add_host_expire(struct hsts *h,
 
   if(hostlen) {
     /* only add it if not already present */
-    e = Curl_hsts(h, host, hostlen, subdomain);
+    e = hsts_check(h, host, hostlen, subdomain);
     if(!e)
       result = hsts_create(h, host, hostlen, subdomain, expires);
-    /* 'host' is not necessarily null terminated */
+    /* 'host' is not necessarily null-terminated */
     else if((hostlen == strlen(e->host) &&
              curl_strnequal(host, e->host, hostlen))) {
       /* the same hostname, use the largest expire time and keep the strictest
@@ -504,7 +530,7 @@ static CURLcode hsts_pull(struct Curl_easy *data, struct hsts *h)
         const char *date = e.expire;
         if(!e.name[0] || e.expire[MAX_HSTS_DATELEN] ||
            e.name[MAX_HSTS_HOSTLEN])
-          /* bail out if no name was stored or if a null terminator is gone */
+          /* bail out if no name was stored or if a null-terminator is gone */
           return CURLE_BAD_FUNCTION_ARGUMENT;
         if(!date[0])
           date = UNLIMITED;
@@ -608,6 +634,11 @@ CURLcode Curl_hsts_loadfiles(struct Curl_easy *data)
     Curl_share_unlock(data, CURL_LOCK_DATA_HSTS);
   }
   return result;
+}
+
+bool Curl_hsts_applies(struct hsts *h, const struct Curl_peer *dest)
+{
+  return !!hsts_check(h, dest->hostname, strlen(dest->hostname), TRUE);
 }
 
 #if defined(DEBUGBUILD) || defined(UNITTESTS)

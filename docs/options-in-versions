@@ -98,6 +98,10 @@
 --http2-prior-knowledge              7.49.0
 --http3                              7.66.0
 --http3-only                         7.88.0
+--httpsig-algo                       8.22.0
+--httpsig-headers                    8.22.0
+--httpsig-key                        8.22.0
+--httpsig-keyid                      8.22.0
 --ignore-content-length              7.14.1
 --ip-tos                             8.9.0
 --ipfs-gateway                       8.4.0
@@ -177,6 +181,7 @@
 --proxy-digest                       7.12.0
 --proxy-header                       7.37.0
 --proxy-http2                        8.1.0
+--proxy-http3                        8.21.0
 --proxy-insecure                     7.52.0
 --proxy-key                          7.52.0
 --proxy-key-type                     7.52.0

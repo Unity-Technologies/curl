@@ -172,7 +172,7 @@ const char *curl_easy_strerror(CURLcode error)
     return "Can not set SSL crypto engine as default";
 
   case CURLE_SSL_ENGINE_INITFAILED:
-    return "Failed to initialise SSL crypto engine";
+    return "Failed to initialize SSL crypto engine";
 
   case CURLE_SEND_ERROR:
     return "Failed sending data to the peer";
@@ -452,34 +452,34 @@ const char *curl_url_strerror(CURLUcode error)
     return "An unknown part ID was passed to a URL API function";
 
   case CURLUE_NO_SCHEME:
-    return "No scheme part in the URL";
+    return "No scheme present";
 
   case CURLUE_NO_USER:
-    return "No user part in the URL";
+    return "No user present";
 
   case CURLUE_NO_PASSWORD:
-    return "No password part in the URL";
+    return "No password present";
 
   case CURLUE_NO_OPTIONS:
-    return "No options part in the URL";
+    return "No options present";
 
   case CURLUE_NO_HOST:
-    return "No host part in the URL";
+    return "No host present";
 
   case CURLUE_NO_PORT:
-    return "No port part in the URL";
+    return "No port number present";
 
   case CURLUE_NO_QUERY:
-    return "No query part in the URL";
+    return "No query present";
 
   case CURLUE_NO_FRAGMENT:
-    return "No fragment part in the URL";
+    return "No fragment present";
 
   case CURLUE_NO_ZONEID:
-    return "No zoneid part in the URL";
+    return "No zoneid present";
 
   case CURLUE_BAD_LOGIN:
-    return "Bad login part";
+    return "Bad login";
 
   case CURLUE_BAD_IPV6:
     return "Bad IPv6 address";
@@ -516,6 +516,9 @@ const char *curl_url_strerror(CURLUcode error)
 
   case CURLUE_TOO_LARGE:
     return "A value or data field is larger than allowed";
+
+  case CURLUE_BACKSLASH:
+    return "Found a backslash where a forward slash was expected";
 
   case CURLUE_LAST:
     break;
@@ -647,14 +650,15 @@ const char *Curl_sspi_strerror(SECURITY_STATUS err, char *buf, size_t buflen)
                    "SEC_E_ILLEGAL_MESSAGE (0x%08lx) - This error usually "
                    "occurs when a fatal SSL/TLS alert is received (e.g. "
                    "handshake failed). More detail may be available in "
-                   "the Windows System event log.", err);
+                   "the Windows System event log.", (unsigned long)err);
   }
   else {
     char msgbuf[256];
     if(curlx_get_winapi_error((DWORD)err, msgbuf, sizeof(msgbuf)))
-      curl_msnprintf(buf, buflen, "%s (0x%08lx) - %s", txt, err, msgbuf);
+      curl_msnprintf(buf, buflen, "%s (0x%08lx) - %s", txt, (unsigned long)err,
+                     msgbuf);
     else
-      curl_msnprintf(buf, buflen, "%s (0x%08lx)", txt, err);
+      curl_msnprintf(buf, buflen, "%s (0x%08lx)", txt, (unsigned long)err);
   }
 #else /* CURLVERBOSE */
   if(err == SEC_E_OK)

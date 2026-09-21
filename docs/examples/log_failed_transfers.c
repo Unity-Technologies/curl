@@ -289,7 +289,7 @@ int main(void)
         failed = 0;
       }
       else {
-        mem_addf(&t->log, "Transfer failed: (%d) %s\n", result,
+        mem_addf(&t->log, "Transfer failed: (%d) %s\n", (int)result,
                  (errbuf[0] ? errbuf : curl_easy_strerror(result)));
         fprintf(stderr, "%s", t->log.recent);
         failed = 1;
@@ -305,7 +305,7 @@ int main(void)
     if(failed) {
       FILE *fp = fopen(t->logfile, "wb");
 
-      if(fp && t->log.len == fwrite(t->log.buf, 1, t->log.len, fp))
+      if(fp && fwrite(t->log.buf, 1, t->log.len, fp) == t->log.len)
         fprintf(stderr, "Transfer log written to %s\n", t->logfile);
       else {
         fprintf(stderr, "Failed to write transfer log to %s: %s\n",

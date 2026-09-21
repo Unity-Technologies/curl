@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #***************************************************************************
 #                                  _   _ ____  _
 #  Project                     ___| | | |  _ \| |
@@ -70,21 +68,19 @@ class UDSFaker:
     def _process(self):
         while self._done is False:
             try:
-                c, client_address = self._socket.accept()
+                c, _client_address = self._socket.accept()
                 try:
                     c.recv(16)
-                    c.sendall("""HTTP/1.1 200 Ok
+                    c.sendall(b"""HTTP/1.1 200 Ok
 Server: UdsFaker
 Content-Type: application/json
 Content-Length: 19
 
-{ "host": "faked" }""".encode())
+{ "host": "faked" }""")
                 finally:
                     c.close()
 
-            except ConnectionAbortedError:
-                self._done = True
-            except OSError:
+            except (ConnectionAbortedError, OSError):
                 self._done = True
 
 
@@ -134,5 +130,18 @@ class TestUnix:
                                  '--unix-socket', uds_faker.path,
                                ])
         r.check_response(exitcode=96, http_status=None)
+        assert r.stats[0]['remote_port'] == -1, f'{r.dump_logs()}'
+        assert r.stats[0]['local_port'] == -1, f'{r.dump_logs()}'
+
+    # download http: via Unix socket, ignore proxy args
+    def test_11_04_unix_connect_http(self, env: Env, httpd, uds_faker):
+        curl = CurlClient(env=env)
+        url = f'http://{env.domain1}:{env.http_port}/data.json'
+        xargs = curl.get_proxy_args(proto='http/1.1', use_ip=True, proxys=False)
+        xargs.extend([
+            '--unix-socket', uds_faker.path,
+        ])
+        r = curl.http_download(urls=[url], with_stats=True, extra_args=xargs)
+        r.check_response(count=1, http_status=200)
         assert r.stats[0]['remote_port'] == -1, f'{r.dump_logs()}'
         assert r.stats[0]['local_port'] == -1, f'{r.dump_logs()}'

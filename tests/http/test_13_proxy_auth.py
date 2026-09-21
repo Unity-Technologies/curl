@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #***************************************************************************
 #                                  _   _ ____  _
 #  Project                     ___| | | |  _ \| |
@@ -48,7 +46,6 @@ class TestProxyAuth:
             if m:
                 return m.group(1)
         assert False, f'tunnel protocol not found in:\n{"".join(r.trace_lines)}'
-        return None
 
     # download via http: proxy (no tunnel), no auth
     def test_13_01_proxy_no_auth(self, env: Env, httpd, configures_httpd):
@@ -176,9 +173,9 @@ class TestProxyAuth:
         url2 = f'http://localhost:{env.http_port}/data.json?2'
         url3 = f'http://localhost:{env.http_port}/data.json?3'
         xargs1 = curl.get_proxy_args(proxys=False, tunnel=True)
-        xargs1.extend(['--proxy-user', 'proxy:proxy']) # good auth
+        xargs1.extend(['--proxy-user', 'proxy:proxy'])  # good auth
         xargs2 = curl.get_proxy_args(proxys=False, tunnel=True)
-        xargs2.extend(['--proxy-user', 'ungood:ungood']) # bad auth
+        xargs2.extend(['--proxy-user', 'ungood:ungood'])  # bad auth
         xargs3 = curl.get_proxy_args(proxys=False, tunnel=True)
         # no auth
         r = curl.http_download(urls=[url1, url2, url3], alpn_proto='http/1.1', with_stats=True,

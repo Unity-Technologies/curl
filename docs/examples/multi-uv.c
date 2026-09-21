@@ -58,9 +58,7 @@ struct curl_context {
 static struct curl_context *create_curl_context(curl_socket_t sockfd,
                                                 struct datauv *uv)
 {
-  struct curl_context *context;
-
-  context = (struct curl_context *)malloc(sizeof(*context));
+  struct curl_context *context = malloc(sizeof(*context));
 
   context->sockfd = sockfd;
   context->uv = uv;
@@ -221,13 +219,13 @@ static int cb_socket(CURL *curl, curl_socket_t s, int action,
     }
     break;
   default:
-    abort();
+    return -1; /* unknown */
   }
 
   return 0;
 }
 
-int main(int argc, const char **argv)
+int main(int argc, const char *argv[])
 {
   CURLcode result;
   struct datauv uv = { 0 };

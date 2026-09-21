@@ -51,7 +51,7 @@ or
 
 The list of ALPN IDs is parsed but may not be completely respected because of
 what the HTTP version preference is set to, which is a problem we are working
-on. Also, getting an `HTTP/1.1` ALPN in the HTTPS RR field for an HTTP://
+on. Also, getting an `HTTP/1.1` ALPN in the HTTPS RR field for an `http://`
 transfer should imply switching to HTTPS, HSTS style. Which curl currently
 does not.
 
@@ -65,7 +65,7 @@ returned, curl parses it and stores the retrieved information.
 
 If DoH is not used for name resolving in an HTTPS RR enabled build, we must
 provide the ability using the regular resolver backends. We use the c-ares DNS
-library for the HTTPS RR lookup. Version 1.28.0 or later.
+library for the HTTPS RR lookup. Version 1.28.0 or greater.
 
 ### c-ares
 

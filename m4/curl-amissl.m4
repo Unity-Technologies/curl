@@ -23,7 +23,7 @@
 #***************************************************************************
 
 AC_DEFUN([CURL_WITH_AMISSL], [
-AC_MSG_CHECKING([whether to enable Amiga native SSL/TLS (AmiSSL v5)])
+AC_MSG_CHECKING([whether to enable Amiga native SSL/TLS (AmiSSL 5)])
 if test "$HAVE_PROTO_BSDSOCKET_H" = "1"; then
   if test "x$OPT_AMISSL" != "xno"; then
     ssl_msg=
@@ -36,7 +36,7 @@ if test "$HAVE_PROTO_BSDSOCKET_H" = "1"; then
           (OPENSSL_VERSION_NUMBER >= 0x30000000L) && defined(PROTO_AMISSL_H)
         return 0;
         #else
-        #error not AmiSSL v5 / OpenSSL 3
+        #error not AmiSSL 5 / OpenSSL 3
         #endif
       ]])
     ],[
@@ -45,7 +45,7 @@ if test "$HAVE_PROTO_BSDSOCKET_H" = "1"; then
       test "amissl" != "$DEFAULT_SSL_BACKEND" || VALID_DEFAULT_SSL_BACKEND=yes
       AMISSL_ENABLED=1
       OPENSSL_ENABLED=1
-      dnl Use AmiSSL's built-in ca bundle
+      dnl Use AmiSSL's built-in CA bundle
       check_for_ca_bundle=1
       with_ca_fallback=yes
       LIBS="-lamisslstubs -lamisslauto $LIBS"
@@ -63,5 +63,4 @@ if test "$HAVE_PROTO_BSDSOCKET_H" = "1"; then
 else
   AC_MSG_RESULT(no)
 fi
-
 ])

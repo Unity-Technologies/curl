@@ -39,13 +39,14 @@ if [ -n "${CMAKE_GENERATOR:-}" ]; then
     *)       openssl_suffix='-Win64';;
   esac
 
-  if [ "${APPVEYOR_BUILD_WORKER_IMAGE}" = 'Visual Studio 2022' ]; then
+  if [ "${APPVEYOR_BUILD_WORKER_IMAGE}" = 'Visual Studio 2026' ]; then
     openssl_root_win="C:/OpenSSL-v36${openssl_suffix}"
-    openssl_root="$(cygpath "${openssl_root_win}")"
+  elif [ "${APPVEYOR_BUILD_WORKER_IMAGE}" = 'Visual Studio 2022' ]; then
+    openssl_root_win="C:/OpenSSL-v35${openssl_suffix}"
   elif [ "${APPVEYOR_BUILD_WORKER_IMAGE}" = 'Visual Studio 2019' ]; then
     openssl_root_win="C:/OpenSSL-v30${openssl_suffix}"
-    openssl_root="$(cygpath "${openssl_root_win}")"
   fi
+  [ -n "${openssl_root_win:-}" ] && openssl_root="$(cygpath "${openssl_root_win}")"
 
   # Install custom cmake version
   if [ -n "${CMAKE_VERSION:-}" ]; then
@@ -58,9 +59,9 @@ if [ -n "${CMAKE_GENERATOR:-}" ]; then
       fn="cmake-${CMAKE_VERSION}-win64-x64"
     fi
     curl --disable --fail --silent --show-error --connect-timeout 15 --max-time 60 --retry 3 --retry-connrefused \
-      --location "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/${fn}.zip" --output pkg.bin
+      --location --proto-redir =https "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/${fn}.zip" --output pkg.bin
     sha256sum pkg.bin && sha256sum pkg.bin | grep -qwF -- "${CMAKE_SHA256}" && 7z x -y pkg.bin >/dev/null && rm -f pkg.bin
-    PATH="$PWD/${fn}/bin:$PATH"
+    PATH="$(pwd)/${fn}/bin:$PATH"
   fi
 
   # Set env CHKPREFILL to the value '_chkprefill' to compare feature detection
@@ -78,6 +79,7 @@ if [ -n "${CMAKE_GENERATOR:-}" ]; then
       -DCURL_STATIC_CRT=ON \
       -DCURL_DROP_UNUSED=ON \
       -DCURL_USE_SCHANNEL=ON -DCURL_USE_LIBPSL=OFF \
+      -DCURL_DISABLE_HTTPSIG=OFF \
       ${CMAKE_GENERATE:-} \
       ${options} \
       || { cat _bld/CMakeFiles/CMake* 2>/dev/null; false; }
@@ -87,8 +89,9 @@ if [ -n "${CMAKE_GENERATOR:-}" ]; then
     false
   fi
   echo 'curl_config.h'; grep -F '#define' _bld/lib/curl_config.h | sort || true
+  echo 'libcurl.pc'; grep -v '^#' '_bld/libcurl.pc' || true
   time cmake --build _bld --config "${PRJ_CFG}" --parallel 2
-  [[ "${CMAKE_GENERATE:-}" != *'-DBUILD_SHARED_LIBS=OFF'* ]] && PATH="$PWD/_bld/lib/${PRJ_CFG}:$PATH"
+  [[ "${CMAKE_GENERATE:-}" != *'-DBUILD_SHARED_LIBS=OFF'* ]] && PATH="$(pwd)/_bld/lib/${PRJ_CFG}:$PATH"
   [[ "${CMAKE_GENERATE:-}" = *'-DCURL_USE_OPENSSL=ON'* ]] && { PATH="${openssl_root}:$PATH"; cp "${openssl_root}"/*.dll "_bld/src/${PRJ_CFG}"; }
   curl="_bld/src/${PRJ_CFG}/curl.exe"
 else

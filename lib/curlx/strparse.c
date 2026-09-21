@@ -45,13 +45,17 @@ void curlx_str_trim(struct Curl_str *out, size_t len)
 }
 
 /* Get a word until the first DELIM or end of string. At least one byte long.
-   return non-zero on error */
+   return non-zero on error. If 'max' is zero, it will always return error. */
 int curlx_str_until(const char **linep, struct Curl_str *out,
                     const size_t max, char delim)
 {
-  const char *s = *linep;
+  const char *s;
   size_t len = 0;
-  DEBUGASSERT(linep && *linep && out && max && delim);
+  DEBUGASSERT(linep);
+  DEBUGASSERT(*linep);
+  DEBUGASSERT(out);
+  DEBUGASSERT(delim);
+  s = *linep;
 
   curlx_str_init(out);
   while(*s && (*s != delim)) {
@@ -259,7 +263,7 @@ int curlx_str_cmp(struct Curl_str *str, const char *check)
     size_t clen = strlen(check);
     return ((str->len == clen) && !strncmp(str->str, check, clen));
   }
-  return !!(str->len);
+  return !!str->len;
 }
 
 /* Trim off 'num' number of bytes from the beginning (left side) of the

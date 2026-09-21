@@ -301,7 +301,7 @@ static CURLcode ntlm_decode_type2_target(struct Curl_easy *data,
     2. A 'short' containing the allocated space for the buffer in bytes.
     3. A 'long' containing the offset to the start of the buffer in bytes,
        from the beginning of the NTLM message.
-*/
+ */
 
 /*
  * Curl_auth_is_ntlm_supported()
@@ -341,7 +341,7 @@ CURLcode Curl_auth_decode_ntlm_type2_message(struct Curl_easy *data,
   /* NTLM type-2 message structure:
 
           Index  Description            Content
-            0    NTLMSSP Signature      Null-terminated ASCII "NTLMSSP"
+            0    NTLMSSP Signature      null-terminated ASCII "NTLMSSP"
                                         (0x4e544c4d53535000)
             8    NTLM Message Type      long (0x02000000)
            12    Target Name            security buffer
@@ -361,8 +361,8 @@ CURLcode Curl_auth_decode_ntlm_type2_message(struct Curl_easy *data,
   ntlm->flags = 0;
 
   if((type2len < 32) ||
-     (memcmp(type2, NTLMSSP_SIGNATURE, 8) != 0) ||
-     (memcmp(type2 + 8, type2_marker, sizeof(type2_marker)) != 0)) {
+     memcmp(type2, NTLMSSP_SIGNATURE, 8) ||
+     memcmp(type2 + 8, type2_marker, sizeof(type2_marker))) {
     /* This was not a good enough type-2 message */
     infof(data, "NTLM handshake failure (bad type-2 message)");
     return CURLE_BAD_CONTENT_ENCODING;
@@ -421,9 +421,8 @@ static void unicodecpy(unsigned char *dest, const char *src, size_t length)
  * Returns CURLE_OK on success.
  */
 CURLcode Curl_auth_create_ntlm_type1_message(struct Curl_easy *data,
-                                             const char *userp,
-                                             const char *passwdp,
-                                             const char *service,
+                                             struct Curl_creds *creds,
+                                             const char *default_service,
                                              const char *host,
                                              struct ntlmdata *ntlm,
                                              struct bufref *out)
@@ -431,7 +430,7 @@ CURLcode Curl_auth_create_ntlm_type1_message(struct Curl_easy *data,
   /* NTLM type-1 message structure:
 
        Index  Description            Content
-         0    NTLMSSP Signature      Null-terminated ASCII "NTLMSSP"
+         0    NTLMSSP Signature      null-terminated ASCII "NTLMSSP"
                                      (0x4e544c4d53535000)
          8    NTLM Message Type      long (0x01000000)
         12    Flags                  long
@@ -442,6 +441,8 @@ CURLcode Curl_auth_create_ntlm_type1_message(struct Curl_easy *data,
                                      (*) -> Optional
   */
 
+  const char *service = Curl_creds_has_sasl_service(creds) ?
+    Curl_creds_sasl_service(creds) : default_service;
   size_t size;
 
   char *ntlmbuf;
@@ -453,12 +454,11 @@ CURLcode Curl_auth_create_ntlm_type1_message(struct Curl_easy *data,
   size_t domoff = hostoff + hostlen;  /* This is 0: remember that host and
                                          domain are empty */
   (void)data;
-  (void)userp;
-  (void)passwdp;
+  (void)creds;
   (void)service;
   (void)host;
 
-  /* Clean up any former leftovers and initialise to defaults */
+  /* Clean up any former leftovers and initialize to defaults */
   Curl_auth_cleanup_ntlm(ntlm);
 
   ntlmbuf = curl_maprintf(NTLMSSP_SIGNATURE "%c"
@@ -542,21 +542,20 @@ CURLcode Curl_auth_create_ntlm_type1_message(struct Curl_easy *data,
  * Returns CURLE_OK on success.
  */
 CURLcode Curl_auth_create_ntlm_type3_message(struct Curl_easy *data,
-                                             const char *userp,
-                                             const char *passwdp,
+                                             struct Curl_creds *creds,
                                              struct ntlmdata *ntlm,
                                              struct bufref *out)
 {
   /* NTLM type-3 message structure:
 
           Index  Description            Content
-            0    NTLMSSP Signature      Null-terminated ASCII "NTLMSSP"
+            0    NTLMSSP Signature      null-terminated ASCII "NTLMSSP"
                                         (0x4e544c4d53535000)
             8    NTLM Message Type      long (0x03000000)
            12    LM/LMv2 Response       security buffer
            20    NTLM/NTLMv2 Response   security buffer
            28    Target Name            security buffer
-           36    username              security buffer
+           36    Username               security buffer
            44    Workstation Name       security buffer
           (52)   Session Key            security buffer (*)
           (60)   Flags                  long (*)
@@ -579,6 +578,8 @@ CURLcode Curl_auth_create_ntlm_type3_message(struct Curl_easy *data,
   /* The fixed hostname we provide, in order to not leak our real local host
      name. Copy the name used by Firefox. */
   static const char host[] = "WORKSTATION";
+  const char *userp = Curl_creds_user(creds);
+  const char *passwdp = Curl_creds_passwd(creds);
   const char *user;
   const char *domain = "";
   size_t hostoff = 0;

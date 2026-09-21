@@ -320,10 +320,10 @@ AC_DEFUN([CURL_CHECK_NEED_THREAD_SAFE_SYSTEM], [
 dnl CURL_CONFIGURE_FROM_NOW_ON_WITH_REENTRANT
 dnl -------------------------------------------------
 dnl This macro ensures that configuration tests done
-dnl after this will execute with preprocessor symbol
-dnl _REENTRANT defined. This macro also ensures that
-dnl the generated config file defines NEED_REENTRANT
-dnl and that in turn curl_setup.h will define _REENTRANT.
+dnl after this execute with preprocessor symbol _REENTRANT
+dnl defined. This macro also ensures that the generated
+dnl config file defines NEED_REENTRANT and that in turn
+dnl curl_setup.h defines _REENTRANT.
 dnl Internal macro for CURL_CONFIGURE_REENTRANT.
 
 AC_DEFUN([CURL_CONFIGURE_FROM_NOW_ON_WITH_REENTRANT], [
@@ -340,10 +340,10 @@ _EOF
 dnl CURL_CONFIGURE_FROM_NOW_ON_WITH_THREAD_SAFE
 dnl -------------------------------------------------
 dnl This macro ensures that configuration tests done
-dnl after this will execute with preprocessor symbol
-dnl _THREAD_SAFE defined. This macro also ensures that
-dnl the generated config file defines NEED_THREAD_SAFE
-dnl and that in turn curl_setup.h will define _THREAD_SAFE.
+dnl after this execute with preprocessor symbol_THREAD_SAFE
+dnl defined. This macro also ensures that the generated
+dnl config file defines NEED_THREAD_SAFE and that in turn
+dnl curl_setup.h defines _THREAD_SAFE.
 dnl Internal macro for CURL_CONFIGURE_THREAD_SAFE.
 
 AC_DEFUN([CURL_CONFIGURE_FROM_NOW_ON_WITH_THREAD_SAFE], [
@@ -409,7 +409,7 @@ AC_DEFUN([CURL_CONFIGURE_REENTRANT], [
 
   AC_MSG_CHECKING([if _REENTRANT is onwards defined])
   if test "$tmp_reentrant_initially_defined" = "yes" ||
-    test "$tmp_need_reentrant" = "yes"; then
+     test "$tmp_need_reentrant" = "yes"; then
     CURL_CONFIGURE_FROM_NOW_ON_WITH_REENTRANT
     AC_MSG_RESULT([yes])
   else
@@ -463,7 +463,7 @@ AC_DEFUN([CURL_CONFIGURE_THREAD_SAFE], [
 
   AC_MSG_CHECKING([if _THREAD_SAFE is onwards defined])
   if test "$tmp_thread_safe_initially_defined" = "yes" ||
-    test "$tmp_need_thread_safe" = "yes"; then
+     test "$tmp_need_thread_safe" = "yes"; then
     CURL_CONFIGURE_FROM_NOW_ON_WITH_THREAD_SAFE
     AC_MSG_RESULT([yes])
   else

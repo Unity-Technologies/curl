@@ -33,7 +33,7 @@
    1. For systems that run configure or cmake, the alternatives are provided
       here.
    2. For systems with config-*.h files, define them there.
-*/
+ */
 
 #ifdef USE_WINSOCK
 /* int recv(SOCKET, char *, int, int) */
@@ -48,7 +48,7 @@
 #define SEND_TYPE_ARG3 int
 #define SEND_TYPE_RETV int
 
-#elif defined(__AMIGA__) /* Any AmigaOS flavour */
+#elif defined(__AMIGA__) /* Any AmigaOS flavor */
 
 /* long recv(long, char *, long, long); */
 #define RECV_TYPE_ARG1 long

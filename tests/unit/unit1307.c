@@ -43,8 +43,10 @@
 
 #define MAC_DIFFER    0x40
 #define MAC_SHIFT     16
+#if 0
 #define MAC_MATCH     ((CURL_FNMATCH_MATCH   << MAC_SHIFT) | MAC_DIFFER)
 #define MAC_NOMATCH   ((CURL_FNMATCH_NOMATCH << MAC_SHIFT) | MAC_DIFFER)
+#endif
 #define MAC_FAIL      ((CURL_FNMATCH_FAIL    << MAC_SHIFT) | MAC_DIFFER)
 
 static const char *ret2name(int i)
@@ -172,10 +174,15 @@ static CURLcode test_unit1307(const char *arg)
     { "[[:print:]]",              "L",                      MATCH },
     { "[[:print:]]",              "\10",                    NOMATCH },
     { "[[:print:]]",              "\10",                    NOMATCH },
+    { "[[:print:]]",              "\t",                     NOMATCH },
+    { "[[:print:]]",              "\n",                     NOMATCH },
+    { "[[:print:]]",              "\r",                     NOMATCH },
     { "[[:space:]]",              " ",                      MATCH },
     { "[[:space:]]",              "x",                      NOMATCH },
     { "[[:graph:]]",              " ",                      NOMATCH },
     { "[[:graph:]]",              "x",                      MATCH },
+    { "[[:graph:]]",              "\t",                     NOMATCH },
+    { "[[:graph:]]",              "\r",                     NOMATCH },
     { "[[:blank:]]",              "\t",                     MATCH },
     { "[[:blank:]]",              " ",                      MATCH },
     { "[[:blank:]]",              "\r",                     NOMATCH },

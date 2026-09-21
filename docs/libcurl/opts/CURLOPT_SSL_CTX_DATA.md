@@ -30,7 +30,7 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_SSL_CTX_DATA, void *pointer);
 
 # DESCRIPTION
 
-Data *pointer* to pass to the ssl context callback set by the option
+Data *pointer* to pass to the SSL context callback set by the option
 CURLOPT_SSL_CTX_FUNCTION(3), this is the pointer you get as third
 parameter.
 
@@ -84,7 +84,7 @@ int main(void)
   CURL *curl;
   CURLcode result;
   /* CA cert in PEM format, replace the XXXs */
-  char *mypem =
+  const char *mypem =
     "-----BEGIN CERTIFICATE-----\n"
     "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
     "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
