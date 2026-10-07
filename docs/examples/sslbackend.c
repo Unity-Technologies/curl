@@ -22,7 +22,7 @@
  *
  ***************************************************************************/
 /* <DESC>
- * Shows HTTPS usage with client certs and optional ssl engine use.
+ * Shows HTTPS usage with client certs and optional SSL engine use.
  * </DESC>
  */
 #include <assert.h>
@@ -40,7 +40,7 @@
  *  **** This example only works with libcurl 7.56.0 and later! ****
  */
 
-int main(int argc, const char **argv)
+int main(int argc, const char *argv[])
 {
   const char *name = argc > 1 ? argv[1] : "openssl";
   CURLsslset result;
@@ -49,12 +49,11 @@ int main(int argc, const char **argv)
     const curl_ssl_backend **list;
     int i;
 
-    result = curl_global_sslset(CURLSSLBACKEND_NONE, NULL, &list);
-    assert(result == CURLSSLSET_UNKNOWN_BACKEND);
+    (void)curl_global_sslset(CURLSSLBACKEND_NONE, NULL, &list);
 
     for(i = 0; list[i]; i++)
       printf("SSL backend #%d: '%s' (ID: %d)\n",
-             i, list[i]->name, list[i]->id);
+             i, list[i]->name, (int)list[i]->id);
 
     return 0;
   }
@@ -70,8 +69,6 @@ int main(int argc, const char **argv)
     fprintf(stderr, "Unknown SSL backend id: %s\n", name);
     return 1;
   }
-
-  assert(result == CURLSSLSET_OK);
 
   printf("Version with SSL backend '%s':\n\n\t%s\n", name, curl_version());
 

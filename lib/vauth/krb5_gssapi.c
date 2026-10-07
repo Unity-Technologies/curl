@@ -33,7 +33,7 @@
 #include "curl_gssapi.h"
 #include "curl_trc.h"
 
-#if defined(CURL_HAVE_DIAG) && defined(__APPLE__)
+#if defined(CURL_HAVE_DIAG) && defined(__APPLE__) && !defined(HAVE_GSSAPPLE)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
@@ -74,9 +74,8 @@ bool Curl_auth_is_gssapi_supported(void)
  * Returns CURLE_OK on success.
  */
 CURLcode Curl_auth_create_gssapi_user_message(struct Curl_easy *data,
-                                              const char *userp,
-                                              const char *passwdp,
-                                              const char *service,
+                                              struct Curl_creds *creds,
+                                              const char *default_service,
                                               const char *host,
                                               const bool mutual_auth,
                                               const struct bufref *chlg,
@@ -89,9 +88,8 @@ CURLcode Curl_auth_create_gssapi_user_message(struct Curl_easy *data,
   OM_uint32 unused_status;
   gss_buffer_desc input_token = GSS_C_EMPTY_BUFFER;
   gss_buffer_desc output_token = GSS_C_EMPTY_BUFFER;
-
-  (void)userp;
-  (void)passwdp;
+  const char *service = Curl_creds_has_sasl_service(creds) ?
+    Curl_creds_sasl_service(creds) : default_service;
 
   if(!krb5->spn) {
     gss_buffer_desc spn_token = GSS_C_EMPTY_BUFFER;
@@ -138,7 +136,8 @@ CURLcode Curl_auth_create_gssapi_user_message(struct Curl_easy *data,
                                            &input_token,
                                            &output_token,
                                            mutual_auth,
-                                           NULL);
+                                           NULL,
+                                           GSS_C_NO_CREDENTIAL);
 
   if(GSS_ERROR(major_status)) {
     if(output_token.value)
@@ -320,7 +319,7 @@ void Curl_auth_cleanup_gssapi(struct kerberos5data *krb5)
   }
 }
 
-#if defined(CURL_HAVE_DIAG) && defined(__APPLE__)
+#if defined(CURL_HAVE_DIAG) && defined(__APPLE__) && !defined(HAVE_GSSAPPLE)
 #pragma GCC diagnostic pop
 #endif
 

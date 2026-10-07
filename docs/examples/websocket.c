@@ -30,7 +30,7 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>
-#define sleep(s) Sleep((DWORD)(s * 1000))
+#define sleep(s) Sleep((DWORD)((s) * 1000))
 #else
 #include <unistd.h>
 #endif
@@ -94,7 +94,7 @@ retry:
     else {
       /* some other frame arrived. */
       fprintf(stderr, "ws: received frame of %u bytes rflags %x\n",
-              (unsigned int)rlen, meta->flags);
+              (unsigned int)rlen, (unsigned int)meta->flags);
       goto retry;
     }
   }

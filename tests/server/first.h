@@ -141,11 +141,14 @@ extern int write_pidfile(const char *filename);
 extern int write_portfile(const char *filename, int port);
 extern void set_advisor_read_lock(const char *filename);
 extern void clear_advisor_read_lock(const char *filename);
+extern void storerequest(const char *reqbuf, size_t totalsize,
+                         const char *filename);
 static volatile int got_exit_signal = 0;
 static volatile int exit_signal = 0;
 #ifdef _WIN32
 static HANDLE exit_event = NULL;
 #endif
+static volatile const char *exit_msg = NULL;
 extern void install_signal_handlers(bool keep_sigalrm);
 extern void restore_signal_handlers(bool keep_sigalrm);
 #ifdef USE_UNIX_SOCKETS
@@ -153,9 +156,17 @@ extern int bind_unix_socket(curl_socket_t sock, const char *unix_socket,
                             struct sockaddr_un *sau);
 #endif
 extern curl_socket_t sockdaemon(curl_socket_t sock,
-                                unsigned short *listenport,
+                                uint16_t *listenport,
                                 const char *unix_socket,
                                 bool bind_only);
+extern int open_udp_sock(curl_socket_t *psock, uint16_t *pport);
+extern int open_stream_sock(curl_socket_t *psock, uint16_t *pport);
+extern curl_socket_t accept_connection(curl_socket_t listen_sock);
+extern bool curlx_str_case_equal(const struct Curl_str *s1,
+                                 const struct Curl_str *s2);
+
+/* returns true if the current socket is an IP one */
+extern bool socket_domain_is_ip(void);
 
 /* global variables */
 static const char *srcpath = "."; /* pointing to the test directory */
@@ -166,11 +177,8 @@ static int serverlogslocked;
 static const char *configfile = NULL;
 static const char *logdir = "log";
 static char loglockfile[256];
-#ifdef USE_IPV6
-static bool use_ipv6 = FALSE;
-#endif
-static const char *ipv_inuse = "IPv4";
-static unsigned short server_port = 0;
+static const char *server_unix_socket = NULL;
+static uint16_t server_port = 0;
 static const char *socket_type = "IPv4";
 static int socket_domain = AF_INET;
 

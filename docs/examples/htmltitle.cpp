@@ -24,14 +24,14 @@
 /* <DESC>
  * Get a webpage, extract the title with libxml.
  * </DESC>
-
-  Written by Lars Nilsson
-
-  GNU C++ compile command line suggestion (edit paths accordingly):
-
-  g++ -Wall -I/opt/curl/include -I/opt/libxml/include/libxml2 htmltitle.cpp \
-    -o htmltitle -L/opt/curl/lib -L/opt/libxml/lib -lcurl -lxml2
-*/
+ *
+ * Written by Lars Nilsson
+ *
+ * GNU C++ compile command line suggestion (edit paths accordingly):
+ *
+ * g++ -Wall -I/opt/curl/include -I/opt/libxml/include/libxml2 htmltitle.cpp \
+ *  -o htmltitle -L/opt/curl/lib -L/opt/libxml/lib -lcurl -lxml2
+ */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -73,7 +73,7 @@ static std::string buffer;
 static size_t writer(char *data, size_t size, size_t nmemb,
                      std::string *writerData)
 {
-  if(writerData == NULL)
+  if(!writerData)
     return 0;
 
   writerData->append(data, size * nmemb);

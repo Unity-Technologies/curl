@@ -42,6 +42,7 @@ void r_freeaddrinfo(struct addrinfo *cahead)
 
 struct context {
   struct ares_addrinfo *addr;
+  int status;
 };
 
 static void async_addrinfo_cb(void *userp, int status, int timeouts,
@@ -49,6 +50,7 @@ static void async_addrinfo_cb(void *userp, int status, int timeouts,
 {
   struct context *ctx = (struct context *)userp;
   (void)timeouts;
+  ctx->status = status;
   if(ARES_SUCCESS == status) {
     ctx->addr = addr;
   }
@@ -64,7 +66,7 @@ static struct addrinfo *mk_getaddrinfo(const struct ares_addrinfo *aihead)
   const char *name = aihead->name;
 
   /* traverse the addrinfo list */
-  for(ai = aihead->nodes; ai != NULL; ai = ai->ai_next) {
+  for(ai = aihead->nodes; ai; ai = ai->ai_next) {
     size_t ss_size;
     size_t namelen = name ? strlen(name) + 1 : 0;
     /* ignore elements with unsupported address family,
@@ -127,14 +129,10 @@ static struct addrinfo *mk_getaddrinfo(const struct ares_addrinfo *aihead)
   return cafirst;
 }
 
-/*
-  RETURN VALUE
-
-  getaddrinfo() returns 0 if it succeeds, or one of the following nonzero
-  error codes:
-
-  ...
-*/
+/* RETURN VALUE
+   getaddrinfo() returns 0 if it succeeds, or one of the following nonzero
+   error codes:
+   ... */
 int r_getaddrinfo(const char *node,
                   const char *service,
                   const struct addrinfo *hints,
@@ -190,8 +188,10 @@ int r_getaddrinfo(const char *node,
     /* free the old */
     ares_freeaddrinfo(ctx.addr);
   }
+  else if((ctx.status == ARES_ENOTFOUND) || (ctx.status == ARES_ENODATA))
+    rc = EAI_NONAME; /* no such name */
   else
-    rc = EAI_NONAME; /* got nothing */
+    rc = EAI_AGAIN; /* failed without an authoritative answer */
 
   /* Cleanup */
   ares_destroy(channel);

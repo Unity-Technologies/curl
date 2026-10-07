@@ -40,14 +40,14 @@ static const char olivertwist[] =
   "all events; the item of mortality whose name is prefixed";
 
 /* ... to the head of this chapter. String cut off to stick within the C90
-   509 byte limit. */
+   509-byte limit. */
 
 /*
  * This example shows an HTTP PUT operation that sends a fixed buffer with
  * CURLOPT_POSTFIELDS to the URL given as an argument.
  */
 
-int main(int argc, const char **argv)
+int main(int argc, const char *argv[])
 {
   CURL *curl;
   CURLcode result;

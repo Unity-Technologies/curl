@@ -29,7 +29,7 @@
 #include "first.h"
 
 static const char t547_uploadthis[] = "this is the blurb we want to upload\n";
-static size_t const t547_datalen = sizeof(t547_uploadthis) - 1;
+static const size_t t547_datalen = CURL_CSTRLEN(t547_uploadthis);
 
 static size_t t547_read_cb(char *ptr, size_t size, size_t nmemb, void *clientp)
 {
@@ -80,28 +80,28 @@ static CURLcode test_lib547(const char *URL)
     return TEST_ERR_MAJOR_BAD;
   }
 
-  test_setopt(curl, CURLOPT_URL, URL);
-  test_setopt(curl, CURLOPT_VERBOSE, 1L);
-  test_setopt(curl, CURLOPT_HEADER, 1L);
+  easy_setopt(curl, CURLOPT_URL, URL);
+  easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+  easy_setopt(curl, CURLOPT_HEADER, 1L);
   if(testnum == 548) {
     /* set the data to POST with a mere pointer to a null-terminated string */
-    test_setopt(curl, CURLOPT_POSTFIELDS, t547_uploadthis);
+    easy_setopt(curl, CURLOPT_POSTFIELDS, t547_uploadthis);
   }
   else {
     /* 547 style, which means reading the POST data from a callback */
-    test_setopt(curl, CURLOPT_IOCTLFUNCTION, t547_ioctl_callback);
-    test_setopt(curl, CURLOPT_IOCTLDATA, &counter);
+    easy_setopt(curl, CURLOPT_IOCTLFUNCTION, t547_ioctl_callback);
+    easy_setopt(curl, CURLOPT_IOCTLDATA, &counter);
 
-    test_setopt(curl, CURLOPT_READFUNCTION, t547_read_cb);
-    test_setopt(curl, CURLOPT_READDATA, &counter);
+    easy_setopt(curl, CURLOPT_READFUNCTION, t547_read_cb);
+    easy_setopt(curl, CURLOPT_READDATA, &counter);
     /* We CANNOT do the POST fine without setting the size (or choose
        chunked)! */
-    test_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)t547_datalen);
+    easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)t547_datalen);
   }
-  test_setopt(curl, CURLOPT_POST, 1L);
-  test_setopt(curl, CURLOPT_PROXY, libtest_arg2);
-  test_setopt(curl, CURLOPT_PROXYUSERPWD, libtest_arg3);
-  test_setopt(curl, CURLOPT_PROXYAUTH,
+  easy_setopt(curl, CURLOPT_POST, 1L);
+  easy_setopt(curl, CURLOPT_PROXY, libtest_arg2);
+  easy_setopt(curl, CURLOPT_PROXYUSERPWD, libtest_arg3);
+  easy_setopt(curl, CURLOPT_PROXYAUTH,
               CURLAUTH_BASIC | CURLAUTH_DIGEST | CURLAUTH_NTLM);
 
   result = curl_easy_perform(curl);

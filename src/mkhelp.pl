@@ -86,13 +86,13 @@ static const unsigned char hugehelpgz[] = {
 HEAD
 ;
 
-    my $c=0;
+    my $c = 0;
     for(split(//, $gzippedContent)) {
-        my $num=ord($_);
+        my $num = ord($_);
         if(!($c % 12)) {
             print " ";
         }
-        printf(" 0x%02x,", 0+$num);
+        printf(" 0x%02x,", 0 + $num);
         if(!(++$c % 12)) {
             print "\n";
         }
@@ -105,7 +105,7 @@ static voidpf zalloc_func(voidpf opaque, unsigned int items, unsigned int size)
 {
   (void)opaque;
   /* not a typo, keep it curlx_calloc() */
-  return (voidpf)curlx_calloc(items, size);
+  return curlx_calloc(items, size);
 }
 static void zfree_func(voidpf opaque, voidpf ptr)
 {

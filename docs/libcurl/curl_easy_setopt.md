@@ -50,6 +50,9 @@ any way reset between transfers, so if you want subsequent transfers with
 different options, you must change them between the transfers. You can
 optionally reset all options back to internal default with curl_easy_reset(3).
 
+Changing options with curl_easy_setopt(3) while a transfer is still in
+progress may cause undefined and undesired behavior.
+
 The order in which the options are set does not matter.
 
 # STRINGS
@@ -69,7 +72,7 @@ Passing in "creative octets" like newlines where they are not expected might
 trigger unexpected results.
 
 Before version 7.17.0, strings were not copied. Instead the user was forced
-keep them available until libcurl no longer needed them.
+to keep them available until libcurl no longer needed them.
 
 # OPTIONS
 
@@ -471,6 +474,22 @@ See CURLOPT_HTTPPOST(3)
 
 Tunnel through the HTTP proxy. CURLOPT_HTTPPROXYTUNNEL(3)
 
+## CURLOPT_HTTPSIG_ALGORITHM
+
+RFC 9421 HTTP Message Signatures algorithm. See CURLOPT_HTTPSIG_ALGORITHM(3)
+
+## CURLOPT_HTTPSIG_HEADERS
+
+Components to sign for HTTP Message Signatures. See CURLOPT_HTTPSIG_HEADERS(3)
+
+## CURLOPT_HTTPSIG_KEY
+
+Hex-encoded key for HTTP Message Signatures. See CURLOPT_HTTPSIG_KEY(3)
+
+## CURLOPT_HTTPSIG_KEYID
+
+Key identifier for HTTP Message Signatures. See CURLOPT_HTTPSIG_KEYID(3)
+
 ## CURLOPT_HTTP_CONTENT_DECODING
 
 Disable Content decoding. See CURLOPT_HTTP_CONTENT_DECODING(3)
@@ -864,15 +883,18 @@ Proxy TLS 1.3 cipher suites to use. See CURLOPT_PROXY_TLS13_CIPHERS(3)
 
 ## CURLOPT_PROXY_TLSAUTH_PASSWORD
 
-Proxy TLS authentication password. See CURLOPT_PROXY_TLSAUTH_PASSWORD(3)
+**Deprecated option**. Proxy TLS authentication password. See
+CURLOPT_PROXY_TLSAUTH_PASSWORD(3)
 
 ## CURLOPT_PROXY_TLSAUTH_TYPE
 
-Proxy TLS authentication methods. See CURLOPT_PROXY_TLSAUTH_TYPE(3)
+**Deprecated option**. Proxy TLS authentication methods. See
+CURLOPT_PROXY_TLSAUTH_TYPE(3)
 
 ## CURLOPT_PROXY_TLSAUTH_USERNAME
 
-Proxy TLS authentication username. See CURLOPT_PROXY_TLSAUTH_USERNAME(3)
+**Deprecated option**. Proxy TLS authentication username. See
+CURLOPT_PROXY_TLSAUTH_USERNAME(3)
 
 ## CURLOPT_PROXY_TRANSFER_MODE
 
@@ -1162,11 +1184,12 @@ Redirect stderr to another stream. See CURLOPT_STDERR(3)
 
 ## CURLOPT_STREAM_DEPENDS
 
-This HTTP/2 stream depends on another. See CURLOPT_STREAM_DEPENDS(3)
+**Deprecated option** This HTTP/2 stream depends on another. See
+CURLOPT_STREAM_DEPENDS(3)
 
 ## CURLOPT_STREAM_DEPENDS_E
 
-This HTTP/2 stream depends on another exclusively. See
+**Deprecated option** This HTTP/2 stream depends on another exclusively. See
 CURLOPT_STREAM_DEPENDS_E(3)
 
 ## CURLOPT_STREAM_WEIGHT
@@ -1240,15 +1263,16 @@ TLS 1.3 cipher suites to use. See CURLOPT_TLS13_CIPHERS(3)
 
 ## CURLOPT_TLSAUTH_PASSWORD
 
-TLS authentication password. See CURLOPT_TLSAUTH_PASSWORD(3)
+**Deprecated option**. TLS authentication password. See CURLOPT_TLSAUTH_PASSWORD(3)
 
 ## CURLOPT_TLSAUTH_TYPE
 
-TLS authentication methods. See CURLOPT_TLSAUTH_TYPE(3)
+**Deprecated option**. TLS authentication methods. See CURLOPT_TLSAUTH_TYPE(3)
 
 ## CURLOPT_TLSAUTH_USERNAME
 
-TLS authentication username. See CURLOPT_TLSAUTH_USERNAME(3)
+**Deprecated option**. TLS authentication username. See
+CURLOPT_TLSAUTH_USERNAME(3)
 
 ## CURLOPT_TRAILERDATA
 

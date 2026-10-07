@@ -40,13 +40,14 @@
 #ifdef USE_MBEDTLS
 #include <mbedtls/version.h>
 #if MBEDTLS_VERSION_NUMBER < 0x03020000
-#error "mbedTLS 3.2.0 or later required"
+#error "mbedTLS 3.2.0 or greater required"
 #endif
 #include <psa/crypto_config.h>
 #endif
 
 #ifdef USE_GNUTLS
 #include <nettle/md5.h>
+#include <nettle/version.h>
 
 typedef struct md5_ctx my_md5_ctx;
 
@@ -64,7 +65,11 @@ static void my_md5_update(void *ctx,
 
 static void my_md5_final(unsigned char *digest, void *ctx)
 {
-  md5_digest(ctx, 16, digest);
+#if NETTLE_VERSION_MAJOR >= 4
+  md5_digest(ctx, digest);
+#else
+  md5_digest(ctx, MD5_DIGEST_LEN, digest);
+#endif
 }
 
 #elif defined(USE_OPENSSL) && \
@@ -116,15 +121,16 @@ static void my_md5_final(unsigned char *digest, void *ctx)
 }
 
 #elif defined(USE_MBEDTLS) && \
-  defined(PSA_WANT_ALG_MD5) && PSA_WANT_ALG_MD5  /* mbedTLS 4+ */
+  defined(PSA_WANT_ALG_MD5) && PSA_WANT_ALG_MD5
 #include <psa/crypto.h>
 
 typedef psa_hash_operation_t my_md5_ctx;
 
 static CURLcode my_md5_init(void *ctx)
 {
-  memset(ctx, 0, sizeof(my_md5_ctx));
-  if(psa_hash_setup(ctx, PSA_ALG_MD5) != PSA_SUCCESS)
+  psa_hash_operation_t *pctx = (psa_hash_operation_t *)ctx;
+  *pctx = psa_hash_operation_init();
+  if(psa_hash_setup(pctx, PSA_ALG_MD5) != PSA_SUCCESS)
     return CURLE_OUT_OF_MEMORY;
   return CURLE_OK;
 }
@@ -138,7 +144,7 @@ static void my_md5_update(void *ctx,
 static void my_md5_final(unsigned char *digest, void *ctx)
 {
   size_t actual_length;
-  (void)psa_hash_finish(ctx, digest, 16, &actual_length);
+  (void)psa_hash_finish(ctx, digest, MD5_DIGEST_LEN, &actual_length);
 }
 
 #elif (defined(__MAC_OS_X_VERSION_MAX_ALLOWED) && \
@@ -215,7 +221,7 @@ static void my_md5_final(unsigned char *digest, void *in)
   my_md5_ctx *ctx = (my_md5_ctx *)in;
   unsigned long length = 0;
   CryptGetHashParam(ctx->hHash, HP_HASHVAL, NULL, &length, 0);
-  if(length == 16)
+  if(length == MD5_DIGEST_LEN)
     CryptGetHashParam(ctx->hHash, HP_HASHVAL, digest, &length, 0);
   if(ctx->hHash)
     CryptDestroyHash(ctx->hHash);
@@ -524,7 +530,7 @@ const struct HMAC_params Curl_HMAC_MD5 = {
   my_md5_final,       /* Hash computation end function. */
   sizeof(my_md5_ctx), /* Size of hash context structure. */
   64,                 /* Maximum key length. */
-  16                  /* Result size. */
+  MD5_DIGEST_LEN      /* Result size. */
 };
 
 const struct MD5_params Curl_DIGEST_MD5 = {
@@ -532,7 +538,7 @@ const struct MD5_params Curl_DIGEST_MD5 = {
   my_md5_update,      /* Digest update function */
   my_md5_final,       /* Digest computation end function */
   sizeof(my_md5_ctx), /* Size of digest context struct */
-  16                  /* Result size */
+  MD5_DIGEST_LEN      /* Result size */
 };
 
 /*

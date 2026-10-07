@@ -612,7 +612,7 @@ if($sshdid !~ /OpenSSH-Windows/) {
 }
 if(($sshdid =~ /OpenSSH/) && ($sshdvernum >= 880) && ($keyalgo eq 'rsa')) {
     push @cfgarr, 'HostKeyAlgorithms +ssh-rsa';
-    push @cfgarr, 'PubkeyAcceptedKeyTypes +ssh-rsa';
+    push @cfgarr, 'PubkeyAcceptedAlgorithms +ssh-rsa';  # named PubkeyAcceptedKeyTypes in OpenSSH <8.5
 }
 push @cfgarr, '#';
 push @cfgarr, "Port $port";
@@ -677,7 +677,7 @@ sub sshd_supports_opt {
         ($sshdid =~ /SunSSH/)) {
         # ssh daemon supports command line options -t -f and -o
         $err = grep /((Unsupported)|(Bad configuration)|(Deprecated)) option.*$option/,
-                    `\"$sshd\" -t -f $sshdconfig_abs -o \"$option=$value\" 2>&1`;
+                    qx(\"$sshd\" -t -f $sshdconfig_abs -o \"$option=$value\" 2>&1);
         return !$err;
     }
     if(($sshdid =~ /OpenSSH/) && ($sshdvernum >= 299)) {
@@ -688,7 +688,7 @@ sub sshd_supports_opt {
             return 0;
         }
         $err = grep /((Unsupported)|(Bad configuration)|(Deprecated)) option.*$option/,
-                    `\"$sshd\" -t -f $sshdconfig_abs 2>&1`;
+                    qx(\"$sshd\" -t -f $sshdconfig_abs 2>&1);
         unlink $sshdconfig;
         return !$err;
     }
@@ -698,33 +698,33 @@ sub sshd_supports_opt {
 #***************************************************************************
 # Kerberos Authentication support may have not been built into sshd
 #
-if(sshd_supports_opt('KerberosAuthentication','no')) {
+if(sshd_supports_opt('KerberosAuthentication', 'no')) {
     push @cfgarr, 'KerberosAuthentication no';
 }
-if(sshd_supports_opt('KerberosGetAFSToken','no')) {
+if(sshd_supports_opt('KerberosGetAFSToken', 'no')) {
     push @cfgarr, 'KerberosGetAFSToken no';
 }
-if(sshd_supports_opt('KerberosOrLocalPasswd','no')) {
+if(sshd_supports_opt('KerberosOrLocalPasswd', 'no')) {
     push @cfgarr, 'KerberosOrLocalPasswd no';
 }
-if(sshd_supports_opt('KerberosTgtPassing','no')) {
+if(sshd_supports_opt('KerberosTgtPassing', 'no')) {
     push @cfgarr, 'KerberosTgtPassing no';
 }
-if(sshd_supports_opt('KerberosTicketCleanup','yes')) {
+if(sshd_supports_opt('KerberosTicketCleanup', 'yes')) {
     push @cfgarr, 'KerberosTicketCleanup yes';
 }
 
 #***************************************************************************
 # Andrew File System support may have not been built into sshd
 #
-if(sshd_supports_opt('AFSTokenPassing','no')) {
+if(sshd_supports_opt('AFSTokenPassing', 'no')) {
     push @cfgarr, 'AFSTokenPassing no';
 }
 
 #***************************************************************************
 # S/Key authentication support may have not been built into sshd
 #
-if(sshd_supports_opt('SkeyAuthentication','no')) {
+if(sshd_supports_opt('SkeyAuthentication', 'no')) {
     push @cfgarr, 'SkeyAuthentication no';
 }
 
@@ -732,23 +732,23 @@ if(sshd_supports_opt('SkeyAuthentication','no')) {
 # GSSAPI Authentication support may have not been built into sshd
 #
 my $sshd_builtwith_GSSAPI;
-if(sshd_supports_opt('GSSAPIAuthentication','no')) {
+if(sshd_supports_opt('GSSAPIAuthentication', 'no')) {
     push @cfgarr, 'GSSAPIAuthentication no';
     $sshd_builtwith_GSSAPI = 1;
 }
-if(sshd_supports_opt('GSSAPICleanupCredentials','yes')) {
+if(sshd_supports_opt('GSSAPICleanupCredentials', 'yes')) {
     push @cfgarr, 'GSSAPICleanupCredentials yes';
 }
-if(sshd_supports_opt('GSSAPIKeyExchange','no')) {
+if(sshd_supports_opt('GSSAPIKeyExchange', 'no')) {
     push @cfgarr, 'GSSAPIKeyExchange no';
 }
-if(sshd_supports_opt('GSSAPIStoreDelegatedCredentials','no')) {
+if(sshd_supports_opt('GSSAPIStoreDelegatedCredentials', 'no')) {
     push @cfgarr, 'GSSAPIStoreDelegatedCredentials no';
 }
-if(sshd_supports_opt('GSSCleanupCreds','yes')) {
+if(sshd_supports_opt('GSSCleanupCreds', 'yes')) {
     push @cfgarr, 'GSSCleanupCreds yes';
 }
-if(sshd_supports_opt('GSSUseSessionCredCache','no')) {
+if(sshd_supports_opt('GSSUseSessionCredCache', 'no')) {
     push @cfgarr, 'GSSUseSessionCredCache no';
 }
 push @cfgarr, '#';
@@ -760,54 +760,54 @@ if(sshd_supports_opt('AddressFamily','any')) {
     # Address family must be specified before ListenAddress
     splice @cfgarr, 11, 0, 'AddressFamily any';
 }
-if(sshd_supports_opt('Compression','no')) {
+if(sshd_supports_opt('Compression', 'no')) {
     push @cfgarr, 'Compression no';
 }
-if(sshd_supports_opt('KbdInteractiveAuthentication','no')) {
+if(sshd_supports_opt('KbdInteractiveAuthentication', 'no')) {
     push @cfgarr, 'KbdInteractiveAuthentication no';
 }
-if(sshd_supports_opt('KeepAlive','no')) {
+if(sshd_supports_opt('KeepAlive', 'no')) {
     push @cfgarr, 'KeepAlive no';
 }
-if(sshd_supports_opt('LookupClientHostnames','no')) {
+if(sshd_supports_opt('LookupClientHostnames', 'no')) {
     push @cfgarr, 'LookupClientHostnames no';
 }
 if(sshd_supports_opt('MaxAuthTries','10')) {
     push @cfgarr, 'MaxAuthTries 10';
 }
-if(sshd_supports_opt('PAMAuthenticationViaKbdInt','no')) {
+if(sshd_supports_opt('PAMAuthenticationViaKbdInt', 'no')) {
     push @cfgarr, 'PAMAuthenticationViaKbdInt no';
 }
-if(sshd_supports_opt('PermitTunnel','no')) {
+if(sshd_supports_opt('PermitTunnel', 'no')) {
     push @cfgarr, 'PermitTunnel no';
 }
-if(sshd_supports_opt('PermitUserEnvironment','no')) {
+if(sshd_supports_opt('PermitUserEnvironment', 'no')) {
     push @cfgarr, 'PermitUserEnvironment no';
 }
-if(sshd_supports_opt('RhostsAuthentication','no')) {
+if(sshd_supports_opt('RhostsAuthentication', 'no')) {
     push @cfgarr, 'RhostsAuthentication no';
 }
-if(sshd_supports_opt('TCPKeepAlive','no')) {
+if(sshd_supports_opt('TCPKeepAlive', 'no')) {
     push @cfgarr, 'TCPKeepAlive no';
 }
-if(sshd_supports_opt('UseDNS','no')) {
+if(sshd_supports_opt('UseDNS', 'no')) {
     push @cfgarr, 'UseDNS no';
 }
-if(sshd_supports_opt('UsePAM','no')) {
+if(sshd_supports_opt('UsePAM', 'no')) {
     push @cfgarr, 'UsePAM no';
 }
 
 if($sshdid =~ /OpenSSH/) {
     # http://bugs.opensolaris.org/bugdatabase/view_bug.do?bug_id=6492415
-    if(sshd_supports_opt('UsePrivilegeSeparation','no')) {
+    if(sshd_supports_opt('UsePrivilegeSeparation', 'no')) {
         push @cfgarr, 'UsePrivilegeSeparation no';
     }
 }
 
-if(sshd_supports_opt('VerifyReverseMapping','no')) {
+if(sshd_supports_opt('VerifyReverseMapping', 'no')) {
     push @cfgarr, 'VerifyReverseMapping no';
 }
-if(sshd_supports_opt('X11UseLocalhost','yes')) {
+if(sshd_supports_opt('X11UseLocalhost', 'yes')) {
     push @cfgarr, 'X11UseLocalhost yes';
 }
 push @cfgarr, '#';
@@ -1185,12 +1185,12 @@ if($sshdid =~ /OpenSSH-Windows/) {
 
     # Put an "exec" in front of the command so that the child process
     # keeps this child's process ID by being tied to the spawned shell.
-    exec("exec $cmd") || die "Cannot exec() $cmd: $!";
-    # exec() will create a new process, but ties the existence of the
+    exec("exec $cmd") or die "Cannot exec() $cmd: $!";
+    # exec() creates a new process, but ties the existence of the
     # new process to the parent waiting perl.exe and sh.exe processes.
 
     # exec() should never return back here to this process. We protect
-    # ourselves by calling die() just in case something goes really bad.
+    # ourselves by calling die() in case something goes really bad.
     die "error: exec() has returned";
 }
 

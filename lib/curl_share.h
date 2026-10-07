@@ -80,10 +80,18 @@ CURLSHcode Curl_share_lock(struct Curl_easy *data, curl_lock_data type,
                            curl_lock_access accesstype);
 CURLSHcode Curl_share_unlock(struct Curl_easy *data, curl_lock_data type);
 
+CURLSHcode Curl_share_lock_share(struct Curl_share *share,
+                                 struct Curl_easy *data,
+                                 curl_lock_data type,
+                                 curl_lock_access accesstype);
+CURLSHcode Curl_share_unlock_share(struct Curl_share *share,
+                                   struct Curl_easy *data,
+                                   curl_lock_data type);
+
 /* convenience macro to check if this handle is using a shared SSL spool */
-#define CURL_SHARE_ssl_scache(data) ((data)->share &&                    \
-                                    ((data)->share->specifier &          \
-                                     (1 << CURL_LOCK_DATA_SSL_SESSION)))
+#define CURL_SHARE_ssl_scache(data)                                \
+  ((data)->share &&                                                \
+   ((data)->share->specifier & (1 << CURL_LOCK_DATA_SSL_SESSION)))
 
 CURLcode Curl_share_easy_unlink(struct Curl_easy *data);
 CURLcode Curl_share_easy_link(struct Curl_easy *data,

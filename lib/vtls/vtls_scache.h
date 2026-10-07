@@ -54,20 +54,20 @@ void Curl_ssl_scache_destroy(struct Curl_ssl_scache *scache);
  * connection to the peer.
  * If the filter is a TLS proxy filter, it uses the proxy relevant
  * information.
- * @param cf      the connection filter wanting to use it
  * @param peer    the peer the filter wants to talk to
+ * @param sslc    the relevant ssl configuration
  * @param tls_id  identifier of TLS implementation for sessions. Should
  *                include full version if session data from other versions
  *                is to be avoided.
  * @param ppeer_key on successful return, the key generated
  */
-CURLcode Curl_ssl_peer_key_make(struct Curl_cfilter *cf,
-                                const struct ssl_peer *peer,
+CURLcode Curl_ssl_peer_key_make(const struct ssl_peer *peer,
+                                struct ssl_primary_config *sslc,
                                 const char *tls_id,
                                 char **ppeer_key);
 
 /* Return if there is a session cache shall be used.
- * An ssl session might not be configured or not available for
+ * An SSL session might not be configured or not available for
  * "connect-only" transfers.
  */
 bool Curl_ssl_scache_use(struct Curl_cfilter *cf, struct Curl_easy *data);
@@ -122,15 +122,16 @@ CURLcode Curl_ssl_scache_add_obj(struct Curl_cfilter *cf,
 
 /* All about an SSL session ticket */
 struct Curl_ssl_session {
-  const void *sdata;           /* session ticket data, plain bytes */
+  uint8_t *sdata;              /* session ticket data, plain bytes */
   size_t sdata_len;            /* number of bytes in sdata */
   curl_off_t valid_until;      /* seconds since EPOCH until ticket expires */
   int ietf_tls_id;             /* TLS protocol identifier negotiated */
   char *alpn;                  /* APLN TLS negotiated protocol string */
   size_t earlydata_max;        /* max 0-RTT data supported by peer */
-  const unsigned char *quic_tp; /* Optional QUIC transport param bytes */
+  uint8_t *quic_tp;            /* Optional QUIC transport param bytes */
   size_t quic_tp_len;          /* number of bytes in quic_tp */
   struct Curl_llist_node list; /*  internal storage handling */
+  BIT(sectrust_verified);      /* session comes from sectrust verified TLS */
 };
 
 /* Create a `session` instance. Does NOT need locking.
@@ -155,6 +156,10 @@ CURLcode Curl_ssl_session_create2(void *sdata, size_t sdata_len,
                                   curl_off_t valid_until, size_t earlydata_max,
                                   unsigned char *quic_tp, size_t quic_tp_len,
                                   struct Curl_ssl_session **psession);
+
+/* Duplicate an ssl session */
+CURLcode Curl_ssl_session_dup(struct Curl_ssl_session *src,
+                              struct Curl_ssl_session **pdest);
 
 /* Destroy a `session` instance. Can be called with NULL.
  * Does NOT need locking. */
@@ -197,9 +202,9 @@ void Curl_ssl_scache_remove_all(struct Curl_cfilter *cf,
                                 struct Curl_easy *data,
                                 const char *ssl_peer_key);
 
-#ifdef USE_SSLS_EXPORT
+bool Curl_ssl_scache_is_locked_by_current_thread(struct Curl_easy *data);
 
-bool Curl_ssl_scache_is_locked(struct Curl_easy *data);
+#ifdef USE_SSLS_EXPORT
 
 CURLcode Curl_ssl_session_import(struct Curl_easy *data,
                                  const char *ssl_peer_key,

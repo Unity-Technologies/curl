@@ -40,6 +40,8 @@
 #  include <inet.h>
 #endif
 
+struct Curl_str;
+
 /*
  * Curl_addrinfo is our internal struct definition that we use to allow
  * consistent internal handling of this data. We use this even when the system
@@ -60,6 +62,11 @@ struct Curl_addrinfo {
 
 void Curl_freeaddrinfo(struct Curl_addrinfo *cahead);
 
+/* Get the n-th addrinfo of family ai_family. */
+struct Curl_addrinfo *Curl_addrinfo_get(struct Curl_addrinfo *ai,
+                                        int ai_family,
+                                        unsigned int n);
+
 #ifdef HAVE_GETADDRINFO
 int Curl_getaddrinfo_ex(const char *nodename,
                         const char *servname,
@@ -73,6 +80,9 @@ struct Curl_addrinfo *Curl_he2ai(const struct hostent *he, int port);
 
 bool Curl_is_ipv4addr(const char *address);
 bool Curl_is_ipaddr(const char *address);
+bool Curl_looks_like_ipv6(const char *s, size_t len, bool maybe_url_encoded,
+                          struct Curl_str *host, struct Curl_str *zone);
+
 CURLcode Curl_str2addr(const char *dotted, uint16_t port,
                        struct Curl_addrinfo **addrp);
 

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #***************************************************************************
 #                                  _   _ ____  _
 #  Project                     ___| | | |  _ \| |
@@ -29,7 +27,7 @@ import os
 import socket
 import subprocess
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict
 
 from . import CurlClient
@@ -57,6 +55,7 @@ class Dante:
         self._dante_log = os.path.join(self._dante_dir, 'dante.log')
         self._error_log = os.path.join(self._dante_dir, 'error.log')
         self._pid_file = os.path.join(self._dante_dir, 'dante.pid')
+        self._error_fd = None
         self._process = None
 
         self.clear_logs()
@@ -64,6 +63,11 @@ class Dante:
     @property
     def port(self) -> int:
         return self._port
+
+    def close_log(self):
+        if self._error_fd:
+            self._error_fd.close()
+            self._error_fd = None
 
     def clear_logs(self):
         self._rmf(self._error_log)
@@ -89,7 +93,7 @@ class Dante:
             self._process.terminate()
             self._process.wait(timeout=2)
             self._process = None
-            return not wait_dead or True
+        self.close_log()
         return True
 
     def restart(self):
@@ -122,8 +126,8 @@ class Dante:
             '-p', f'{self._pid_file}',
             '-d', '0',
         ]
-        procerr = open(self._error_log, 'a')
-        self._process = subprocess.Popen(args=args, stderr=procerr)
+        self._error_fd = open(self._error_log, 'a')  # noqa: SIM115
+        self._process = subprocess.Popen(args=args, stderr=self._error_fd)
         if self._process.returncode is not None:
             return False
         return self.wait_live(timeout=timedelta(seconds=Env.SERVER_TIMEOUT))
@@ -131,10 +135,10 @@ class Dante:
     def wait_live(self, timeout: timedelta):
         curl = CurlClient(env=self.env, run_dir=self._tmp_dir,
                           timeout=timeout.total_seconds(), socks_args=[
-            '--socks5', f'127.0.0.1:{self._port}'
-        ])
-        try_until = datetime.now() + timeout
-        while datetime.now() < try_until:
+                              '--socks5', f'127.0.0.1:{self._port}'
+                          ])
+        try_until = datetime.now(timezone.utc) + timeout
+        while datetime.now(timezone.utc) < try_until:
             r = curl.http_get(url=f'http://{self.env.domain1}:{self.env.http_port}/')
             if r.exit_code == 0:
                 return True

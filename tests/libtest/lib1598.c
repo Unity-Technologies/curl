@@ -23,7 +23,7 @@
  ***************************************************************************/
 
 /*
- * This unit test PUT http data over proxy. Proxy header will be different
+ * This unit test PUT http data over proxy. Proxy header is different
  * from server http header
  */
 
@@ -52,7 +52,7 @@ static int t1598_trailers_callback(struct curl_slist **list, void *userdata)
 
 static CURLcode test_lib1598(const char *URL)
 {
-  static const char *post_data = "xxx=yyy&aaa=bbbbb";
+  static const char post_data[] = "xxx=yyy&aaa=bbbbb";
 
   CURL *curl = NULL;
   CURLcode result = CURLE_FAILED_INIT;
@@ -82,13 +82,13 @@ static CURLcode test_lib1598(const char *URL)
     hhl = list;
   }
 
-  test_setopt(curl, CURLOPT_URL, URL);
-  test_setopt(curl, CURLOPT_HTTPHEADER, hhl);
-  test_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)strlen(post_data));
-  test_setopt(curl, CURLOPT_POSTFIELDS, post_data);
-  test_setopt(curl, CURLOPT_TRAILERFUNCTION, t1598_trailers_callback);
-  test_setopt(curl, CURLOPT_TRAILERDATA, NULL);
-  test_setopt(curl, CURLOPT_VERBOSE, 1L);
+  easy_setopt(curl, CURLOPT_URL, URL);
+  easy_setopt(curl, CURLOPT_HTTPHEADER, hhl);
+  easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)CURL_CSTRLEN(post_data));
+  easy_setopt(curl, CURLOPT_POSTFIELDS, post_data);
+  easy_setopt(curl, CURLOPT_TRAILERFUNCTION, t1598_trailers_callback);
+  easy_setopt(curl, CURLOPT_TRAILERDATA, NULL);
+  easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
   result = curl_easy_perform(curl);
 

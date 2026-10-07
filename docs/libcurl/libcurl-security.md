@@ -54,8 +54,8 @@ stored in a home directory that is NFS mounted or used on another network
 based file system, so the clear text password flies through your network every
 time anyone reads that file.
 
-For applications that enable .netrc use, a user who manage to set the right
-URL might then be possible to pass on passwords.
+For applications that enable .netrc use, a user who manages to set the right
+URL might then make it possible to pass on passwords.
 
 To avoid these problems, do not use .netrc files and never store passwords in
 plain text anywhere.
@@ -267,16 +267,16 @@ of how the SCP protocol is designed. E.g.
 Applications must not allow unsanitized SCP: URLs to be passed in for
 downloads.
 
-# file://
+# `file://`
 
-By default curl and libcurl support file:// URLs. Such a URL is always an
+By default curl and libcurl support `file://` URLs. Such a URL is always an
 access, or attempted access, to a local resource. If your application wants to
 avoid that, keep control of what URLs to use and/or prevent curl/libcurl from
 using the protocol.
 
-By default, libcurl prohibits redirects to file:// URLs.
+By default, libcurl prohibits redirects to `file://` URLs.
 
-# Warning: file:// on Windows
+# Warning: `file://` on Windows
 
 The Windows operating system tries automatically, and without any way for
 applications to disable it, to establish a connection to another host over the
