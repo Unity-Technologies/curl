@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) Dmitry Karpov <dkarpov1970, 2025@gmail.com>
+ * Copyright (C) Dmitry Karpov <dkarpov1970@gmail.com>
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -29,8 +29,8 @@
  *  HTTP1 amd HTTP2 (no multiplexing) two transfers (expected two descriptors),
  *  HTTP2 with multiplexing (expected one descriptors)
  *  Improper inputs to the API result in CURLM_BAD_FUNCTION_ARGUMENT.
- *  Sending an empty ufds, and size = 0 will return the number of fds needed.
- *  Sending a non-empty ufds, but smaller than the fds needed will result in a
+ *  Sending an empty ufds, and size = 0 returns the number of fds needed.
+ *  Sending a non-empty ufds, but smaller than the fds needed results in a
  *    CURLM_OUT_OF_MEMORY, and a number of fds that is >= to the number needed.
  *
  *  It is also expected that all transfers run by multi-handle should complete
@@ -41,24 +41,6 @@
 
 /* ---------------------------------------------------------------- */
 
-#define test_check(expected_fds)                                             \
-  if(result != CURLE_OK) {                                                   \
-    curl_mfprintf(stderr, "test failed with code: %d\n", result);            \
-    goto test_cleanup;                                                       \
-  }                                                                          \
-  else if(fd_count != (expected_fds)) {                                      \
-    curl_mfprintf(stderr, "Max number of waitfds: %u not as expected: %u\n", \
-                  fd_count, expected_fds);                                   \
-    result = TEST_ERR_FAILURE;                                               \
-    goto test_cleanup;                                                       \
-  }
-
-#define test_run_check(option, expected_fds)    \
-  do {                                          \
-    result = test_run(URL, option, &fd_count);  \
-    test_check(expected_fds);                   \
-  } while(0)
-
 /* ---------------------------------------------------------------- */
 
 enum {
@@ -66,13 +48,6 @@ enum {
   TEST_USE_HTTP2,
   TEST_USE_HTTP2_MPLEX
 };
-
-static size_t emptyWriteFunc(char *ptr, size_t size, size_t nmemb, void *data)
-{
-  (void)ptr;
-  (void)data;
-  return size * nmemb;
-}
 
 static CURLcode set_easy(const char *URL, CURL *curl, long option)
 {
@@ -110,7 +85,7 @@ static CURLcode set_easy(const char *URL, CURL *curl, long option)
   easy_setopt(curl, CURLOPT_HEADER, 1L);
 
   /* empty write function */
-  easy_setopt(curl, CURLOPT_WRITEFUNCTION, emptyWriteFunc);
+  easy_setopt(curl, CURLOPT_WRITEFUNCTION, tutil_throwaway_cb);
 
 test_cleanup:
   return result;
@@ -309,6 +284,22 @@ test_cleanup:
   return result;
 }
 
+static CURLcode test_run_check(const char *URL, long option,
+                               unsigned int expected_fds)
+{
+  unsigned int fd_count = 0;
+  CURLcode result = test_run(URL, option, &fd_count);
+  if(result)
+    curl_mfprintf(stderr, "test failed with code: %d\n", (int)result);
+  else if(fd_count != expected_fds) {
+    curl_mfprintf(stderr,
+                  "Max number of waitfds: %u not as expected: %u\n",
+                  fd_count, expected_fds);
+    result = TEST_ERR_FAILURE;
+  }
+  return result;
+}
+
 static CURLcode empty_multi_test(void)
 {
   CURLMcode mresult = CURLM_OK;
@@ -367,12 +358,31 @@ test_cleanup:
   return result;
 }
 
+static unsigned int uses_threaded(void)
+{
+  curl_version_info_data *ver = curl_version_info(CURLVERSION_NOW);
+  const char * const *n = ver->feature_names;
+  int i;
+  unsigned int uses = 0;
+  /* the 'asyn-rr' feature tells us libcurl uses the threaded resolver */
+  for(i = 0; n[i]; i++) {
+    if(!strcmp("asyn-rr", n[i]))
+      uses = 1;
+  }
+  /* if not using asyn-rr, check if doing asynch DNS without using c-ares */
+  if(!uses && (ver->features & CURL_VERSION_ASYNCHDNS) && !ver->ares)
+    uses = 1;
+  return uses;
+}
+
 static CURLcode test_lib2405(const char *URL)
 {
   CURLcode result = CURLE_OK;
-  unsigned int fd_count = 0;
+  int uses_threaded_resolver;
 
   global_init(CURL_GLOBAL_ALL);
+
+  uses_threaded_resolver = uses_threaded();
 
   /* Testing curl_multi_waitfds on empty and not started handles */
   result = empty_multi_test();
@@ -380,16 +390,18 @@ static CURLcode test_lib2405(const char *URL)
     goto test_cleanup;
 
   if(testnum == 2405) {
-    /* HTTP1, expected 3 waitfds - one for each transfer  + wakeup */
-    test_run_check(TEST_USE_HTTP1, 3U);
+    /* HTTP1, one for each transfer + possible wakeup */
+    result = test_run_check(URL, TEST_USE_HTTP1, 2 + uses_threaded_resolver);
   }
 #ifdef USE_HTTP2
   else { /* 2407 */
-    /* HTTP2, expected 3 waitfds - one for each transfer + wakeup */
-    test_run_check(TEST_USE_HTTP2, 3U);
+    /* HTTP2, one for each transfer + possible wakeup */
+    result = test_run_check(URL, TEST_USE_HTTP2, 2 + uses_threaded_resolver);
 
-    /* HTTP2 with multiplexing, expected 2 waitfds - transfers + wakeup */
-    test_run_check(TEST_USE_HTTP2_MPLEX, 2U);
+    /* HTTP2 with multiplexing, expected one waitfds + possible wakeup */
+    if(!result)
+      result = test_run_check(URL, TEST_USE_HTTP2_MPLEX,
+                              1 + uses_threaded_resolver);
   }
 #endif
 

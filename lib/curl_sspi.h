@@ -29,19 +29,36 @@
 
 #include <sspi.h>
 
+/* Local helper macro */
+#ifdef UNICODE
+#define CURL_SEC_WINNT_AUTH_IDENTITY SEC_WINNT_AUTH_IDENTITY_UNICODE
+#else
+#define CURL_SEC_WINNT_AUTH_IDENTITY SEC_WINNT_AUTH_IDENTITY_ANSI
+#endif
+
+/* Offered by mingw-w64 v9+, MS SDK 7.0A/VS2010+ */
+#ifndef SECPKG_ATTR_ENDPOINT_BINDINGS
+#define SECPKG_ATTR_ENDPOINT_BINDINGS 26
+/* !checksrc! disable TYPEDEFSTRUCT 1 */
+typedef struct {
+  unsigned long BindingsLength;
+  SEC_CHANNEL_BINDINGS *Bindings;
+} SecPkgContext_Bindings;
+#endif
+
 CURLcode Curl_sspi_global_init(void);
 void Curl_sspi_global_cleanup(void);
 
 /* This is used to populate the domain in an SSPI identity structure */
 CURLcode Curl_override_sspi_http_realm(const char *chlg,
-                                       SEC_WINNT_AUTH_IDENTITY *identity);
+                                       SEC_WINNT_AUTH_IDENTITY_EX *identity);
 
 /* This is used to generate an SSPI identity structure */
 CURLcode Curl_create_sspi_identity(const char *userp, const char *passwdp,
-                                   SEC_WINNT_AUTH_IDENTITY *identity);
+                                   SEC_WINNT_AUTH_IDENTITY_EX *identity);
 
 /* This is used to free an SSPI identity structure */
-void Curl_sspi_free_identity(SEC_WINNT_AUTH_IDENTITY *identity);
+void Curl_sspi_free_identity(SEC_WINNT_AUTH_IDENTITY_EX *identity);
 
 /* Forward-declaration of global variables defined in curl_sspi.c */
 extern PSecurityFunctionTable Curl_pSecFn;
@@ -52,25 +69,25 @@ extern PSecurityFunctionTable Curl_pSecFn;
 #define SP_NAME_NEGOTIATE           "Negotiate"
 #define SP_NAME_KERBEROS            "Kerberos"
 
-/* Offered by mingw-w64 v9+. MS SDK 7.0A+. */
+/* Offered by mingw-w64 v9+, MS SDK 7.0A/VS2010+ */
 #ifndef ISC_REQ_USE_HTTP_STYLE
 #define ISC_REQ_USE_HTTP_STYLE                0x01000000
 #endif
 
-/* Offered by mingw-w64 v8+. MS SDK 6.0A+. */
+/* Offered by mingw-w64 v8+, MS SDK 6.0A/VS2008+ */
 #ifndef SEC_E_INVALID_PARAMETER
 #define SEC_E_INVALID_PARAMETER               ((HRESULT)0x8009035DL)
 #endif
-/* Offered by mingw-w64 v8+. MS SDK 6.0A+. */
+/* Offered by mingw-w64 v8+, MS SDK 6.0A/VS2008+ */
 #ifndef SEC_E_DELEGATION_POLICY
 #define SEC_E_DELEGATION_POLICY               ((HRESULT)0x8009035EL)
 #endif
-/* Offered by mingw-w64 v8+. MS SDK 6.0A+. */
+/* Offered by mingw-w64 v8+, MS SDK 6.0A/VS2008+ */
 #ifndef SEC_E_POLICY_NLTM_ONLY
 #define SEC_E_POLICY_NLTM_ONLY                ((HRESULT)0x8009035FL)
 #endif
 
-/* Offered by mingw-w64 v8+. MS SDK 6.0A+. */
+/* Offered by mingw-w64 v8+, MS SDK 6.0A/VS2008+ */
 #ifndef SEC_I_SIGNATURE_NEEDED
 #define SEC_I_SIGNATURE_NEEDED                ((HRESULT)0x0009035CL)
 #endif

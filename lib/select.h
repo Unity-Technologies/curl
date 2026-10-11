@@ -80,10 +80,8 @@ int Curl_socket_check(curl_socket_t readfd0,
 
 int Curl_poll(struct pollfd ufds[], unsigned int nfds, timediff_t timeout_ms);
 
-/*
-   With Winsock the valid range is [0..INVALID_SOCKET-1] according to
-   https://learn.microsoft.com/windows/win32/winsock/socket-data-type-2
-*/
+/* With Winsock the valid range is [0..INVALID_SOCKET-1] according to
+   https://learn.microsoft.com/windows/win32/winsock/socket-data-type-2 */
 #ifdef USE_WINSOCK
 #define VALID_SOCK(s) ((s) < INVALID_SOCKET)
 #define FDSET_SOCK(x) 1
@@ -133,7 +131,7 @@ struct easy_pollset {
 #define CURL_EASY_POLLSET_MAGIC  0x7a657370
 #endif
 
-/* allocate and initialise */
+/* allocate and initialize */
 struct easy_pollset *Curl_pollset_create(void);
 
 /* Initialize before first use */

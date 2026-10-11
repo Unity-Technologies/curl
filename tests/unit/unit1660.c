@@ -45,7 +45,7 @@ static CURLcode test_unit1660(const char *arg)
   struct testit {
     const char *host;
     const char *chost;     /* if non-NULL, use to lookup with */
-    const char *hdr;       /* if NULL, just do the lookup */
+    const char *hdr;       /* if NULL, do the lookup */
     const CURLcode result; /* parse result */
   };
 
@@ -127,7 +127,7 @@ static CURLcode test_unit1660(const char *arg)
 
       if(result != headers[i].result) {
         curl_mfprintf(stderr, "Curl_hsts_parse(%s) failed: %d\n",
-                      headers[i].hdr, result);
+                      headers[i].hdr, (int)result);
         unitfail++;
         continue;
       }
@@ -138,16 +138,33 @@ static CURLcode test_unit1660(const char *arg)
     }
 
     chost = headers[i].chost ? headers[i].chost : headers[i].host;
-    e = Curl_hsts(h, chost, strlen(chost), TRUE);
+    e = hsts_check(h, chost, strlen(chost), TRUE);
     showsts(e, chost);
   }
+
+  result = Curl_hsts_parse(h, "prefix.example",
+                           "max-age=60; includeSubDomainsExtra");
+  fail_if(result, "failed to parse unknown HSTS directive");
+  e = hsts_check(h, "child.prefix.example",
+                 strlen("child.prefix.example"), TRUE);
+  fail_if(e, "unknown directive enabled subdomain matching");
+  result = Curl_hsts_parse(h, "prefix.example", "max-age=0");
+  fail_if(result, "failed to remove HSTS test entry");
+
+  result = Curl_hsts_parse(h, "unknown.example",
+                           "max-age-extra=1; max-age=60");
+  fail_if(result, "failed to ignore unknown HSTS directive");
+  e = hsts_check(h, "unknown.example", strlen("unknown.example"), FALSE);
+  fail_if(!e, "recognized directive after unknown directive was ignored");
+  result = Curl_hsts_parse(h, "unknown.example", "max-age=0");
+  fail_if(result, "failed to remove HSTS test entry");
 
   curl_mprintf("Number of entries: %zu\n", Curl_llist_count(&h->list));
 
   /* verify that it is exists for 7 seconds */
   chost = "expire.example";
   for(i = 100; i < 110; i++) {
-    e = Curl_hsts(h, chost, strlen(chost), TRUE);
+    e = hsts_check(h, chost, strlen(chost), TRUE);
     showsts(e, chost);
     deltatime++; /* another second passed */
   }

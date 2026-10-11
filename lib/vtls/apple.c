@@ -36,7 +36,7 @@
 
    "SSL/TLS Strong Encryption: An Introduction"
    https://httpd.apache.org/docs/2.0/ssl/ssl_intro.html
-*/
+ */
 
 #include "curl_setup.h"
 
@@ -102,7 +102,7 @@ CURLcode Curl_vtls_apple_verify(struct Curl_cfilter *cf,
 
   if(conn_config->verifyhost) {
     host_str = CFStringCreateWithCString(NULL,
-      peer->sni ? peer->sni : peer->hostname, kCFStringEncodingUTF8);
+      peer->sni ? peer->sni : peer->origin->hostname, kCFStringEncodingUTF8);
     if(!host_str) {
       result = CURLE_OUT_OF_MEMORY;
       goto out;
@@ -200,25 +200,30 @@ CURLcode Curl_vtls_apple_verify(struct Curl_cfilter *cf,
     goto out;
   }
 
-#if defined(HAVE_BUILTIN_AVAILABLE) && defined(SUPPORTS_SecOCSP)
   if(ocsp_len > 0) {
+    bool checked = FALSE;
+#if defined(HAVE_BUILTIN_AVAILABLE) && defined(SUPPORTS_SecOCSP)
     if(__builtin_available(macOS 10.9, iOS 7, tvOS 9, watchOS 2, *)) {
       CFDataRef ocspdata = CFDataCreate(NULL, ocsp_buf, (CFIndex)ocsp_len);
 
       status = SecTrustSetOCSPResponse(trust, ocspdata);
       CFRelease(ocspdata);
       if(status != noErr) {
-        failf(data, "Apple SecTrust: failed to set OCSP response: %i",
+        failf(data, "Apple SecTrust: failed to set OCSP response: %d",
               (int)status);
         result = CURLE_PEER_FAILED_VERIFICATION;
         goto out;
       }
+      checked = TRUE;
+    }
+#endif
+    if(!checked) {
+      (void)ocsp_buf;
+      failf(data, "Apple SecTrust: OCSP verification not supported");
+      result = CURLE_NOT_BUILT_IN;
+      goto out;
     }
   }
-#else
-  (void)ocsp_buf;
-  (void)ocsp_len;
-#endif
 
 #ifdef SUPPORTS_SecTrustEvaluateWithError
 #ifdef HAVE_BUILTIN_AVAILABLE
@@ -238,10 +243,8 @@ CURLcode Curl_vtls_apple_verify(struct Curl_cfilter *cf,
         err_desc = curlx_malloc(size + 1);
         if(err_desc) {
           if(!CFStringGetCString(error_ref, err_desc, size,
-                                 kCFStringEncodingUTF8)) {
-            curlx_free(err_desc);
-            err_desc = NULL;
-          }
+                                 kCFStringEncodingUTF8))
+            curlx_safefree(err_desc);
         }
       }
       infof(data, "Apple SecTrust failure %ld%s%s", code,
@@ -256,7 +259,7 @@ CURLcode Curl_vtls_apple_verify(struct Curl_cfilter *cf,
     status = SecTrustEvaluate(trust, &sec_result);
 
     if(status != noErr) {
-      failf(data, "Apple SecTrust verification failed: error %i", (int)status);
+      failf(data, "Apple SecTrust verification failed: error %d", (int)status);
       result = CURLE_PEER_FAILED_VERIFICATION;
     }
     else if((sec_result == kSecTrustResultUnspecified) ||

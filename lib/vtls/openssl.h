@@ -33,7 +33,7 @@
  * <winldap.h>, <iphlpapi.h>, or something else, <wincrypt.h> does this:
  *   #define X509_NAME  ((LPCSTR)7)
  *
- * In BoringSSL/AWC-LC's <openssl/base.h> there is:
+ * In AWS-LC/BoringSSL's <openssl/base.h> there is:
  *  typedef struct X509_name_st X509_NAME;
  *  etc.
  *
@@ -74,7 +74,7 @@
 #define HAVE_OPENSSL3  /* non-fork OpenSSL 3.x or later */
 #endif
 
-#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
+#if defined(OPENSSL_IS_AWSLC) || defined(OPENSSL_IS_BORINGSSL)
 #define HAVE_BORINGSSL_LIKE
 #endif
 
@@ -86,9 +86,9 @@
 
 /*
  * Whether SSL_CTX_set_keylog_callback is available.
- * OpenSSL: supported since 1.1.1 https://github.com/openssl/openssl/pull/2287
  * BoringSSL: supported since d28f59c27bac (committed 2015-11-19)
  * LibreSSL: not supported. 3.5.0+ has a stub function that does nothing.
+ * OpenSSL: supported since 1.1.1 https://github.com/openssl/openssl/pull/2287
  */
 #ifndef LIBRESSL_VERSION_NUMBER
 #define HAVE_KEYLOG_CALLBACK
@@ -100,6 +100,14 @@
 #define HAVE_OPENSSL_EARLYDATA
 #endif
 
+#ifdef LIBRESSL_VERSION_NUMBER
+typedef long ctx_option_t;
+#elif defined(HAVE_BORINGSSL_LIKE)
+typedef uint32_t ctx_option_t;
+#else
+typedef uint64_t ctx_option_t;
+#endif
+
 struct alpn_spec;
 struct ssl_peer;
 struct Curl_ssl_session;
@@ -107,12 +115,12 @@ struct Curl_ssl_session;
 /* Struct to hold a curl OpenSSL instance */
 struct ossl_ctx {
   /* these ones requires specific SSL-types */
-  SSL_CTX* ssl_ctx;
-  SSL*     ssl;
+  SSL_CTX *ssl_ctx;
+  SSL *ssl;
   BIO_METHOD *bio_method;
   CURLcode io_result;       /* result of last BIO cfilter operation */
   /* blocked writes need to retry with same length, remember it */
-  int      blocked_ssl_write_len;
+  int blocked_ssl_write_len;
 #if !defined(HAVE_KEYLOG_UPSTREAM) && !defined(HAVE_KEYLOG_CALLBACK)
   /* Set to true once a valid keylog entry has been created to avoid dupes.
      This is a bool and not a bitfield because it is passed by address. */
@@ -121,6 +129,10 @@ struct ossl_ctx {
   BIT(x509_store_setup);            /* x509 store has been set up */
   BIT(store_is_empty);              /* no certs/paths/blobs in x509 store */
   BIT(reused_session);              /* session-ID was reused for this */
+#ifdef USE_APPLE_SECTRUST
+  BIT(sectrust_verified);           /* peer was verified by sectrust */
+  BIT(sectrust_session);            /* session from sectrust verified peer */
+#endif
 };
 
 size_t Curl_ossl_version(char *buffer, size_t size);
@@ -174,16 +186,17 @@ CURLcode Curl_ossl_ctx_configure(struct Curl_cfilter *cf,
  */
 CURLcode Curl_ossl_add_session(struct Curl_cfilter *cf,
                                struct Curl_easy *data,
+                               struct ossl_ctx *octx,
                                const char *ssl_peer_key,
                                SSL_SESSION *session,
-                               int ietf_tls_id,
                                const char *alpn,
                                unsigned char *quic_tp,
-                               size_t quic_tp_len);
+                               size_t quic_tp_len,
+                               struct Curl_ssl_session **psession);
 
 /*
  * Get the server cert, verify it and show it, etc., only call failf() if
- * ssl config verifypeer or -host is set. Otherwise all this is for
+ * SSL config verifypeer or -host is set. Otherwise all this is for
  * informational purposes only!
  */
 CURLcode Curl_ossl_check_peer_cert(struct Curl_cfilter *cf,

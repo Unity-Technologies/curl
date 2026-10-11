@@ -88,7 +88,7 @@ static size_t read_cb(char *ptr, size_t size, size_t nmemb, void *stream)
   return nread;
 }
 
-int main(int argc, const char **argv)
+int main(int argc, const char *argv[])
 {
   CURL *curl;
   CURLcode result;
@@ -109,7 +109,7 @@ int main(int argc, const char **argv)
   if(!fp)
     return 2;
 
-  if(fstat(fileno(fp), &file_info) != 0) {
+  if(fstat(fileno(fp), &file_info)) {
     fclose(fp);
     return 1; /* cannot continue */
   }

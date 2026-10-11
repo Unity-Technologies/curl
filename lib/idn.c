@@ -27,6 +27,7 @@
 #include "curl_setup.h"
 
 #include "urldata.h"
+#include "curlx/strparse.h"
 #include "idn.h"
 
 #ifdef USE_LIBIDN2
@@ -171,7 +172,8 @@ static CURLcode win32_idn_to_ascii(const char *in, char **out)
   /* Returned in_w_len includes the null-terminator, which then gets
      preserved across the calls that follow, ending up terminating
      the buffer returned to the caller. */
-  in_w_len = MultiByteToWideChar(CP_UTF8, 0, in, -1, in_w, IDN_MAX_LENGTH);
+  in_w_len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+                                 in, -1, in_w, IDN_MAX_LENGTH);
   if(in_w_len) {
     wchar_t punycode[IDN_MAX_LENGTH];
     int chars = IdnToAscii(0, in_w, in_w_len, punycode, IDN_MAX_LENGTH);
@@ -197,7 +199,8 @@ static CURLcode win32_ascii_to_idn(const char *in, char **out)
   /* Returned in_w_len includes the null-terminator, which then gets
      preserved across the calls that follow, ending up terminating
      the buffer returned to the caller. */
-  in_w_len = MultiByteToWideChar(CP_UTF8, 0, in, -1, in_w, IDN_MAX_LENGTH);
+  in_w_len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+                                 in, -1, in_w, IDN_MAX_LENGTH);
   if(in_w_len) {
     WCHAR idn[IDN_MAX_LENGTH]; /* stores a UTF-16 string */
     int chars = IdnToUnicode(0, in_w, in_w_len, idn, IDN_MAX_LENGTH);
@@ -222,15 +225,24 @@ static CURLcode win32_ascii_to_idn(const char *in, char **out)
  */
 bool Curl_is_ASCII_name(const char *hostname)
 {
-  /* get an UNSIGNED local version of the pointer */
-  const unsigned char *ch = (const unsigned char *)hostname;
+  if(hostname) {
+    struct Curl_str s;
+    s.str = hostname;
+    s.len = strlen(hostname);
+    return Curl_is_ASCII_str(&s);
+  }
+  return TRUE;
+}
 
-  if(!hostname) /* bad input, consider it ASCII! */
-    return TRUE;
-
-  while(*ch) {
-    if(*ch++ & 0x80)
-      return FALSE;
+bool Curl_is_ASCII_str(struct Curl_str *s)
+{
+  if(s && s->len) {
+    const unsigned char *ch = (const unsigned char *)s->str;
+    size_t i;
+    for(i = 0; i < s->len; ++i) {
+      if(ch[i] & 0x80)
+        return FALSE;
+    }
   }
   return TRUE;
 }

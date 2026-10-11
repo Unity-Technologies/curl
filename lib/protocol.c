@@ -153,7 +153,8 @@ const struct Curl_scheme Curl_scheme_https = {
   CURLPROTO_HTTPS,                      /* protocol */
   CURLPROTO_HTTP,                       /* family */
   PROTOPT_SSL | PROTOPT_CREDSPERREQUEST | PROTOPT_ALPN | /* flags */
-  PROTOPT_USERPWDCTRL | PROTOPT_CONN_REUSE,
+  PROTOPT_USERPWDCTRL | PROTOPT_CONN_REUSE |
+  PROTOPT_HTTP_PROXY_TUNNEL,
   PORT_HTTPS,                           /* defport */
 };
 
@@ -361,6 +362,51 @@ const struct Curl_scheme Curl_scheme_smtps = {
   PORT_SMTPS,                       /* defport */
 };
 
+const struct Curl_scheme Curl_scheme_socks = {
+  "socks",                          /* scheme */
+  ZERO_NULL,
+  CURLPROTO_SOCKS,                  /* protocol */
+  CURLPROTO_SOCKS,                  /* family */
+  PROTOPT_NO_TRANSFER,              /* flags */
+  PORT_SOCKS,                       /* defport */
+};
+
+const struct Curl_scheme Curl_scheme_socks4 = {
+  "socks4",                         /* scheme */
+  ZERO_NULL,
+  CURLPROTO_SOCKS,                  /* protocol */
+  CURLPROTO_SOCKS,                  /* family */
+  PROTOPT_NO_TRANSFER,              /* flags */
+  PORT_SOCKS,                       /* defport */
+};
+
+const struct Curl_scheme Curl_scheme_socks4a = {
+  "socks4a",                        /* scheme */
+  ZERO_NULL,
+  CURLPROTO_SOCKS,                  /* protocol */
+  CURLPROTO_SOCKS,                  /* family */
+  PROTOPT_NO_TRANSFER,              /* flags */
+  PORT_SOCKS,                       /* defport */
+};
+
+const struct Curl_scheme Curl_scheme_socks5 = {
+  "socks5",                         /* scheme */
+  ZERO_NULL,
+  CURLPROTO_SOCKS,                  /* protocol */
+  CURLPROTO_SOCKS,                  /* family */
+  PROTOPT_NO_TRANSFER,              /* flags */
+  PORT_SOCKS,                       /* defport */
+};
+
+const struct Curl_scheme Curl_scheme_socks5h = {
+  "socks5h",                         /* scheme */
+  ZERO_NULL,
+  CURLPROTO_SOCKS,                  /* protocol */
+  CURLPROTO_SOCKS,                  /* family */
+  PROTOPT_NO_TRANSFER,              /* flags */
+  PORT_SOCKS,                       /* defport */
+};
+
 const struct Curl_scheme Curl_scheme_telnet = {
   "telnet",                             /* scheme */
 #ifdef CURL_DISABLE_TELNET
@@ -397,7 +443,7 @@ const struct Curl_scheme Curl_scheme_ws = {
   CURLPROTO_WS,                         /* protocol */
   CURLPROTO_HTTP,                       /* family */
   PROTOPT_CREDSPERREQUEST |             /* flags */
-  PROTOPT_USERPWDCTRL,
+  PROTOPT_USERPWDCTRL | PROTOPT_HTTP_PROXY_TUNNEL,
   PORT_HTTP                             /* defport */
 };
 
@@ -412,71 +458,202 @@ const struct Curl_scheme Curl_scheme_wss = {
   CURLPROTO_WSS,                        /* protocol */
   CURLPROTO_HTTP,                       /* family */
   PROTOPT_SSL | PROTOPT_CREDSPERREQUEST | /* flags */
-  PROTOPT_USERPWDCTRL,
+  PROTOPT_USERPWDCTRL | PROTOPT_HTTP_PROXY_TUNNEL,
   PORT_HTTPS                            /* defport */
 };
+
+static const struct Curl_scheme *two_letter_scheme(const char *scheme)
+{
+  if((Curl_raw_tolower(scheme[0]) == 'w') &&
+     (Curl_raw_tolower(scheme[1]) == 's'))
+    return &Curl_scheme_ws;
+  return NULL;
+}
+
+static const struct Curl_scheme *three_letter_scheme(const char *scheme)
+{
+  char s0 = Curl_raw_tolower(scheme[0]);
+  char s1 = Curl_raw_tolower(scheme[1]);
+  char s2 = Curl_raw_tolower(scheme[2]);
+  if(s0 == 'f') {
+    if(s1 == 't' && s2 == 'p')
+      return &Curl_scheme_ftp;
+  }
+  else if(s0 == 'w') {
+    if(s1 == 's' && s2 == 's')
+      return &Curl_scheme_wss;
+  }
+  else if(s0 == 's') {
+    if(s1 == 'c' && s2 == 'p')
+      return &Curl_scheme_scp;
+    if(s1 == 'm' && s2 == 'b')
+      return &Curl_scheme_smb;
+  }
+  return NULL;
+}
+
+static const struct Curl_scheme *four_letter_scheme(const char *scheme)
+{
+  char s0 = Curl_raw_tolower(scheme[0]);
+  char s1 = Curl_raw_tolower(scheme[1]);
+  char s2 = Curl_raw_tolower(scheme[2]);
+  char s3 = Curl_raw_tolower(scheme[3]);
+  if(s3 == 'p') {
+    if(s0 == 'h') {
+      if(s1 == 't' && s2 == 't')
+        return &Curl_scheme_http;
+    }
+    else if(s0 == 'i') {
+      if(s1 == 'm' && s2 == 'a')
+        return &Curl_scheme_imap;
+    }
+    else if(s0 == 'l') {
+      if(s1 == 'd' && s2 == 'a')
+        return &Curl_scheme_ldap;
+    }
+    else if(s0 == 'r') {
+      if(s1 == 't' && s2 == 's')
+        return &Curl_scheme_rtsp;
+    }
+    else if(s0 == 't') {
+      if(s1 == 'f' && s2 == 't')
+        return &Curl_scheme_tftp;
+    }
+    else if(s0 == 's') {
+      if(s1 == 'f' && s2 == 't')
+        return &Curl_scheme_sftp;
+      if(s1 == 'm' && s2 == 't')
+        return &Curl_scheme_smtp;
+    }
+  }
+  else if(s0 == 'f') {
+    if(s1 == 't' && s2 == 'p' && s3 == 's')
+      return &Curl_scheme_ftps;
+    if(s1 == 'i' && s2 == 'l' && s3 == 'e')
+      return &Curl_scheme_file;
+  }
+  else if(s0 == 'm') {
+    if(s1 == 'q' && s2 == 't' && s3 == 't')
+      return &Curl_scheme_mqtt;
+  }
+  else if(s0 == 'p') {
+    if(s1 == 'o' && s2 == 'p' && s3 == '3')
+      return &Curl_scheme_pop3;
+  }
+  else if(s0 == 'd') {
+    if(s1 == 'i' && s2 == 'c' && s3 == 't')
+      return &Curl_scheme_dict;
+  }
+  else if(s0 == 's') {
+    if(s1 == 'm' && s2 == 'b' && s3 == 's')
+      return &Curl_scheme_smbs;
+  }
+  return NULL;
+}
+
+static const struct Curl_scheme *five_letter_scheme(const char *scheme)
+{
+  char s4 = Curl_raw_tolower(scheme[4]);
+  if(s4 == 's') {
+    char s0 = Curl_raw_tolower(scheme[0]);
+    char s1 = Curl_raw_tolower(scheme[1]);
+    char s2 = Curl_raw_tolower(scheme[2]);
+    char s3 = Curl_raw_tolower(scheme[3]);
+    if(s3 == 'p') {
+      switch(s0) {
+      case 'h':
+        if(s1 == 't' && s2 == 't')
+          return &Curl_scheme_https;
+        break;
+      case 'l':
+        if(s1 == 'd' && s2 == 'a')
+          return &Curl_scheme_ldaps;
+        break;
+      case 'i':
+        if(s1 == 'm' && s2 == 'a')
+          return &Curl_scheme_imaps;
+        break;
+      case 's':
+        if(s1 == 'm' && s2 == 't')
+          return &Curl_scheme_smtps;
+        break;
+      default:
+        break;
+      }
+    }
+    else if(s0 == 'p') {
+      if(s1 == 'o' && s2 == 'p' && s3 == '3')
+        return &Curl_scheme_pop3s;
+    }
+    else if(s0 == 'm') {
+      if(s1 == 'q' && s2 == 't' && s3 == 't')
+        return &Curl_scheme_mqtts;
+    }
+    else if(s0 == 's') {
+      if(s1 == 'o' && s2 == 'c' && s3 == 'k')
+        return &Curl_scheme_socks;
+    }
+  }
+  return NULL;
+}
+
+static const struct Curl_scheme *six_letter_scheme(const char *scheme)
+{
+  char s0 = Curl_raw_tolower(scheme[0]);
+  switch(s0) {
+  case 's':
+    if(curl_strnequal("ocks4", &scheme[1], 5))
+      return &Curl_scheme_socks4;
+    if(curl_strnequal("ocks5", &scheme[1], 5))
+      return &Curl_scheme_socks5;
+    break;
+  case 'g':
+    if(curl_strnequal("opher", &scheme[1], 5))
+      return &Curl_scheme_gopher;
+    break;
+  case 't':
+    if(curl_strnequal("elnet", &scheme[1], 5))
+      return &Curl_scheme_telnet;
+    break;
+  }
+  return NULL;
+}
+
+static const struct Curl_scheme *seven_letter_scheme(const char *scheme)
+{
+  char s0 = Curl_raw_tolower(scheme[0]);
+  if(s0 == 's') {
+    if(curl_strnequal("ocks4a", &scheme[1], 6))
+      return &Curl_scheme_socks4a;
+    if(curl_strnequal("ocks5h", &scheme[1], 6))
+      return &Curl_scheme_socks5h;
+  }
+  else if(s0 == 'g') {
+    if(curl_strnequal("ophers", &scheme[1], 6))
+      return &Curl_scheme_gophers;
+  }
+  return NULL;
+}
 
 /* Returns a struct scheme pointer if the name is a known scheme. Check the
    ->run struct field for non-NULL to figure out if an implementation is
    present. */
 const struct Curl_scheme *Curl_getn_scheme(const char *scheme, size_t len)
 {
-  /* table generated by schemetable.c:
-     1. gcc schemetable.c && ./a.out
-     2. check how small the table gets
-     3. tweak the hash algorithm, then rerun from 1
-     4. when the table is good enough
-     5. copy the table into this source code
-     6. make sure this function uses the same hash function that worked for
-     schemetable.c
-     */
-  static const struct Curl_scheme * const all_schemes[47] = {
-    &Curl_scheme_mqtt,
-    &Curl_scheme_smtp,
-    &Curl_scheme_tftp,
-    &Curl_scheme_imap, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    &Curl_scheme_ldaps,
-    &Curl_scheme_dict, NULL,
-    &Curl_scheme_file, NULL,
-    &Curl_scheme_pop3s,
-    &Curl_scheme_ftp,
-    &Curl_scheme_scp,
-    &Curl_scheme_mqtts,
-    &Curl_scheme_imaps,
-    &Curl_scheme_ldap,
-    &Curl_scheme_http,
-    &Curl_scheme_smb, NULL, NULL,
-    &Curl_scheme_telnet,
-    &Curl_scheme_https,
-    &Curl_scheme_gopher,
-    &Curl_scheme_rtsp, NULL, NULL,
-    &Curl_scheme_wss, NULL,
-    &Curl_scheme_gophers,
-    &Curl_scheme_smtps,
-    &Curl_scheme_pop3,
-    &Curl_scheme_ws, NULL, NULL,
-    &Curl_scheme_sftp,
-    &Curl_scheme_ftps, NULL,
-    &Curl_scheme_smbs, NULL,
+  typedef const struct Curl_scheme *(*letterfunc)(const char *ptr);
+  static const letterfunc parse[] = {
+    two_letter_scheme,
+    three_letter_scheme,
+    four_letter_scheme,
+    five_letter_scheme,
+    six_letter_scheme,
+    seven_letter_scheme
   };
 
-  if(len && (len <= 7)) {
-    const char *s = scheme;
-    size_t l = len;
-    const struct Curl_scheme *h;
-    unsigned int c = 792;
-    while(l) {
-      c <<= 4;
-      c += (unsigned int)Curl_raw_tolower(*s);
-      s++;
-      l--;
-    }
+  if(len < 2 || len > 7)
+    return NULL;
 
-    h = all_schemes[c % 47];
-    if(h && curl_strnequal(scheme, h->name, len) && !h->name[len])
-      return h;
-  }
-  return NULL;
+  return parse[len - 2](scheme);
 }
 
 const struct Curl_scheme *Curl_get_scheme(const char *scheme)

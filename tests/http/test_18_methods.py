@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #***************************************************************************
 #                                  _   _ ____  _
 #  Project                     ___| | | |  _ \| |
@@ -37,9 +35,9 @@ class TestMethods:
     @pytest.fixture(autouse=True, scope='class')
     def _class_scope(self, env, httpd, nghttpx):
         indir = httpd.docs_dir
-        env.make_data_file(indir=indir, fname="data-10k", fsize=10*1024)
-        env.make_data_file(indir=indir, fname="data-100k", fsize=100*1024)
-        env.make_data_file(indir=indir, fname="data-1m", fsize=1024*1024)
+        env.make_data_file(indir=indir, fname="data-10k", fsize=10 * 1024)
+        env.make_data_file(indir=indir, fname="data-100k", fsize=100 * 1024)
+        env.make_data_file(indir=indir, fname="data-1m", fsize=1024 * 1024)
 
     # download 1 file
     @pytest.mark.parametrize("proto", Env.http_protos())

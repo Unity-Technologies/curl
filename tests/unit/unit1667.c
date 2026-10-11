@@ -37,9 +37,6 @@ struct test_1667 {
   CURLcode result_exp;
 };
 
-/* the size of the object needs to deduct the null terminator */
-#define OID(x) x, sizeof(x) - 1
-
 static bool test1667(const struct test_1667 *spec, size_t i,
                      struct dynbuf *dbuf)
 {
@@ -60,7 +57,7 @@ static bool test1667(const struct test_1667 *spec, size_t i,
   result = ASN1tostr(dbuf, &elem);
   if(result != spec->result_exp) {
     curl_mfprintf(stderr, "test %zu (type %u): expect result %d, got %d\n",
-                  i, spec->tag, spec->result_exp, result);
+                  i, spec->tag, (int)spec->result_exp, (int)result);
     if(!spec->result_exp) {
       curl_mfprintf(stderr, "test %zu: expected output '%s'\n",
                     i, spec->out);
@@ -69,7 +66,7 @@ static bool test1667(const struct test_1667 *spec, size_t i,
   }
   else if(!result) {
     /* use strlen on the pointer instead of curlx_dyn_len() because for some
-       of these type, the code explicitly adds a null terminator which is then
+       of these type, the code explicitly adds a null-terminator which is then
        counted as buffer size. */
     size_t actual_len = strlen(curlx_dyn_ptr(dbuf));
     if(strlen(spec->out) != actual_len) {
@@ -106,18 +103,17 @@ static CURLcode test_unit1667(const char *arg)
     { 31, "abcde", 5, "", CURLE_BAD_FUNCTION_ARGUMENT },
     { 99, "abcde", 5, "", CURLE_BAD_FUNCTION_ARGUMENT },
 
-    /*
-      (many different) strings:
+    /* (many different) strings:
 
-      CURL_ASN1_UTF8_STRING
-      CURL_ASN1_NUMERIC_STRING
-      CURL_ASN1_PRINTABLE_STRING
-      CURL_ASN1_TELETEX_STRING
-      CURL_ASN1_IA5_STRING
-      CURL_ASN1_VISIBLE_STRING
-      CURL_ASN1_UNIVERSAL_STRING
-      CURL_ASN1_BMP_STRING
-    */
+       CURL_ASN1_UTF8_STRING
+       CURL_ASN1_NUMERIC_STRING
+       CURL_ASN1_PRINTABLE_STRING
+       CURL_ASN1_TELETEX_STRING
+       CURL_ASN1_IA5_STRING
+       CURL_ASN1_VISIBLE_STRING
+       CURL_ASN1_UNIVERSAL_STRING
+       CURL_ASN1_BMP_STRING
+     */
     { CURL_ASN1_UTF8_STRING, "abcde", 5, "abcde", CURLE_OK },
     /* a with ring, a with umlaut, o with umlaut in UTF-8 encoding */
     { CURL_ASN1_UTF8_STRING, "\xc3\xa5\xc3\xa4\xc3\xb6", 6,
@@ -325,8 +321,6 @@ static CURLcode test_unit1667(const char *arg)
 
   UNITTEST_END_SIMPLE
 }
-
-#undef OID
 
 #else
 

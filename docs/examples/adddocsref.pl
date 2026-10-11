@@ -30,11 +30,11 @@ use warnings;
 
 use File::Copy;
 
-my $docroot="https://curl.se/libcurl/c";
+my $docroot = "https://curl.se/libcurl/c";
 
 for my $f (@ARGV) {
-    open(NEW, ">$f.new");
-    open(F, "<$f");
+    open(NEW, ">", "$f.new");
+    open(F, "<", $f);
     while(<F>) {
         my $l = $_;
         if($l =~ /\/* $docroot/) {

@@ -25,8 +25,10 @@
 
 static CURLcode test_lib1537(const char *URL)
 {
-  const unsigned char a[] = { 0x2f, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f,
-                              0x91, 0xa2, 0xb3, 0xc4, 0xd5, 0xe6, 0xf7 };
+  static const unsigned char a[] = {
+    0x2f, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f,
+    0x91, 0xa2, 0xb3, 0xc4, 0xd5, 0xe6, 0xf7
+  };
   CURLcode result = CURLE_OK;
   char *ptr = NULL;
   int asize;
@@ -77,7 +79,7 @@ static CURLcode test_lib1537(const char *URL)
   curl_mprintf("escape -1 length: %s\n", ptr);
 
   /* weird input length */
-  outlen = 2017; /* just a value */
+  outlen = 2017; /* an arbitrary value */
   ptr = curl_easy_unescape(NULL, "moahahaha", -1, &outlen);
   curl_mprintf("unescape -1 length: %s %d\n", ptr, outlen);
 

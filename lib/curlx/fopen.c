@@ -68,7 +68,7 @@ static wchar_t *fn_convert_UTF8_to_wchar(const char *str_utf8)
     if(str_w_len > 0) {
       str_w = CURLX_MALLOC(str_w_len * sizeof(wchar_t));
       if(str_w) {
-        if(MultiByteToWideChar(CP_UTF8, 0,
+        if(MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
                                str_utf8, -1, str_w, str_w_len) == 0) {
           CURLX_FREE(str_w);
           return NULL;
@@ -80,7 +80,7 @@ static wchar_t *fn_convert_UTF8_to_wchar(const char *str_utf8)
 }
 #endif
 
-/* declare GetFullPathNameW for mingw-w64 UWP builds targeting old windows */
+/* declare GetFullPathNameW for mingw-w64 UWP builds targeting old Windows */
 #if defined(CURL_WINDOWS_UWP) && defined(__MINGW32__) && \
   (_WIN32_WINNT < _WIN32_WINNT_WIN10)
 WINBASEAPI DWORD WINAPI GetFullPathNameW(LPCWSTR, DWORD, LPWSTR, LPWSTR *);
@@ -110,7 +110,7 @@ static bool fix_excessive_path(const TCHAR *in, TCHAR **out)
   const wchar_t *in_w;
   wchar_t *fbuf = NULL;
 
-  /* MS documented "approximate" limit for the maximum path length */
+  /* MS-documented "approximate" limit for the maximum path length */
   const size_t max_path_len = 32767;
 
 #ifndef _UNICODE
@@ -121,7 +121,7 @@ static bool fix_excessive_path(const TCHAR *in, TCHAR **out)
   *out = NULL;
 
   /* skip paths already normalized */
-  if(!_tcsncmp(in, _T("\\\\?\\"), 4))
+  if(!_tcsncmp(in, _TEXT("\\\\?\\"), 4))
     goto cleanup;
 
 #ifndef _UNICODE
@@ -247,7 +247,7 @@ cleanup:
   CURLX_FREE(ibuf);
   CURLX_FREE(obuf);
 #endif
-  return *out ? true : false;
+  return !!*out;
 }
 
 #ifndef CURL_WINDOWS_UWP
@@ -284,6 +284,37 @@ HANDLE curlx_CreateFile(const char *filename,
                         dwFlagsAndAttributes,
                         hTemplateFile);
     CURLX_FREE(fixed);
+#ifdef UNICODE
+    curlx_free(filename_t);
+#endif
+  }
+
+  return handle;
+}
+
+HANDLE curlx_FindFirstFile(const char *filename,
+                           WIN32_FIND_DATA *find_data)
+{
+  HANDLE handle = INVALID_HANDLE_VALUE;
+
+#ifdef UNICODE
+  TCHAR *filename_t = curlx_convert_UTF8_to_wchar(filename);
+#else
+  const TCHAR *filename_t = filename;
+#endif
+
+  if(filename_t) {
+    TCHAR *fixed = NULL;
+    const TCHAR *target;
+
+    if(fix_excessive_path(filename_t, &fixed))
+      target = fixed;
+    else
+      target = filename_t;
+
+    handle = FindFirstFile(target, find_data);
+    CURLX_FREE(fixed);
+
 #ifdef UNICODE
     curlx_free(filename_t);
 #endif

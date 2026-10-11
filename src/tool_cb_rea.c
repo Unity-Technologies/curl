@@ -68,9 +68,8 @@ static void waitfd(int waitms, int fd)
 #endif
 
 /*
-** callback for CURLOPT_READFUNCTION
-*/
-
+ * callback for CURLOPT_READFUNCTION
+ */
 size_t tool_read_cb(char *buffer, size_t sz, size_t nmemb, void *userdata)
 {
   ssize_t rc = 0;
@@ -109,7 +108,7 @@ size_t tool_read_cb(char *buffer, size_t sz, size_t nmemb, void *userdata)
 #ifndef CURL_WINDOWS_UWP
     rc = sread(per->infd, buffer, curlx_uztosi(sz * nmemb));
     if(rc < 0) {
-      if(SOCKERRNO == SOCKEWOULDBLOCK) {
+      if(SOCK_EAGAIN(SOCKERRNO)) {
         errno = 0;
         config->readbusy = TRUE;
         return CURL_READFUNC_PAUSE;
@@ -153,9 +152,8 @@ size_t tool_read_cb(char *buffer, size_t sz, size_t nmemb, void *userdata)
 }
 
 /*
-** callback for CURLOPT_XFERINFOFUNCTION used to unpause busy reads
-*/
-
+ * callback for CURLOPT_XFERINFOFUNCTION used to unpause busy reads
+ */
 int tool_readbusy_cb(void *clientp,
                      curl_off_t dltotal, curl_off_t dlnow,
                      curl_off_t ultotal, curl_off_t ulnow)

@@ -37,22 +37,16 @@ CURLcode Curl_rand_bytes(struct Curl_easy *data,
 
 /*
  * Curl_rand_hex() fills the 'rnd' buffer with a given 'num' size with random
- * hexadecimal digits PLUS a null-terminating byte. It must be an odd number
+ * hexadecimal digits PLUS a null-terminator byte. It must be an odd number
  * size.
  */
 CURLcode Curl_rand_hex(struct Curl_easy *data, unsigned char *rnd, size_t num);
 
 /*
  * Curl_rand_alnum() fills the 'rnd' buffer with a given 'num' size with random
- * alphanumerical chars PLUS a null-terminating byte.
+ * alphanumerical chars PLUS a null-terminator byte.
  */
 CURLcode Curl_rand_alnum(struct Curl_easy *data, unsigned char *rnd,
                          size_t num);
-
-#ifdef _WIN32
-/* Random generator shared between the Schannel vtls and Curl_rand*()
-   functions */
-CURLcode Curl_win32_random(unsigned char *entropy, size_t length);
-#endif
 
 #endif /* HEADER_CURL_RAND_H */

@@ -141,12 +141,14 @@ static void rlimit_tune_steps(struct Curl_rlimit *r,
         r->step_us = CURL_US_PER_SEC + ((timediff_t)mstep_inc * 1000);
         r->rate_per_step += rate_inc;
         r->tokens = r->rate_per_step;
+        if(r->burst_per_step) {
+          curl_off_t burst_inc = ((r->burst_per_step * mstep_inc) / 1000);
+          if(burst_inc)
+            r->burst_per_step += burst_inc;
+        }
       }
     }
   }
-
-  if(r->burst_per_step)
-    r->burst_per_step = r->rate_per_step;
 }
 
 void Curl_rlimit_init(struct Curl_rlimit *r,
@@ -198,9 +200,15 @@ bool Curl_rlimit_is_blocked(struct Curl_rlimit *r)
 int64_t Curl_rlimit_avail(struct Curl_rlimit *r,
                           const struct curltime *pts)
 {
+  struct curltime ts;
+
   if(r->blocked)
     return 0;
   else if(r->rate_per_step) {
+    if(!pts) {
+      curlx_pnow(&ts);
+      pts = &ts;
+    }
     rlimit_update(r, pts);
     return r->tokens;
   }
@@ -208,13 +216,18 @@ int64_t Curl_rlimit_avail(struct Curl_rlimit *r,
     return INT64_MAX;
 }
 
-void Curl_rlimit_drain(struct Curl_rlimit *r,
-                       size_t tokens,
+void Curl_rlimit_drain(struct Curl_rlimit *r, size_t tokens,
                        const struct curltime *pts)
 {
+  struct curltime ts;
+
   if(r->blocked || !r->rate_per_step)
     return;
 
+  if(!pts) {
+    curlx_pnow(&ts);
+    pts = &ts;
+  }
   rlimit_update(r, pts);
 #if 8 <= SIZEOF_SIZE_T
   if(tokens > INT64_MAX) {
