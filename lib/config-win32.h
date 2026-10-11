@@ -26,10 +26,6 @@
 
 /* Handcrafted config file for building via Visual Studio IDE Project Files */
 
-#if !defined(_MSC_VER) || _MSC_VER > 1800
-#error This manual configuration requires MSVC 2010-2013 (IDE Project builds)
-#endif
-
 /* Define if you have the <sys/param.h> header file. */
 #ifdef __MINGW32__
 #define HAVE_SYS_PARAM_H 1
