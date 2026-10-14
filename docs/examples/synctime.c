@@ -99,10 +99,10 @@ static int AutoSyncTime;
 static SYSTEMTIME SYSTime;
 static SYSTEMTIME LOCALTime;
 
-static const char *DayStr[] = {
+static const char * const DayStr[] = {
   "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
 };
-static const char *MthStr[] = {
+static const char * const MthStr[] = {
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
@@ -149,7 +149,7 @@ static size_t SyncTime_CURL_WriteHeader(void *ptr, size_t size, size_t nmemb,
         int i;
         SYSTime.wMilliseconds = 500;  /* adjust to midpoint, 0.5 sec */
         for(i = 0; i < 12; i++) {
-          if(strcmp(MthStr[i], TmpStr2) == 0) {
+          if(!strcmp(MthStr[i], TmpStr2)) {
             SYSTime.wMonth = (WORD)(i + 1);
             break;
           }
@@ -232,26 +232,26 @@ int main(int argc, const char *argv[])
   if(argc > 1) {
     int OptionIndex = 1;
     while(OptionIndex < argc) {
-      if(strncmp(argv[OptionIndex], "--server=", 9) == 0)
+      if(!strncmp(argv[OptionIndex], "--server=", 9))
         snprintf(conf.timeserver, sizeof(conf.timeserver) - 1, "%s",
                  &argv[OptionIndex][9]);
 
-      if(strcmp(argv[OptionIndex], "--showall") == 0)
+      if(!strcmp(argv[OptionIndex], "--showall"))
         ShowAllHeader = 1;
 
-      if(strcmp(argv[OptionIndex], "--synctime") == 0)
+      if(!strcmp(argv[OptionIndex], "--synctime"))
         AutoSyncTime = 1;
 
-      if(strncmp(argv[OptionIndex], "--proxy-user=", 13) == 0)
+      if(!strncmp(argv[OptionIndex], "--proxy-user=", 13))
         snprintf(conf.proxy_user, sizeof(conf.proxy_user) - 1, "%s",
                  &argv[OptionIndex][13]);
 
-      if(strncmp(argv[OptionIndex], "--proxy=", 8) == 0)
+      if(!strncmp(argv[OptionIndex], "--proxy=", 8))
         snprintf(conf.http_proxy, sizeof(conf.http_proxy) - 1, "%s",
                  &argv[OptionIndex][8]);
 
-      if((strcmp(argv[OptionIndex], "--help") == 0) ||
-         (strcmp(argv[OptionIndex], "/?") == 0)) {
+      if(!strcmp(argv[OptionIndex], "--help") ||
+         !strcmp(argv[OptionIndex], "/?")) {
         showUsage();
         return 0;
       }
@@ -300,7 +300,8 @@ int main(int argc, const char *argv[])
     /* Get current system time and local time */
     GetSystemTime(&SYSTime);
     GetLocalTime(&LOCALTime);
-    snprintf(timeBuf, 60, "%s, %02d %s %04d %02d:%02d:%02d.%03d, ",
+    snprintf(timeBuf, sizeof(timeBuf) - 1,
+             "%s, %02d %s %04d %02d:%02d:%02d.%03d, ",
              DayStr[LOCALTime.wDayOfWeek], LOCALTime.wDay,
              MthStr[LOCALTime.wMonth - 1], LOCALTime.wYear, LOCALTime.wHour,
              LOCALTime.wMinute, LOCALTime.wSecond, LOCALTime.wMilliseconds);
@@ -314,7 +315,8 @@ int main(int argc, const char *argv[])
 
 #if defined(_WIN32) && !defined(CURL_WINDOWS_UWP)
     GetLocalTime(&LOCALTime);
-    snprintf(timeBuf, 60, "%s, %02d %s %04d %02d:%02d:%02d.%03d, ",
+    snprintf(timeBuf, sizeof(timeBuf) - 1,
+             "%s, %02d %s %04d %02d:%02d:%02d.%03d, ",
              DayStr[LOCALTime.wDayOfWeek], LOCALTime.wDay,
              MthStr[LOCALTime.wMonth - 1], LOCALTime.wYear, LOCALTime.wHour,
              LOCALTime.wMinute, LOCALTime.wSecond, LOCALTime.wMilliseconds);
@@ -329,7 +331,8 @@ int main(int argc, const char *argv[])
       else {
         /* Successfully re-adjusted computer clock */
         GetLocalTime(&LOCALTime);
-        snprintf(timeBuf, 60, "%s, %02d %s %04d %02d:%02d:%02d.%03d, ",
+        snprintf(timeBuf, sizeof(timeBuf) - 1,
+                 "%s, %02d %s %04d %02d:%02d:%02d.%03d, ",
                  DayStr[LOCALTime.wDayOfWeek], LOCALTime.wDay,
                  MthStr[LOCALTime.wMonth - 1], LOCALTime.wYear,
                  LOCALTime.wHour, LOCALTime.wMinute, LOCALTime.wSecond,

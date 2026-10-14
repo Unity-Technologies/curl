@@ -31,13 +31,15 @@ TESTENV =                               \
   testenv/dnsd.py                       \
   testenv/dante.py                      \
   testenv/env.py                        \
+  testenv/h2o.py                        \
   testenv/httpd.py                      \
   testenv/mod_curltest/mod_curltest.c   \
   testenv/nghttpx.py                    \
   testenv/ports.py                      \
   testenv/sshd.py                       \
   testenv/vsftpd.py                     \
-  testenv/ws_echo_server.py
+  testenv/ws_echo_server.py             \
+  testenv/ws_4frames_server.py
 
 EXTRA_DIST =             \
   CMakeLists.txt         \
@@ -72,10 +74,11 @@ EXTRA_DIST =             \
   test_40_socks.py       \
   test_50_scp.py         \
   test_51_sftp.py        \
+  test_60_h3_proxy.py    \
   $(TESTENV)
 
 clean-local:
-	rm -rf *.pyc __pycache__
+	rm -rf ./*.pyc __pycache__
 	rm -rf gen
 
 check: libtests

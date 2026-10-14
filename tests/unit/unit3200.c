@@ -45,7 +45,7 @@ static CURLcode test_unit3200(const char *arg)
 #define C1024 C256 C256 C256 C256
 #define C4096 C1024 C1024 C1024 C1024
 
-  static const char *filecontents[] = {
+  static const char * const filecontents[] = {
     /* Both should be read */
     "LINE1\n"
     "LINE2 NEWLINE\n",
@@ -85,12 +85,12 @@ static CURLcode test_unit3200(const char *arg)
     curlx_dyn_init(&buf, len);
 
     fp = curlx_fopen(arg, "wb");
-    abort_unless(fp != NULL, "Cannot open testfile");
+    abort_unless(fp, "Cannot open testfile");
     fwrite(filecontents[i], 1, strlen(filecontents[i]), fp);
     curlx_fclose(fp);
 
     fp = curlx_fopen(arg, "rb");
-    abort_unless(fp != NULL, "Cannot open testfile");
+    abort_unless(fp, "Cannot open testfile");
 
     curl_mfprintf(stderr, "Test %zu...", i);
     switch(i) {

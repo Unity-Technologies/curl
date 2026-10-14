@@ -244,7 +244,7 @@ static int parse_flags(const char **fmtp, unsigned int *flagsp, int use_dollar,
         fmt += 2;
       }
       else {
-#if (SIZEOF_CURL_OFF_T > SIZEOF_LONG)
+#if SIZEOF_CURL_OFF_T > SIZEOF_LONG
         flags |= FLAGS_LONGLONG;
 #else
         flags |= FLAGS_LONG;
@@ -267,14 +267,14 @@ static int parse_flags(const char **fmtp, unsigned int *flagsp, int use_dollar,
     case 'z':
       /* the code below generates a warning if -Wunreachable-code is
          used */
-#if (SIZEOF_SIZE_T > SIZEOF_LONG)
+#if SIZEOF_SIZE_T > SIZEOF_LONG
       flags |= FLAGS_LONGLONG;
 #else
       flags |= FLAGS_LONG;
 #endif
       break;
     case 'O':
-#if (SIZEOF_CURL_OFF_T > SIZEOF_LONG)
+#if SIZEOF_CURL_OFF_T > SIZEOF_LONG
       flags |= FLAGS_LONGLONG;
 #else
       flags |= FLAGS_LONG;
@@ -395,22 +395,26 @@ static bool parse_conversion(const char f, unsigned int *flagp,
     flags |= FLAGS_CHAR;
     break;
   case 'f':
-    type = MTYPE_DOUBLE;
+    type = flags & FLAGS_LONGDOUBLE ? MTYPE_LONGDOUBLE : MTYPE_DOUBLE;
+    break;
+  case 'F':
+    type = flags & FLAGS_LONGDOUBLE ? MTYPE_LONGDOUBLE : MTYPE_DOUBLE;
+    flags |= FLAGS_UPPER;
     break;
   case 'e':
-    type = MTYPE_DOUBLE;
+    type = flags & FLAGS_LONGDOUBLE ? MTYPE_LONGDOUBLE : MTYPE_DOUBLE;
     flags |= FLAGS_FLOATE;
     break;
   case 'E':
-    type = MTYPE_DOUBLE;
+    type = flags & FLAGS_LONGDOUBLE ? MTYPE_LONGDOUBLE : MTYPE_DOUBLE;
     flags |= FLAGS_FLOATE | FLAGS_UPPER;
     break;
   case 'g':
-    type = MTYPE_DOUBLE;
+    type = flags & FLAGS_LONGDOUBLE ? MTYPE_LONGDOUBLE : MTYPE_DOUBLE;
     flags |= FLAGS_FLOATG;
     break;
   case 'G':
-    type = MTYPE_DOUBLE;
+    type = flags & FLAGS_LONGDOUBLE ? MTYPE_LONGDOUBLE : MTYPE_DOUBLE;
     flags |= FLAGS_FLOATG | FLAGS_UPPER;
     break;
   default:
@@ -422,7 +426,6 @@ static bool parse_conversion(const char f, unsigned int *flagp,
   *typep = type;
   return FALSE;
 }
-
 
 static int parsefmt(const char *format,
                     struct outsegment *out,
@@ -619,6 +622,10 @@ static int parsefmt(const char *format,
       iptr->val.dnum = va_arg(arglist, double);
       break;
 
+    case MTYPE_LONGDOUBLE:
+      iptr->val.dnum = (double)va_arg(arglist, long double);
+      break;
+
     default:
       DEBUGASSERT(NULL); /* unexpected */
       break;
@@ -679,7 +686,7 @@ static bool out_double(void *userp,
       prec = maxprec - 1;
     if(width > 0 && prec <= width)
       maxprec -= width;
-    while(val >= 10.0) {
+    while(maxprec && (val >= 10.0)) {
       val /= 10;
       maxprec--;
     }
@@ -700,7 +707,7 @@ static bool out_double(void *userp,
   else if(flags & FLAGS_FLOATG)
     *fptr++ = (char)((flags & FLAGS_UPPER) ? 'G' : 'g');
   else
-    *fptr++ = 'f';
+    *fptr++ = (flags & FLAGS_UPPER) ? 'F' : 'f';
 
   *fptr = 0; /* and a final null-termination */
 
@@ -713,9 +720,7 @@ static bool out_double(void *userp,
 #ifdef _WIN32
   curlx_win32_snprintf(work, BUFFSIZE, fmt, dnum);
 #else
-  /* !checksrc! disable BANNEDFUNC 1 */
-  /* !checksrc! disable LONGLINE */
-  /* NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling) */
+  /* !checksrc! disable BANNEDFUNC 2 */
   snprintf(work, BUFFSIZE, fmt, dnum);
 #endif
 #ifdef CURL_HAVE_DIAG
@@ -879,9 +884,9 @@ static bool out_string(void *userp,
 
   if(!str) {
     /* Write null string if there is space. */
-    if(prec == -1 || prec >= (int)sizeof(nilstr) - 1) {
+    if(prec == -1 || prec >= (int)CURL_CSTRLEN(nilstr)) {
       str = nilstr;
-      len = sizeof(nilstr) - 1;
+      len = CURL_CSTRLEN(nilstr);
       /* Disable quotes around (nil) */
       flags &= ~(unsigned int)FLAGS_ALT;
     }
@@ -940,7 +945,7 @@ static bool out_pointer(void *userp,
     int width = p->width;
     int flags = p->flags;
 
-    width -= (int)(sizeof(nilstr) - 1);
+    width -= (int)CURL_CSTRLEN(nilstr);
     if(flags & FLAGS_LEFT)
       while(width-- > 0)
         OUTCHAR(' ');
@@ -968,7 +973,6 @@ static bool out_pointer(void *userp,
  *
  * All output is sent to the 'stream()' callback, one byte at a time.
  */
-
 static int formatf(void *userp, /* untouched by format(), sent to the
                                    stream() function in the second argument */
                    /* function pointer called for each output character */
@@ -1067,6 +1071,7 @@ static int formatf(void *userp, /* untouched by format(), sent to the
       break;
 
     case MTYPE_DOUBLE:
+    case MTYPE_LONGDOUBLE:
       if(out_double(userp, stream, &p, iptr->val.dnum, work, &done))
         return done;
       break;
@@ -1075,9 +1080,8 @@ static int formatf(void *userp, /* untouched by format(), sent to the
       /* Answer the count of characters written. */
       if(p.flags & FLAGS_LONGLONG)
         *(int64_t *)iptr->val.ptr = (int64_t)done;
-      else
-        if(p.flags & FLAGS_LONG)
-          *(long *)iptr->val.ptr = (long)done;
+      else if(p.flags & FLAGS_LONG)
+        *(long *)iptr->val.ptr = (long)done;
       else if(!(p.flags & FLAGS_SHORT))
         *(int *)iptr->val.ptr = done;
       else

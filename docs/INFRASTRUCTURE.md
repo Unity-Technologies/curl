@@ -90,7 +90,7 @@ thus take up to 20 minutes until it takes effect on the origin server.
 The content on `curl.dev` is available and managed at
 https://github.com/curl/curl.dev/
 
-The content on `everything-curl.dev` is available and managed at
+The content on `everything.curl.dev` is available and managed at
 https://github.com/curl/everything-curl/
 
 The machine hosting the website contents for these three sites is owned by
@@ -139,7 +139,7 @@ anycast access to the site. Should be snappy from virtually everywhere across
 the globe.
 
 The CDN servers support HTTP/1, HTTP/2 and HTTP/3. They set HSTS for a year.
-The `HTTP://` version of the site redirects to `HTTPS://`.
+The `http://` version of the site redirects to `https://`.
 
 Fastly manages the TLS certificates from Let's Encrypt for the servers they
 run on the behalf of curl.
@@ -191,7 +191,7 @@ chat about curl and related topics. This done in the `#curl` channel on the
 `libra.chat` IRC network. **Daniel Stenberg** (`bagder`) is registered owner
 of the channel. We do not run any IRC servers or services ourselves.
 
-`curelbot` is a service in the channel that shows details about GitHub issues
+`curlbot` is a service in the channel that shows details about GitHub issues
 and pull requests when publicly mentioned using #[number]. The bot is run by
 user `TheAssassin`.
 

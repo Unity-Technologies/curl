@@ -93,7 +93,9 @@
     defined(__CYGWIN__) || defined(AMIGA) || defined(__NuttX__) || \
    (defined(__FreeBSD_version) && (__FreeBSD_version < 800000)) || \
    (defined(__MidnightBSD_version) && (__MidnightBSD_version < 100000)) || \
-    defined(__sun__) || defined(__serenity__) || defined(__vxworks__)
+    defined(__sun__) || defined(__serenity__) || defined(__vxworks__) || \
+   (defined(__linux__) && defined(_POSIX_C_SOURCE) && \
+    _POSIX_C_SOURCE >= 200112L)
 #include <sys/select.h>
 #endif
 
@@ -253,7 +255,7 @@ typedef int (*curl_xferinfo_callback)(void *clientp,
 
 #ifndef CURL_MAX_READ_SIZE
   /* The maximum receive buffer size configurable via CURLOPT_BUFFERSIZE. */
-#define CURL_MAX_READ_SIZE (10*1024*1024)
+#define CURL_MAX_READ_SIZE (10 * 1024 * 1024)
 #endif
 
 #ifndef CURL_MAX_WRITE_SIZE
@@ -270,7 +272,7 @@ typedef int (*curl_xferinfo_callback)(void *clientp,
 /* The only reason to have a max limit for this is to avoid the risk of a bad
    server feeding libcurl with a never-ending header that causes reallocs
    infinitely */
-#define CURL_MAX_HTTP_HEADER (100*1024)
+#define CURL_MAX_HTTP_HEADER (100 * 1024)
 #endif
 
 /* This is a magic return code for the write callback that, when returned,
@@ -594,7 +596,7 @@ typedef enum {
   CURLE_USE_SSL_FAILED,          /* 64 - Requested FTP SSL level failed */
   CURLE_SEND_FAIL_REWIND,        /* 65 - Sending the data requires a rewind
                                     that failed */
-  CURLE_SSL_ENGINE_INITFAILED,   /* 66 - failed to initialise ENGINE */
+  CURLE_SSL_ENGINE_INITFAILED,   /* 66 - failed to initialize ENGINE */
   CURLE_LOGIN_DENIED,            /* 67 - user, password or similar was not
                                     accepted and we failed to login */
   CURLE_TFTP_NOTFOUND,           /* 68 - file not found on server */
@@ -633,7 +635,7 @@ typedef enum {
                                      match */
   CURLE_SSL_INVALIDCERTSTATUS,   /* 91 - invalid certificate status */
   CURLE_HTTP2_STREAM,            /* 92 - stream error in HTTP/2 framing layer
-                                    */
+                                  */
   CURLE_RECURSIVE_API_CALL,      /* 93 - an api function was called from
                                     inside a callback */
   CURLE_AUTH_ERROR,              /* 94 - an authentication function returned an
@@ -816,9 +818,11 @@ typedef CURLcode (*curl_unity_certverify_callback)(CURL *curl,
 #define CURLPROXY_SOCKS5_HOSTNAME 7L /* Use the SOCKS5 protocol but pass along
                                         the hostname rather than the IP
                                         address. added in 7.18.0 */
+#define CURLPROXY_HTTPS3          8L /* HTTPS and attempt HTTP/3
+                                        added in 8.21.0 */
 
 typedef enum {
-  CURLPROXY_LAST = 8 /* never use */
+  CURLPROXY_LAST = 9 /* never use */
 } curl_proxytype;  /* this enum was added in 7.10 */
 
 /*
@@ -830,7 +834,7 @@ typedef enum {
  * CURLAUTH_NEGOTIATE    - HTTP Negotiate (SPNEGO) authentication
  * CURLAUTH_GSSNEGOTIATE - Alias for CURLAUTH_NEGOTIATE (deprecated)
  * CURLAUTH_NTLM         - HTTP NTLM authentication
- * CURLAUTH_DIGEST_IE    - HTTP Digest authentication with IE flavour
+ * CURLAUTH_DIGEST_IE    - HTTP Digest authentication with IE flavor
  * CURLAUTH_NTLM_WB      - HTTP NTLM authentication delegated to winbind helper
  * CURLAUTH_BEARER       - HTTP Bearer token authentication
  * CURLAUTH_ONLY         - Use together with a single other type to force no
@@ -855,11 +859,19 @@ typedef enum {
 #endif
 #define CURLAUTH_BEARER       (((unsigned long)1) << 6)
 #define CURLAUTH_AWS_SIGV4    (((unsigned long)1) << 7)
+#define CURLAUTH_HTTPSIG      (((unsigned long)1) << 8)
 #define CURLAUTH_ONLY         (((unsigned long)1) << 31)
-#define CURLAUTH_ANY          ((~CURLAUTH_DIGEST_IE) & \
+#define CURLAUTH_ANY          ((~(CURLAUTH_DIGEST_IE |                  \
+                                  CURLAUTH_HTTPSIG)) &                  \
                                ((unsigned long)0xffffffff))
-#define CURLAUTH_ANYSAFE      ((~(CURLAUTH_BASIC | CURLAUTH_DIGEST_IE)) & \
+#define CURLAUTH_ANYSAFE      ((~(CURLAUTH_BASIC | CURLAUTH_DIGEST_IE | \
+                                  CURLAUTH_HTTPSIG)) &                  \
                                ((unsigned long)0xffffffff))
+
+/* constants for CURLOPT_HTTPSIG_ALGORITHM */
+#define CURLHTTPSIG_NONE          0L
+#define CURLHTTPSIG_ED25519       1L
+#define CURLHTTPSIG_HMAC_SHA256   2L
 
 /* all types supported by server */
 #define CURLSSH_AUTH_ANY       ((unsigned long)0xffffffff)
@@ -916,16 +928,16 @@ enum curl_khmatch {
 };
 
 typedef int
-  (*curl_sshkeycallback) (CURL *easy,     /* easy handle */
-                          const struct curl_khkey *knownkey, /* known */
-                          const struct curl_khkey *foundkey, /* found */
-                          enum curl_khmatch, /* libcurl's view on the keys */
-                          void *clientp); /* custom pointer passed with */
-                                          /* CURLOPT_SSH_KEYDATA */
+  (*curl_sshkeycallback)(CURL *easy,     /* easy handle */
+                         const struct curl_khkey *knownkey, /* known */
+                         const struct curl_khkey *foundkey, /* found */
+                         enum curl_khmatch, /* libcurl's view on the keys */
+                         void *clientp); /* custom pointer passed with */
+                                         /* CURLOPT_SSH_KEYDATA */
 
 typedef int
-  (*curl_sshhostkeycallback) (void *clientp,/* custom pointer passed */
-                                            /* with CURLOPT_SSH_HOSTKEYDATA */
+  (*curl_sshhostkeycallback)(void *clientp,/* custom pointer passed */
+                                           /* with CURLOPT_SSH_HOSTKEYDATA */
                           int keytype, /* CURLKHTYPE */
                           const char *key, /* hostkey to check */
                           size_t keylen); /* length of the key */
@@ -946,7 +958,7 @@ typedef enum {
 
 /* - ALLOW_BEAST tells libcurl to allow the BEAST SSL vulnerability in the
    name of improving interoperability with older servers. Some SSL libraries
-   have introduced work-arounds for this flaw but those work-arounds sometimes
+   have introduced workarounds for this flaw but those workarounds sometimes
    make the SSL communication fail. To regain functionality with those broken
    servers, a user can this way allow the vulnerability back. */
 #define CURLSSLOPT_ALLOW_BEAST (1L << 0)
@@ -1376,7 +1388,7 @@ typedef enum {
   CURLOPTDEPRECATED(CURLOPT_KRBLEVEL, CURLOPTTYPE_STRINGPOINT, 63,
                     8.17.0, "removed"),
 
-  /* Set if we should verify the peer in ssl handshake, set 1 to verify. */
+  /* Set if we should verify the peer in SSL handshake, set 1 to verify. */
   CURLOPT(CURLOPT_SSL_VERIFYPEER, CURLOPTTYPE_LONG, 64),
 
   /* The CApath or CAfile used to validate the peer certificate
@@ -1434,7 +1446,7 @@ typedef enum {
    */
   CURLOPT(CURLOPT_HTTPGET, CURLOPTTYPE_LONG, 80),
 
-  /* Set if we should verify the Common name from the peer certificate in ssl
+  /* Set if we should verify the Common name from the peer certificate in SSL
    * handshake, set 1 to check existence, 2 to ensure that it matches the
    * provided hostname. */
   CURLOPT(CURLOPT_SSL_VERIFYHOST, CURLOPTTYPE_LONG, 81),
@@ -1508,8 +1520,8 @@ typedef enum {
   CURLOPT(CURLOPT_SHARE, CURLOPTTYPE_OBJECTPOINT, 100),
 
   /* indicates type of proxy. accepted values are CURLPROXY_HTTP (default),
-     CURLPROXY_HTTPS, CURLPROXY_SOCKS4, CURLPROXY_SOCKS4A and
-     CURLPROXY_SOCKS5. */
+     CURLPROXY_HTTPS, CURLPROXY_HTTPS2, CURLPROXY_HTTPS3, CURLPROXY_SOCKS4,
+     CURLPROXY_SOCKS4A and CURLPROXY_SOCKS5. */
   CURLOPT(CURLOPT_PROXYTYPE, CURLOPTTYPE_VALUES, 101),
 
   /* Set the Accept-Encoding string. Use this to tell a server you would like
@@ -1538,19 +1550,18 @@ typedef enum {
      Note that setting multiple bits may cause extra network round-trips. */
   CURLOPT(CURLOPT_HTTPAUTH, CURLOPTTYPE_VALUES, 107),
 
-  /* Set the ssl context callback function, currently only for OpenSSL or
+  /* Set the SSL context callback function, currently only for OpenSSL or
      wolfSSL ssl_ctx, or mbedTLS mbedtls_ssl_config in the second argument.
      The function must match the curl_ssl_ctx_callback prototype. */
   CURLOPT(CURLOPT_SSL_CTX_FUNCTION, CURLOPTTYPE_FUNCTIONPOINT, 108),
 
-  /* Set the userdata for the ssl context callback function's third
+  /* Set the userdata for the SSL context callback function's third
      argument */
   CURLOPT(CURLOPT_SSL_CTX_DATA, CURLOPTTYPE_CBPOINT, 109),
 
   /* FTP Option that causes missing dirs to be created on the remote server.
      In 7.19.4 we introduced the convenience enums for this option using the
-     CURLFTP_CREATE_DIR prefix.
-  */
+     CURLFTP_CREATE_DIR prefix. */
   CURLOPT(CURLOPT_FTP_CREATE_MISSING_DIRS, CURLOPTTYPE_LONG, 110),
 
   /* Set this to a bitmask value to enable the particular authentications
@@ -1601,7 +1612,7 @@ typedef enum {
      CURLUSESSL_TRY     - try using SSL, proceed anyway otherwise
      CURLUSESSL_CONTROL - SSL for the control connection or fail
      CURLUSESSL_ALL     - SSL for all communication or fail
-  */
+   */
   CURLOPT(CURLOPT_USE_SSL, CURLOPTTYPE_VALUES, 119),
 
   /* The _LARGE version of the standard POSTFIELDSIZE option */
@@ -1627,7 +1638,7 @@ typedef enum {
      CURLFTPAUTH_DEFAULT - let libcurl decide
      CURLFTPAUTH_SSL     - try "AUTH SSL" first, then TLS
      CURLFTPAUTH_TLS     - try "AUTH TLS" first, then SSL
-  */
+   */
   CURLOPT(CURLOPT_FTPSSLAUTH, CURLOPTTYPE_VALUES, 129),
 
   CURLOPTDEPRECATED(CURLOPT_IOCTLFUNCTION, CURLOPTTYPE_FUNCTIONPOINT, 130,
@@ -1662,8 +1673,7 @@ typedef enum {
   CURLOPT(CURLOPT_LOCALPORT, CURLOPTTYPE_LONG, 139),
 
   /* Number of ports to try, including the first one set with LOCALPORT.
-     Thus, setting it to 1 makes no additional attempts but the first.
-  */
+     Thus, setting it to 1 makes no additional attempts but the first. */
   CURLOPT(CURLOPT_LOCALPORTRANGE, CURLOPTTYPE_LONG, 140),
 
   /* no transfer, set up connection and let application use the socket by
@@ -1875,13 +1885,16 @@ typedef enum {
   CURLOPT(CURLOPT_RESOLVE, CURLOPTTYPE_SLISTPOINT, 203),
 
   /* Set a username for authenticated TLS */
-  CURLOPT(CURLOPT_TLSAUTH_USERNAME, CURLOPTTYPE_STRINGPOINT, 204),
+  CURLOPTDEPRECATED(CURLOPT_TLSAUTH_USERNAME, CURLOPTTYPE_STRINGPOINT, 204,
+                    8.22.0, "Support was removed"),
 
   /* Set a password for authenticated TLS */
-  CURLOPT(CURLOPT_TLSAUTH_PASSWORD, CURLOPTTYPE_STRINGPOINT, 205),
+  CURLOPTDEPRECATED(CURLOPT_TLSAUTH_PASSWORD, CURLOPTTYPE_STRINGPOINT, 205,
+                    8.22.0, "Support was removed"),
 
   /* Set authentication type for authenticated TLS */
-  CURLOPT(CURLOPT_TLSAUTH_TYPE, CURLOPTTYPE_STRINGPOINT, 206),
+  CURLOPTDEPRECATED(CURLOPT_TLSAUTH_TYPE, CURLOPTTYPE_STRINGPOINT, 206,
+                    8.22.0, "Support was removed"),
 
   /* Set to 1 to enable the "TE:" header in HTTP requests to ask for
      compressed transfer-encoded responses. Set to 0 to disable the use of TE:
@@ -1949,11 +1962,11 @@ typedef enum {
   /* Set authentication options directly */
   CURLOPT(CURLOPT_LOGIN_OPTIONS, CURLOPTTYPE_STRINGPOINT, 224),
 
-  /* Enable/disable TLS NPN extension (http2 over ssl might fail without) */
+  /* Enable/disable TLS NPN extension (http2 over SSL might fail without) */
   CURLOPTDEPRECATED(CURLOPT_SSL_ENABLE_NPN, CURLOPTTYPE_LONG, 225,
                     7.86.0, "Has no function"),
 
-  /* Enable/disable TLS ALPN extension (http2 over ssl might fail without) */
+  /* Enable/disable TLS ALPN extension (http2 over SSL might fail without) */
   CURLOPT(CURLOPT_SSL_ENABLE_ALPN, CURLOPTTYPE_LONG, 226),
 
   /* Time to wait for a response to an HTTP request containing an
@@ -1999,10 +2012,12 @@ typedef enum {
   CURLOPT(CURLOPT_STREAM_WEIGHT, CURLOPTTYPE_LONG, 239),
 
   /* Set stream dependency on another curl handle */
-  CURLOPT(CURLOPT_STREAM_DEPENDS, CURLOPTTYPE_OBJECTPOINT, 240),
+  CURLOPTDEPRECATED(CURLOPT_STREAM_DEPENDS, CURLOPTTYPE_OBJECTPOINT, 240,
+                    8.21.0, "Has no function"),
 
   /* Set E-xclusive stream dependency on another curl handle */
-  CURLOPT(CURLOPT_STREAM_DEPENDS_E, CURLOPTTYPE_OBJECTPOINT, 241),
+  CURLOPTDEPRECATED(CURLOPT_STREAM_DEPENDS_E, CURLOPTTYPE_OBJECTPOINT, 241,
+                    8.21.0, "Has no function"),
 
   /* Do not send any tftp option requests to the server */
   CURLOPT(CURLOPT_TFTP_NO_OPTIONS, CURLOPTTYPE_LONG, 242),
@@ -2026,11 +2041,11 @@ typedef enum {
      this option is used only if PROXY_SSL_VERIFYPEER is true */
   CURLOPT(CURLOPT_PROXY_CAPATH, CURLOPTTYPE_STRINGPOINT, 247),
 
-  /* Set if we should verify the proxy in ssl handshake,
+  /* Set if we should verify the proxy in SSL handshake,
      set 1 to verify. */
   CURLOPT(CURLOPT_PROXY_SSL_VERIFYPEER, CURLOPTTYPE_LONG, 248),
 
-  /* Set if we should verify the Common name from the proxy certificate in ssl
+  /* Set if we should verify the Common name from the proxy certificate in SSL
    * handshake, set 1 to check existence, 2 to ensure that it matches
    * the provided hostname. */
   CURLOPT(CURLOPT_PROXY_SSL_VERIFYHOST, CURLOPTTYPE_LONG, 249),
@@ -2040,13 +2055,16 @@ typedef enum {
   CURLOPT(CURLOPT_PROXY_SSLVERSION, CURLOPTTYPE_VALUES, 250),
 
   /* Set a username for authenticated TLS for proxy */
-  CURLOPT(CURLOPT_PROXY_TLSAUTH_USERNAME, CURLOPTTYPE_STRINGPOINT, 251),
+  CURLOPTDEPRECATED(CURLOPT_PROXY_TLSAUTH_USERNAME, CURLOPTTYPE_STRINGPOINT,
+                    251, 8.22.0, "Support was removed"),
 
   /* Set a password for authenticated TLS for proxy */
-  CURLOPT(CURLOPT_PROXY_TLSAUTH_PASSWORD, CURLOPTTYPE_STRINGPOINT, 252),
+  CURLOPTDEPRECATED(CURLOPT_PROXY_TLSAUTH_PASSWORD, CURLOPTTYPE_STRINGPOINT,
+                    252, 8.22.0, "Support was removed"),
 
   /* Set authentication type for authenticated TLS for proxy */
-  CURLOPT(CURLOPT_PROXY_TLSAUTH_TYPE, CURLOPTTYPE_STRINGPOINT, 253),
+  CURLOPTDEPRECATED(CURLOPT_PROXY_TLSAUTH_TYPE, CURLOPTTYPE_STRINGPOINT, 253,
+                    8.22.0, "Support was removed"),
 
   /* name of the file keeping your private SSL-certificate for proxy */
   CURLOPT(CURLOPT_PROXY_SSLCERT, CURLOPTTYPE_STRINGPOINT, 254),
@@ -2271,6 +2289,18 @@ typedef enum {
 
   /* set TLS supported signature algorithms */
   CURLOPT(CURLOPT_SSL_SIGNATURE_ALGORITHMS, CURLOPTTYPE_STRINGPOINT, 328),
+
+  /* RFC 9421 HTTP Message Signatures algorithm */
+  CURLOPT(CURLOPT_HTTPSIG_ALGORITHM, CURLOPTTYPE_VALUES, 329),
+
+  /* Hex-encoded key for HTTP Message Signatures */
+  CURLOPT(CURLOPT_HTTPSIG_KEY, CURLOPTTYPE_STRINGPOINT, 330),
+
+  /* Key identifier for HTTP Message Signatures */
+  CURLOPT(CURLOPT_HTTPSIG_KEYID, CURLOPTTYPE_STRINGPOINT, 331),
+
+  /* Space-separated list of components to sign for HTTP Message Signatures */
+  CURLOPT(CURLOPT_HTTPSIG_HEADERS, CURLOPTTYPE_STRINGPOINT, 332),
 
 #if UNITY_CERTVERIFY
   /* Unity extensions. Numbered from 900 to stay clear of upstream option
@@ -2836,14 +2866,14 @@ struct curl_slist {
  * backend can also be specified via the name parameter (passing -1 as id). If
  * both id and name are specified, the name is ignored. If neither id nor
  * name are specified, the function fails with CURLSSLSET_UNKNOWN_BACKEND
- * and set the "avail" pointer to the NULL-terminated list of available
+ * and set the "avail" pointer to the null-terminated list of available
  * backends.
  *
  * Upon success, the function returns CURLSSLSET_OK.
  *
  * If the specified SSL backend is not available, the function returns
  * CURLSSLSET_UNKNOWN_BACKEND and sets the "avail" pointer to a
- * NULL-terminated list of available SSL backends.
+ * null-terminated list of available SSL backends.
  *
  * The SSL backend can be set only once. If it has already been set, a
  * subsequent attempt to change it results in a CURLSSLSET_TOO_LATE.

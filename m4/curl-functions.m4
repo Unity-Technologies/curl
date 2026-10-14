@@ -25,35 +25,6 @@
 dnl File version for 'aclocal' use. Keep it a single number.
 dnl serial 73
 
-dnl CURL_INCLUDES_ARPA_INET
-dnl -------------------------------------------------
-dnl Set up variable with list of headers that must be
-dnl included when arpa/inet.h is to be included.
-
-AC_DEFUN([CURL_INCLUDES_ARPA_INET], [
-curl_includes_arpa_inet="\
-/* includes start */
-#ifdef HAVE_SYS_TYPES_H
-#  include <sys/types.h>
-#endif
-#ifdef HAVE_NETINET_IN_H
-#  include <netinet/in.h>
-#endif
-#ifdef HAVE_ARPA_INET_H
-#  include <arpa/inet.h>
-#endif
-#ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#else
-#include <sys/socket.h>
-#endif
-/* includes end */"
-  AC_CHECK_HEADERS(
-    sys/types.h netinet/in.h arpa/inet.h,
-    [], [], [$curl_includes_arpa_inet])
-])
-
 
 dnl CURL_INCLUDES_FCNTL
 dnl -------------------------------------------------
@@ -467,7 +438,7 @@ dnl Verify if alarm is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_alarm, then
-dnl HAVE_ALARM will be defined.
+dnl HAVE_ALARM is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_ALARM], [
   AC_REQUIRE([CURL_INCLUDES_UNISTD])
@@ -507,7 +478,7 @@ AC_DEFUN([CURL_CHECK_FUNC_ALARM], [
       AC_LANG_PROGRAM([[
         $curl_includes_unistd
       ]],[[
-        if(alarm(0) != 0)
+        if(alarm(0))
           return 1;
       ]])
     ],[
@@ -552,7 +523,7 @@ dnl Verify if basename is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_basename, then
-dnl HAVE_BASENAME will be defined.
+dnl HAVE_BASENAME is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_BASENAME], [
   AC_REQUIRE([CURL_INCLUDES_STRING])
@@ -598,7 +569,7 @@ AC_DEFUN([CURL_CHECK_FUNC_BASENAME], [
         $curl_includes_libgen
         $curl_includes_unistd
       ]],[[
-        if(basename(0) != 0)
+        if(basename(0))
           return 1;
       ]])
     ],[
@@ -643,7 +614,7 @@ dnl Verify if closesocket is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_closesocket, then
-dnl HAVE_CLOSESOCKET will be defined.
+dnl HAVE_CLOSESOCKET is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_CLOSESOCKET], [
   AC_REQUIRE([CURL_INCLUDES_WINSOCK2])
@@ -658,7 +629,7 @@ AC_DEFUN([CURL_CHECK_FUNC_CLOSESOCKET], [
     AC_LANG_PROGRAM([[
       $curl_includes_winsock2
     ]],[[
-      if(closesocket(0) != 0)
+      if(closesocket(0))
         return 1;
     ]])
   ],[
@@ -688,7 +659,7 @@ AC_DEFUN([CURL_CHECK_FUNC_CLOSESOCKET], [
       AC_LANG_PROGRAM([[
         $curl_includes_winsock2
       ]],[[
-        if(closesocket(0) != 0)
+        if(closesocket(0))
           return 1;
       ]])
     ],[
@@ -733,7 +704,7 @@ dnl Verify if CloseSocket is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_closesocket_camel,
-dnl then HAVE_CLOSESOCKET_CAMEL will be defined.
+dnl then HAVE_CLOSESOCKET_CAMEL is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_CLOSESOCKET_CAMEL], [
   AC_REQUIRE([CURL_INCLUDES_SYS_SOCKET])
@@ -749,7 +720,7 @@ AC_DEFUN([CURL_CHECK_FUNC_CLOSESOCKET_CAMEL], [
       $curl_includes_bsdsocket
       $curl_includes_sys_socket
     ]],[[
-      if(CloseSocket(0) != 0)
+      if(CloseSocket(0))
         return 1;
     ]])
   ],[
@@ -767,7 +738,7 @@ AC_DEFUN([CURL_CHECK_FUNC_CLOSESOCKET_CAMEL], [
         $curl_includes_bsdsocket
         $curl_includes_sys_socket
       ]],[[
-        if(CloseSocket(0) != 0)
+        if(CloseSocket(0))
           return 1;
       ]])
     ],[
@@ -810,7 +781,7 @@ dnl Verify if fcntl is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_fcntl, then
-dnl HAVE_FCNTL will be defined.
+dnl HAVE_FCNTL is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_FCNTL], [
   AC_REQUIRE([CURL_INCLUDES_FCNTL])
@@ -850,7 +821,7 @@ AC_DEFUN([CURL_CHECK_FUNC_FCNTL], [
       AC_LANG_PROGRAM([[
         $curl_includes_fcntl
       ]],[[
-        if(fcntl(0, 0, 0) != 0)
+        if(fcntl(0, 0, 0))
           return 1;
       ]])
     ],[
@@ -895,7 +866,7 @@ dnl -------------------------------------------------
 dnl Verify if fcntl with status flag O_NONBLOCK is
 dnl available, can be compiled, and seems to work. If
 dnl all of these are true, then HAVE_FCNTL_O_NONBLOCK
-dnl will be defined.
+dnl is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_FCNTL_O_NONBLOCK], [
 
@@ -916,7 +887,7 @@ AC_DEFUN([CURL_CHECK_FUNC_FCNTL_O_NONBLOCK], [
         $curl_includes_fcntl
       ]],[[
         int flags = 0;
-        if(fcntl(0, F_SETFL, flags | O_NONBLOCK) != 0)
+        if(fcntl(0, F_SETFL, flags | O_NONBLOCK))
           return 1;
       ]])
     ],[
@@ -959,7 +930,7 @@ dnl Verify if freeaddrinfo is available, prototyped,
 dnl and can be compiled. If all of these are true,
 dnl and usage has not been previously disallowed with
 dnl shell variable curl_disallow_freeaddrinfo, then
-dnl HAVE_FREEADDRINFO will be defined.
+dnl HAVE_FREEADDRINFO is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_FREEADDRINFO], [
   AC_REQUIRE([CURL_INCLUDES_WS2TCPIP])
@@ -1055,7 +1026,7 @@ dnl Verify if fsetxattr is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_fsetxattr, then
-dnl HAVE_FSETXATTR will be defined.
+dnl HAVE_FSETXATTR is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_FSETXATTR], [
   AC_REQUIRE([CURL_INCLUDES_SYS_XATTR])
@@ -1097,7 +1068,7 @@ AC_DEFUN([CURL_CHECK_FUNC_FSETXATTR], [
         AC_LANG_PROGRAM([[
           $curl_includes_sys_xattr
         ]],[[
-          if(fsetxattr(0, "", 0, 0, 0) != 0)
+          if(fsetxattr(0, "", 0, 0, 0))
             return 1;
         ]])
       ],[
@@ -1115,7 +1086,7 @@ AC_DEFUN([CURL_CHECK_FUNC_FSETXATTR], [
         AC_LANG_PROGRAM([[
           $curl_includes_sys_xattr
         ]],[[
-          if(fsetxattr(0, 0, 0, 0, 0, 0) != 0)
+          if(fsetxattr(0, 0, 0, 0, 0, 0))
             return 1;
         ]])
       ],[
@@ -1177,8 +1148,8 @@ dnl Verify if getaddrinfo is available, prototyped, can
 dnl be compiled and seems to work. If all of these are
 dnl true, and usage has not been previously disallowed
 dnl with shell variable curl_disallow_getaddrinfo, then
-dnl HAVE_GETADDRINFO will be defined. Additionally when
-dnl HAVE_GETADDRINFO gets defined this will also attempt
+dnl HAVE_GETADDRINFO is defined. Additionally when
+dnl HAVE_GETADDRINFO gets defined this also attempts
 dnl to find out if getaddrinfo happens to be thread-safe,
 dnl defining HAVE_GETADDRINFO_THREADSAFE when true.
 
@@ -1205,7 +1176,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETADDRINFO], [
       $curl_includes_netdb
     ]],[[
       struct addrinfo *ai = 0;
-      if(getaddrinfo(0, 0, 0, &ai) != 0)
+      if(getaddrinfo(0, 0, 0, &ai))
         return 1;
     ]])
   ],[
@@ -1240,7 +1211,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETADDRINFO], [
         $curl_includes_netdb
       ]],[[
         struct addrinfo *ai = 0;
-        if(getaddrinfo(0, 0, 0, &ai) != 0)
+        if(getaddrinfo(0, 0, 0, &ai))
           return 1;
       ]])
     ],[
@@ -1254,7 +1225,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETADDRINFO], [
 
   dnl only do runtime verification when not cross-compiling
   if test "$cross_compiling" != "yes" &&
-    test "$tst_compi_getaddrinfo" = "yes"; then
+     test "$tst_compi_getaddrinfo" = "yes"; then
     AC_MSG_CHECKING([if getaddrinfo seems to work])
     CURL_RUN_IFELSE([
       AC_LANG_PROGRAM([[
@@ -1301,7 +1272,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETADDRINFO], [
   fi
 
   if test "$tst_compi_getaddrinfo" = "yes" &&
-    test "$tst_works_getaddrinfo" != "no"; then
+     test "$tst_works_getaddrinfo" != "no"; then
     AC_MSG_CHECKING([if getaddrinfo usage allowed])
     if test "x$curl_disallow_getaddrinfo" != "xyes"; then
       AC_MSG_RESULT([yes])
@@ -1330,7 +1301,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETADDRINFO], [
   if test "$curl_cv_func_getaddrinfo" = "yes"; then
     AC_MSG_CHECKING([if getaddrinfo is thread-safe])
     if test "$curl_cv_apple" = "yes"; then
-      dnl Darwin 6.0 and macOS 10.2.X and newer
+      dnl Darwin 9+ and macOS 10.5+
       tst_tsafe_getaddrinfo="yes"
     fi
     case $host_os in
@@ -1342,9 +1313,17 @@ AC_DEFUN([CURL_CHECK_FUNC_GETADDRINFO], [
         dnl AIX 5.2 and newer
         tst_tsafe_getaddrinfo="yes"
         ;;
-      darwin[[12345]].*)
-        dnl Darwin 5.0 and macOS 10.1.X and older
+      darwin[[12345678]].*)
+        dnl Darwin <=8.0 and macOS <=10.4
         tst_tsafe_getaddrinfo="no"
+        ;;
+      dragonfly1.* | dragonfly2.[[01]])
+        dnl DragonFly BSD <=2.1.0
+        tst_tsafe_getaddrinfo="no"
+        ;;
+      dragonfly*)
+        dnl DragonFly BSD 2.2.0+
+        tst_tsafe_getaddrinfo="yes"
         ;;
       freebsd[[1234]].* | freebsd5.[[1234]]*)
         dnl FreeBSD 5.4 and older
@@ -1372,6 +1351,14 @@ AC_DEFUN([CURL_CHECK_FUNC_GETADDRINFO], [
         ;;
       netbsd*)
         dnl NetBSD 4.X and newer
+        tst_tsafe_getaddrinfo="yes"
+        ;;
+      openbsd[[1234]].* | openbsd5.[[0123]])
+        dnl OpenBSD <=5.3
+        tst_tsafe_getaddrinfo="no"
+        ;;
+      openbsd*)
+        dnl OpenBSD 5.4+
         tst_tsafe_getaddrinfo="yes"
         ;;
       *bsd*)
@@ -1408,7 +1395,7 @@ dnl Verify if gethostbyname_r is available, prototyped,
 dnl and can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_gethostbyname_r, then
-dnl HAVE_GETHOSTBYNAME_R will be defined.
+dnl HAVE_GETHOSTBYNAME_R is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_GETHOSTBYNAME_R], [
   AC_REQUIRE([CURL_INCLUDES_NETDB])
@@ -1451,7 +1438,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETHOSTBYNAME_R], [
           $curl_includes_netdb
           $curl_includes_bsdsocket
         ]],[[
-          if(gethostbyname_r(0, 0, 0) != 0)
+          if(gethostbyname_r(0, 0, 0))
             return 1;
         ]])
       ],[
@@ -1470,7 +1457,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETHOSTBYNAME_R], [
           $curl_includes_netdb
           $curl_includes_bsdsocket
         ]],[[
-          if(gethostbyname_r(0, 0, 0, 0, 0) != 0)
+          if(gethostbyname_r(0, 0, 0, 0, 0))
             return 1;
         ]])
       ],[
@@ -1489,7 +1476,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETHOSTBYNAME_R], [
           $curl_includes_netdb
           $curl_includes_bsdsocket
         ]],[[
-          if(gethostbyname_r(0, 0, 0, 0, 0, 0) != 0)
+          if(gethostbyname_r(0, 0, 0, 0, 0, 0))
             return 1;
         ]])
       ],[
@@ -1553,7 +1540,7 @@ dnl Verify if gethostname is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_gethostname, then
-dnl HAVE_GETHOSTNAME will be defined.
+dnl HAVE_GETHOSTNAME is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_GETHOSTNAME], [
   AC_REQUIRE([CURL_INCLUDES_WINSOCK2])
@@ -1574,7 +1561,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETHOSTNAME], [
       $curl_includes_bsdsocket
     ]],[[
       char s[1];
-      if(gethostname((void *)s, 0) != 0)
+      if(gethostname((void *)s, 0))
         return 1;
     ]])
   ],[
@@ -1609,7 +1596,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETHOSTNAME], [
         $curl_includes_bsdsocket
       ]],[[
         char s[1];
-        if(gethostname((void *)s, 0) != 0)
+        if(gethostname((void *)s, 0))
           return 1;
       ]])
     ],[
@@ -1641,7 +1628,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETHOSTNAME], [
               int FUNCALLCONV gethostname($tst_arg1, $tst_arg2);
             ]],[[
               char s[1];
-              if(gethostname(($tst_arg1)s, 0) != 0)
+              if(gethostname(($tst_arg1)s, 0))
                 return 1;
             ]])
           ],[
@@ -1689,7 +1676,7 @@ dnl Verify if getpeername is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_getpeername, then
-dnl HAVE_GETPEERNAME will be defined.
+dnl HAVE_GETPEERNAME is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_GETPEERNAME], [
   AC_REQUIRE([CURL_INCLUDES_WINSOCK2])
@@ -1709,7 +1696,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETPEERNAME], [
       $curl_includes_bsdsocket
       $curl_includes_sys_socket
     ]],[[
-      if(getpeername(0, (void *)0, (void *)0) != 0)
+      if(getpeername(0, (void *)0, (void *)0))
         return 1;
     ]])
   ],[
@@ -1743,7 +1730,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETPEERNAME], [
         $curl_includes_bsdsocket
         $curl_includes_sys_socket
       ]],[[
-        if(getpeername(0, (void *)0, (void *)0) != 0)
+        if(getpeername(0, (void *)0, (void *)0))
           return 1;
       ]])
     ],[
@@ -1787,7 +1774,7 @@ dnl Verify if getsockname is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_getsockname, then
-dnl HAVE_GETSOCKNAME will be defined.
+dnl HAVE_GETSOCKNAME is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_GETSOCKNAME], [
   AC_REQUIRE([CURL_INCLUDES_WINSOCK2])
@@ -1807,7 +1794,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETSOCKNAME], [
       $curl_includes_bsdsocket
       $curl_includes_sys_socket
     ]],[[
-      if(getsockname(0, (void *)0, (void *)0) != 0)
+      if(getsockname(0, (void *)0, (void *)0))
         return 1;
     ]])
   ],[
@@ -1841,7 +1828,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETSOCKNAME], [
         $curl_includes_bsdsocket
         $curl_includes_sys_socket
       ]],[[
-        if(getsockname(0, (void *)0, (void *)0) != 0)
+        if(getsockname(0, (void *)0, (void *)0))
           return 1;
       ]])
     ],[
@@ -1886,7 +1873,7 @@ dnl Verify if getifaddrs is available, prototyped, can
 dnl be compiled and seems to work. If all of these are
 dnl true, and usage has not been previously disallowed
 dnl with shell variable curl_disallow_getifaddrs, then
-dnl HAVE_GETIFADDRS will be defined.
+dnl HAVE_GETIFADDRS is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_GETIFADDRS], [
   AC_REQUIRE([CURL_INCLUDES_STDLIB])
@@ -1928,7 +1915,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETIFADDRS], [
       AC_LANG_PROGRAM([[
         $curl_includes_ifaddrs
       ]],[[
-        if(getifaddrs(0) != 0)
+        if(getifaddrs(0))
           return 1;
       ]])
     ],[
@@ -1942,7 +1929,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETIFADDRS], [
 
   dnl only do runtime verification when not cross-compiling
   if test "$cross_compiling" != "yes" &&
-    test "$tst_compi_getifaddrs" = "yes"; then
+     test "$tst_compi_getifaddrs" = "yes"; then
     AC_MSG_CHECKING([if getifaddrs seems to work])
     CURL_RUN_IFELSE([
       AC_LANG_PROGRAM([[
@@ -1970,7 +1957,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETIFADDRS], [
   fi
 
   if test "$tst_compi_getifaddrs" = "yes" &&
-    test "$tst_works_getifaddrs" != "no"; then
+     test "$tst_works_getifaddrs" != "no"; then
     AC_MSG_CHECKING([if getifaddrs usage allowed])
     if test "x$curl_disallow_getifaddrs" != "xyes"; then
       AC_MSG_RESULT([yes])
@@ -2004,7 +1991,7 @@ dnl Verify if gmtime_r is available, prototyped, can
 dnl be compiled and seems to work. If all of these are
 dnl true, and usage has not been previously disallowed
 dnl with shell variable curl_disallow_gmtime_r, then
-dnl HAVE_GMTIME_R will be defined.
+dnl HAVE_GMTIME_R is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_GMTIME_R], [
   AC_REQUIRE([CURL_INCLUDES_STDLIB])
@@ -2063,7 +2050,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GMTIME_R], [
 
   dnl only do runtime verification when not cross-compiling
   if test "$cross_compiling" != "yes" &&
-    test "$tst_compi_gmtime_r" = "yes"; then
+     test "$tst_compi_gmtime_r" = "yes"; then
     AC_MSG_CHECKING([if gmtime_r seems to work])
     CURL_RUN_IFELSE([
       AC_LANG_PROGRAM([[
@@ -2090,7 +2077,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GMTIME_R], [
   fi
 
   if test "$tst_compi_gmtime_r" = "yes" &&
-    test "$tst_works_gmtime_r" != "no"; then
+     test "$tst_works_gmtime_r" != "no"; then
     AC_MSG_CHECKING([if gmtime_r usage allowed])
     if test "x$curl_disallow_gmtime_r" != "xyes"; then
       AC_MSG_RESULT([yes])
@@ -2124,7 +2111,7 @@ dnl Verify if localtime_r is available, prototyped, can
 dnl be compiled and seems to work. If all of these are
 dnl true, and usage has not been previously disallowed
 dnl with shell variable curl_disallow_localtime_r, then
-dnl HAVE_LOCALTIME_R will be defined.
+dnl HAVE_LOCALTIME_R is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_LOCALTIME_R], [
   AC_REQUIRE([CURL_INCLUDES_STDLIB])
@@ -2168,7 +2155,7 @@ AC_DEFUN([CURL_CHECK_FUNC_LOCALTIME_R], [
       ]],[[
         time_t clock = 1170352587;
         struct tm result;
-        if(localtime_r(&clock, &result) != 0)
+        if(localtime_r(&clock, &result))
           return 1;
         (void)result;
       ]])
@@ -2183,7 +2170,7 @@ AC_DEFUN([CURL_CHECK_FUNC_LOCALTIME_R], [
 
   dnl only do runtime verification when not cross-compiling
   if test "$cross_compiling" != "yes" &&
-    test "$tst_compi_localtime_r" = "yes"; then
+     test "$tst_compi_localtime_r" = "yes"; then
     AC_MSG_CHECKING([if localtime_r seems to work])
     CURL_RUN_IFELSE([
       AC_LANG_PROGRAM([[
@@ -2210,7 +2197,7 @@ AC_DEFUN([CURL_CHECK_FUNC_LOCALTIME_R], [
   fi
 
   if test "$tst_compi_localtime_r" = "yes" &&
-    test "$tst_works_localtime_r" != "no"; then
+     test "$tst_works_localtime_r" != "no"; then
     AC_MSG_CHECKING([if localtime_r usage allowed])
     if test "x$curl_disallow_localtime_r" != "xyes"; then
       AC_MSG_RESULT([yes])
@@ -2234,321 +2221,6 @@ AC_DEFUN([CURL_CHECK_FUNC_LOCALTIME_R], [
   else
     AC_MSG_RESULT([no])
     curl_cv_func_localtime_r="no"
-  fi
-])
-
-
-dnl CURL_CHECK_FUNC_INET_NTOP
-dnl -------------------------------------------------
-dnl Verify if inet_ntop is available, prototyped, can
-dnl be compiled and seems to work. If all of these are
-dnl true, and usage has not been previously disallowed
-dnl with shell variable curl_disallow_inet_ntop, then
-dnl HAVE_INET_NTOP will be defined.
-
-AC_DEFUN([CURL_CHECK_FUNC_INET_NTOP], [
-  AC_REQUIRE([CURL_INCLUDES_STDLIB])
-  AC_REQUIRE([CURL_INCLUDES_ARPA_INET])
-  AC_REQUIRE([CURL_INCLUDES_STRING])
-
-  tst_links_inet_ntop="unknown"
-  tst_proto_inet_ntop="unknown"
-  tst_compi_inet_ntop="unknown"
-  tst_works_inet_ntop="unknown"
-  tst_allow_inet_ntop="unknown"
-
-  AC_MSG_CHECKING([if inet_ntop can be linked])
-  AC_LINK_IFELSE([
-    AC_LANG_FUNC_LINK_TRY([inet_ntop])
-  ],[
-    AC_MSG_RESULT([yes])
-    tst_links_inet_ntop="yes"
-  ],[
-    AC_MSG_RESULT([no])
-    tst_links_inet_ntop="no"
-  ])
-
-  if test "$tst_links_inet_ntop" = "yes"; then
-    AC_MSG_CHECKING([if inet_ntop is prototyped])
-    AC_EGREP_CPP([inet_ntop],[
-      $curl_includes_arpa_inet
-    ],[
-      AC_MSG_RESULT([yes])
-      tst_proto_inet_ntop="yes"
-    ],[
-      AC_MSG_RESULT([no])
-      tst_proto_inet_ntop="no"
-    ])
-  fi
-
-  if test "$tst_proto_inet_ntop" = "yes"; then
-    AC_MSG_CHECKING([if inet_ntop is compilable])
-    AC_COMPILE_IFELSE([
-      AC_LANG_PROGRAM([[
-        $curl_includes_arpa_inet
-      ]],[[
-        char ipv4res[sizeof("255.255.255.255")];
-        unsigned char ipv4a[5] = "";
-        if(inet_ntop(0, ipv4a, ipv4res, 0) != 0)
-          return 1;
-      ]])
-    ],[
-      AC_MSG_RESULT([yes])
-      tst_compi_inet_ntop="yes"
-    ],[
-      AC_MSG_RESULT([no])
-      tst_compi_inet_ntop="no"
-    ])
-  fi
-
-  dnl only do runtime verification when not cross-compiling
-  if test "$cross_compiling" != "yes" &&
-    test "$tst_compi_inet_ntop" = "yes"; then
-    AC_MSG_CHECKING([if inet_ntop seems to work])
-    CURL_RUN_IFELSE([
-      AC_LANG_PROGRAM([[
-        $curl_includes_stdlib
-        $curl_includes_arpa_inet
-        $curl_includes_string
-      ]],[[
-        char ipv6res[sizeof("ffff:ffff:ffff:ffff:ffff:ffff:255.255.255.255")];
-        char ipv4res[sizeof("255.255.255.255")];
-        unsigned char ipv6a[26];
-        unsigned char ipv4a[5];
-        const char *ipv6ptr = 0;
-        const char *ipv4ptr = 0;
-        /* - */
-        ipv4res[0] = '\0';
-        ipv4a[0] = 0xc0;
-        ipv4a[1] = 0xa8;
-        ipv4a[2] = 0x64;
-        ipv4a[3] = 0x01;
-        ipv4a[4] = 0x01;
-        /* - */
-        ipv4ptr = inet_ntop(AF_INET, ipv4a, ipv4res, sizeof(ipv4res));
-        if(!ipv4ptr)
-          return 1; /* fail */
-        if(ipv4ptr != ipv4res)
-          return 1; /* fail */
-        if(!ipv4ptr[0])
-          return 1; /* fail */
-        if(memcmp(ipv4res, "192.168.100.1", 13) != 0)
-          return 1; /* fail */
-        /* - */
-        ipv6res[0] = '\0';
-        memset(ipv6a, 0, sizeof(ipv6a));
-        ipv6a[0] = 0xfe;
-        ipv6a[1] = 0x80;
-        ipv6a[8] = 0x02;
-        ipv6a[9] = 0x14;
-        ipv6a[10] = 0x4f;
-        ipv6a[11] = 0xff;
-        ipv6a[12] = 0xfe;
-        ipv6a[13] = 0x0b;
-        ipv6a[14] = 0x76;
-        ipv6a[15] = 0xc8;
-        ipv6a[25] = 0x01;
-        /* - */
-        ipv6ptr = inet_ntop(AF_INET6, ipv6a, ipv6res, sizeof(ipv6res));
-        if(!ipv6ptr)
-          return 1; /* fail */
-        if(ipv6ptr != ipv6res)
-          return 1; /* fail */
-        if(!ipv6ptr[0])
-          return 1; /* fail */
-        if(memcmp(ipv6res, "fe80::214:4fff:fe0b:76c8", 24) != 0)
-          return 1; /* fail */
-        /* - */
-        return 0;
-      ]])
-    ],[
-      AC_MSG_RESULT([yes])
-      tst_works_inet_ntop="yes"
-    ],[
-      AC_MSG_RESULT([no])
-      tst_works_inet_ntop="no"
-    ])
-  fi
-
-  if test "$tst_compi_inet_ntop" = "yes" &&
-    test "$tst_works_inet_ntop" != "no"; then
-    AC_MSG_CHECKING([if inet_ntop usage allowed])
-    if test "x$curl_disallow_inet_ntop" != "xyes"; then
-      AC_MSG_RESULT([yes])
-      tst_allow_inet_ntop="yes"
-    else
-      AC_MSG_RESULT([no])
-      tst_allow_inet_ntop="no"
-    fi
-  fi
-
-  AC_MSG_CHECKING([if inet_ntop might be used])
-  if test "$tst_links_inet_ntop" = "yes" &&
-     test "$tst_proto_inet_ntop" = "yes" &&
-     test "$tst_compi_inet_ntop" = "yes" &&
-     test "$tst_allow_inet_ntop" = "yes" &&
-     test "$tst_works_inet_ntop" != "no"; then
-    AC_MSG_RESULT([yes])
-    AC_DEFINE_UNQUOTED(HAVE_INET_NTOP, 1,
-      [Define to 1 if you have an IPv6 capable working inet_ntop function.])
-    curl_cv_func_inet_ntop="yes"
-  else
-    AC_MSG_RESULT([no])
-    curl_cv_func_inet_ntop="no"
-  fi
-])
-
-
-dnl CURL_CHECK_FUNC_INET_PTON
-dnl -------------------------------------------------
-dnl Verify if inet_pton is available, prototyped, can
-dnl be compiled and seems to work. If all of these are
-dnl true, and usage has not been previously disallowed
-dnl with shell variable curl_disallow_inet_pton, then
-dnl HAVE_INET_PTON will be defined.
-
-AC_DEFUN([CURL_CHECK_FUNC_INET_PTON], [
-  AC_REQUIRE([CURL_INCLUDES_STDLIB])
-  AC_REQUIRE([CURL_INCLUDES_ARPA_INET])
-  AC_REQUIRE([CURL_INCLUDES_STRING])
-
-  tst_links_inet_pton="unknown"
-  tst_proto_inet_pton="unknown"
-  tst_compi_inet_pton="unknown"
-  tst_works_inet_pton="unknown"
-  tst_allow_inet_pton="unknown"
-
-  AC_MSG_CHECKING([if inet_pton can be linked])
-  AC_LINK_IFELSE([
-    AC_LANG_FUNC_LINK_TRY([inet_pton])
-  ],[
-    AC_MSG_RESULT([yes])
-    tst_links_inet_pton="yes"
-  ],[
-    AC_MSG_RESULT([no])
-    tst_links_inet_pton="no"
-  ])
-
-  if test "$tst_links_inet_pton" = "yes"; then
-    AC_MSG_CHECKING([if inet_pton is prototyped])
-    AC_EGREP_CPP([inet_pton],[
-      $curl_includes_arpa_inet
-    ],[
-      AC_MSG_RESULT([yes])
-      tst_proto_inet_pton="yes"
-    ],[
-      AC_MSG_RESULT([no])
-      tst_proto_inet_pton="no"
-    ])
-  fi
-
-  if test "$tst_proto_inet_pton" = "yes"; then
-    AC_MSG_CHECKING([if inet_pton is compilable])
-    AC_COMPILE_IFELSE([
-      AC_LANG_PROGRAM([[
-        $curl_includes_arpa_inet
-      ]],[[
-        unsigned char ipv4a[4 + 1] = "";
-        const char *ipv4src = "192.168.100.1";
-        if(inet_pton(0, ipv4src, ipv4a) != 0)
-          return 1;
-      ]])
-    ],[
-      AC_MSG_RESULT([yes])
-      tst_compi_inet_pton="yes"
-    ],[
-      AC_MSG_RESULT([no])
-      tst_compi_inet_pton="no"
-    ])
-  fi
-
-  dnl only do runtime verification when not cross-compiling
-  if test "$cross_compiling" != "yes" &&
-    test "$tst_compi_inet_pton" = "yes"; then
-    AC_MSG_CHECKING([if inet_pton seems to work])
-    CURL_RUN_IFELSE([
-      AC_LANG_PROGRAM([[
-        $curl_includes_stdlib
-        $curl_includes_arpa_inet
-        $curl_includes_string
-      ]],[[
-        unsigned char ipv6a[16 + 1];
-        unsigned char ipv4a[4 + 1];
-        const char *ipv6src = "fe80::214:4fff:fe0b:76c8";
-        const char *ipv4src = "192.168.100.1";
-        /* - */
-        memset(ipv4a, 1, sizeof(ipv4a));
-        if(inet_pton(AF_INET, ipv4src, ipv4a) != 1)
-          return 1; /* fail */
-        /* - */
-        if((ipv4a[0] != 0xc0) ||
-           (ipv4a[1] != 0xa8) ||
-           (ipv4a[2] != 0x64) ||
-           (ipv4a[3] != 0x01) ||
-           (ipv4a[4] != 0x01))
-          return 1; /* fail */
-        /* - */
-        memset(ipv6a, 1, sizeof(ipv6a));
-        if(inet_pton(AF_INET6, ipv6src, ipv6a) != 1)
-          return 1; /* fail */
-        /* - */
-        if((ipv6a[0]  != 0xfe) ||
-           (ipv6a[1]  != 0x80) ||
-           (ipv6a[8]  != 0x02) ||
-           (ipv6a[9]  != 0x14) ||
-           (ipv6a[10] != 0x4f) ||
-           (ipv6a[11] != 0xff) ||
-           (ipv6a[12] != 0xfe) ||
-           (ipv6a[13] != 0x0b) ||
-           (ipv6a[14] != 0x76) ||
-           (ipv6a[15] != 0xc8) ||
-           (ipv6a[16] != 0x01))
-          return 1; /* fail */
-        /* - */
-        if((ipv6a[2] != 0x0) ||
-           (ipv6a[3] != 0x0) ||
-           (ipv6a[4] != 0x0) ||
-           (ipv6a[5] != 0x0) ||
-           (ipv6a[6] != 0x0) ||
-           (ipv6a[7] != 0x0))
-          return 1; /* fail */
-        /* - */
-        return 0;
-      ]])
-    ],[
-      AC_MSG_RESULT([yes])
-      tst_works_inet_pton="yes"
-    ],[
-      AC_MSG_RESULT([no])
-      tst_works_inet_pton="no"
-    ])
-  fi
-
-  if test "$tst_compi_inet_pton" = "yes" &&
-    test "$tst_works_inet_pton" != "no"; then
-    AC_MSG_CHECKING([if inet_pton usage allowed])
-    if test "x$curl_disallow_inet_pton" != "xyes"; then
-      AC_MSG_RESULT([yes])
-      tst_allow_inet_pton="yes"
-    else
-      AC_MSG_RESULT([no])
-      tst_allow_inet_pton="no"
-    fi
-  fi
-
-  AC_MSG_CHECKING([if inet_pton might be used])
-  if test "$tst_links_inet_pton" = "yes" &&
-     test "$tst_proto_inet_pton" = "yes" &&
-     test "$tst_compi_inet_pton" = "yes" &&
-     test "$tst_allow_inet_pton" = "yes" &&
-     test "$tst_works_inet_pton" != "no"; then
-    AC_MSG_RESULT([yes])
-    AC_DEFINE_UNQUOTED(HAVE_INET_PTON, 1,
-      [Define to 1 if you have an IPv6 capable working inet_pton function.])
-    curl_cv_func_inet_pton="yes"
-  else
-    AC_MSG_RESULT([no])
-    curl_cv_func_inet_pton="no"
   fi
 ])
 
@@ -2599,7 +2271,7 @@ AC_DEFUN([CURL_CHECK_FUNC_IOCTL], [
       AC_LANG_PROGRAM([[
         $curl_includes_stropts
       ]],[[
-        if(ioctl(0, 0, 0) != 0)
+        if(ioctl(0, 0, 0))
           return 1;
       ]])
     ],[
@@ -2643,7 +2315,7 @@ dnl -------------------------------------------------
 dnl Verify if ioctl with the FIONBIO command is
 dnl available, can be compiled, and seems to work. If
 dnl all of these are true, then HAVE_IOCTL_FIONBIO
-dnl will be defined.
+dnl is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_IOCTL_FIONBIO], [
 
@@ -2657,7 +2329,7 @@ AC_DEFUN([CURL_CHECK_FUNC_IOCTL_FIONBIO], [
         $curl_includes_stropts
       ]],[[
         int flags = 0;
-        if(ioctl(0, FIONBIO, &flags) != 0)
+        if(ioctl(0, FIONBIO, &flags))
           return 1;
       ]])
     ],[
@@ -2699,7 +2371,7 @@ dnl -------------------------------------------------
 dnl Verify if ioctl with the SIOCGIFADDR command is available,
 dnl struct ifreq is defined, they can be compiled, and seem to
 dnl work. If all of these are true, then HAVE_IOCTL_SIOCGIFADDR
-dnl will be defined.
+dnl is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_IOCTL_SIOCGIFADDR], [
 
@@ -2714,7 +2386,7 @@ AC_DEFUN([CURL_CHECK_FUNC_IOCTL_SIOCGIFADDR], [
         #include <net/if.h>
       ]],[[
         struct ifreq ifr;
-        if(ioctl(0, SIOCGIFADDR, &ifr) != 0)
+        if(ioctl(0, SIOCGIFADDR, &ifr))
           return 1;
       ]])
     ],[
@@ -2757,7 +2429,7 @@ dnl Verify if ioctlsocket is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_ioctlsocket, then
-dnl HAVE_IOCTLSOCKET will be defined.
+dnl HAVE_IOCTLSOCKET is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_IOCTLSOCKET], [
   AC_REQUIRE([CURL_INCLUDES_WINSOCK2])
@@ -2772,7 +2444,7 @@ AC_DEFUN([CURL_CHECK_FUNC_IOCTLSOCKET], [
     AC_LANG_PROGRAM([[
       $curl_includes_winsock2
     ]],[[
-      if(ioctlsocket(0, 0, 0) != 0)
+      if(ioctlsocket(0, 0, 0))
         return 1;
     ]])
   ],[
@@ -2802,7 +2474,7 @@ AC_DEFUN([CURL_CHECK_FUNC_IOCTLSOCKET], [
       AC_LANG_PROGRAM([[
         $curl_includes_winsock2
       ]],[[
-        if(ioctlsocket(0, 0, 0) != 0)
+        if(ioctlsocket(0, 0, 0))
           return 1;
       ]])
     ],[
@@ -2847,7 +2519,7 @@ dnl -------------------------------------------------
 dnl Verify if ioctlsocket with the FIONBIO command is
 dnl available, can be compiled, and seems to work. If
 dnl all of these are true, then HAVE_IOCTLSOCKET_FIONBIO
-dnl will be defined.
+dnl is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_IOCTLSOCKET_FIONBIO], [
 
@@ -2861,7 +2533,7 @@ AC_DEFUN([CURL_CHECK_FUNC_IOCTLSOCKET_FIONBIO], [
         $curl_includes_winsock2
       ]],[[
         unsigned long flags = 0;
-        if(ioctlsocket(0, FIONBIO, &flags) != 0)
+        if(ioctlsocket(0, FIONBIO, &flags))
           return 1;
       ]])
     ],[
@@ -2904,7 +2576,7 @@ dnl Verify if IoctlSocket is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_ioctlsocket_camel,
-dnl then HAVE_IOCTLSOCKET_CAMEL will be defined.
+dnl then HAVE_IOCTLSOCKET_CAMEL is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_IOCTLSOCKET_CAMEL], [
   AC_REQUIRE([CURL_INCLUDES_BSDSOCKET])
@@ -2918,7 +2590,7 @@ AC_DEFUN([CURL_CHECK_FUNC_IOCTLSOCKET_CAMEL], [
     AC_LANG_PROGRAM([[
       $curl_includes_bsdsocket
     ]],[[
-      if(IoctlSocket(0, 0, 0) != 0)
+      if(IoctlSocket(0, 0, 0))
         return 1;
     ]])
   ],[
@@ -2935,7 +2607,7 @@ AC_DEFUN([CURL_CHECK_FUNC_IOCTLSOCKET_CAMEL], [
       AC_LANG_PROGRAM([[
         $curl_includes_bsdsocket
       ]],[[
-        if(IoctlSocket(0, 0, 0) != 0)
+        if(IoctlSocket(0, 0, 0))
           return 1;
       ]])
     ],[
@@ -2978,7 +2650,7 @@ dnl CURL_CHECK_FUNC_IOCTLSOCKET_CAMEL_FIONBIO
 dnl -------------------------------------------------
 dnl Verify if IoctlSocket with FIONBIO command is available,
 dnl can be compiled, and seems to work. If all of these are
-dnl true, then HAVE_IOCTLSOCKET_CAMEL_FIONBIO will be defined.
+dnl true, then HAVE_IOCTLSOCKET_CAMEL_FIONBIO is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_IOCTLSOCKET_CAMEL_FIONBIO], [
   AC_REQUIRE([CURL_INCLUDES_BSDSOCKET])
@@ -2993,7 +2665,7 @@ AC_DEFUN([CURL_CHECK_FUNC_IOCTLSOCKET_CAMEL_FIONBIO], [
         $curl_includes_bsdsocket
       ]],[[
         long flags = 0;
-        if(IoctlSocket(0, FIONBIO, &flags) != 0)
+        if(IoctlSocket(0, FIONBIO, &flags))
           return 1;
       ]])
     ],[
@@ -3036,7 +2708,7 @@ dnl Verify if memrchr is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_memrchr, then
-dnl HAVE_MEMRCHR will be defined.
+dnl HAVE_MEMRCHR is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_MEMRCHR], [
   AC_REQUIRE([CURL_INCLUDES_STRING])
@@ -3064,7 +2736,7 @@ AC_DEFUN([CURL_CHECK_FUNC_MEMRCHR], [
       AC_LANG_PROGRAM([[
         $curl_includes_string
       ]],[[
-        if(memrchr("", 0, 0) != 0)
+        if(memrchr("", 0, 0))
           return 1;
       ]])
     ],[
@@ -3096,7 +2768,7 @@ AC_DEFUN([CURL_CHECK_FUNC_MEMRCHR], [
       AC_LANG_PROGRAM([[
         $curl_includes_string
       ]],[[
-        if(memrchr("", 0, 0) != 0)
+        if(memrchr("", 0, 0))
           return 1;
       ]])
     ],[
@@ -3141,7 +2813,7 @@ dnl Verify if sigaction is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_sigaction, then
-dnl HAVE_SIGACTION will be defined.
+dnl HAVE_SIGACTION is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_SIGACTION], [
   AC_REQUIRE([CURL_INCLUDES_SIGNAL])
@@ -3181,7 +2853,7 @@ AC_DEFUN([CURL_CHECK_FUNC_SIGACTION], [
       AC_LANG_PROGRAM([[
         $curl_includes_signal
       ]],[[
-        if(sigaction(0, 0, 0) != 0)
+        if(sigaction(0, 0, 0))
           return 1;
       ]])
     ],[
@@ -3226,7 +2898,7 @@ dnl Verify if siginterrupt is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_siginterrupt, then
-dnl HAVE_SIGINTERRUPT will be defined.
+dnl HAVE_SIGINTERRUPT is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_SIGINTERRUPT], [
   AC_REQUIRE([CURL_INCLUDES_SIGNAL])
@@ -3266,7 +2938,7 @@ AC_DEFUN([CURL_CHECK_FUNC_SIGINTERRUPT], [
       AC_LANG_PROGRAM([[
         $curl_includes_signal
       ]],[[
-        if(siginterrupt(0, 0) != 0)
+        if(siginterrupt(0, 0))
           return 1;
       ]])
     ],[
@@ -3311,7 +2983,7 @@ dnl Verify if signal is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_signal, then
-dnl HAVE_SIGNAL will be defined.
+dnl HAVE_SIGNAL is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_SIGNAL], [
   AC_REQUIRE([CURL_INCLUDES_SIGNAL])
@@ -3351,7 +3023,7 @@ AC_DEFUN([CURL_CHECK_FUNC_SIGNAL], [
       AC_LANG_PROGRAM([[
         $curl_includes_signal
       ]],[[
-        if(signal(0, 0) != 0)
+        if(signal(0, 0))
           return 1;
       ]])
     ],[
@@ -3396,7 +3068,7 @@ dnl Verify if sigsetjmp is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_sigsetjmp, then
-dnl HAVE_SIGSETJMP will be defined.
+dnl HAVE_SIGSETJMP is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_SIGSETJMP], [
   AC_REQUIRE([CURL_INCLUDES_SETJMP])
@@ -3425,7 +3097,7 @@ AC_DEFUN([CURL_CHECK_FUNC_SIGSETJMP], [
         $curl_includes_setjmp
       ]],[[
         sigjmp_buf env;
-        if(sigsetjmp(env, 0) != 0)
+        if(sigsetjmp(env, 0))
           return 1;
       ]])
     ],[
@@ -3458,7 +3130,7 @@ AC_DEFUN([CURL_CHECK_FUNC_SIGSETJMP], [
         $curl_includes_setjmp
       ]],[[
         sigjmp_buf env;
-        if(sigsetjmp(env, 0) != 0)
+        if(sigsetjmp(env, 0))
           return 1;
       ]])
     ],[
@@ -3503,7 +3175,7 @@ dnl Verify if socket is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_socket, then
-dnl HAVE_SOCKET will be defined.
+dnl HAVE_SOCKET is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_SOCKET], [
   AC_REQUIRE([CURL_INCLUDES_WINSOCK2])
@@ -3521,7 +3193,7 @@ AC_DEFUN([CURL_CHECK_FUNC_SOCKET], [
       $curl_includes_bsdsocket
       $curl_includes_sys_socket
     ]],[[
-      if(socket(0, 0, 0) != 0)
+      if(socket(0, 0, 0))
         return 1;
     ]])
   ],[
@@ -3555,7 +3227,7 @@ AC_DEFUN([CURL_CHECK_FUNC_SOCKET], [
         $curl_includes_bsdsocket
         $curl_includes_sys_socket
       ]],[[
-        if(socket(0, 0, 0) != 0)
+        if(socket(0, 0, 0))
           return 1;
       ]])
     ],[
@@ -3600,7 +3272,7 @@ dnl Verify if socketpair is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_socketpair, then
-dnl HAVE_SOCKETPAIR will be defined.
+dnl HAVE_SOCKETPAIR is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_SOCKETPAIR], [
   AC_REQUIRE([CURL_INCLUDES_SYS_SOCKET])
@@ -3641,7 +3313,7 @@ AC_DEFUN([CURL_CHECK_FUNC_SOCKETPAIR], [
         $curl_includes_sys_socket
       ]],[[
         int sv[2];
-        if(socketpair(0, 0, 0, sv) != 0)
+        if(socketpair(0, 0, 0, sv))
           return 1;
       ]])
     ],[
@@ -3686,7 +3358,7 @@ dnl Verify if strcasecmp is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_strcasecmp, then
-dnl HAVE_STRCASECMP will be defined.
+dnl HAVE_STRCASECMP is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_STRCASECMP], [
   AC_REQUIRE([CURL_INCLUDES_STRING])
@@ -3726,7 +3398,7 @@ AC_DEFUN([CURL_CHECK_FUNC_STRCASECMP], [
       AC_LANG_PROGRAM([[
         $curl_includes_string
       ]],[[
-        if(strcasecmp("", "") != 0)
+        if(strcasecmp("", ""))
           return 1;
       ]])
     ],[
@@ -3770,7 +3442,7 @@ dnl Verify if strcmpi is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_strcmpi, then
-dnl HAVE_STRCMPI will be defined.
+dnl HAVE_STRCMPI is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_STRCMPI], [
   AC_REQUIRE([CURL_INCLUDES_STRING])
@@ -3810,7 +3482,7 @@ AC_DEFUN([CURL_CHECK_FUNC_STRCMPI], [
       AC_LANG_PROGRAM([[
         $curl_includes_string
       ]],[[
-        if(strcmpi(0, 0) != 0)
+        if(strcmpi(0, 0))
           return 1;
       ]])
     ],[
@@ -3854,7 +3526,7 @@ dnl -------------------------------------------------
 dnl Verify if strerror_r is available, prototyped, can be compiled and
 dnl seems to work. If all of these are true, and usage has not been
 dnl previously disallowed with shell variable curl_disallow_strerror_r,
-dnl then HAVE_STRERROR_R will be defined, as well as one of
+dnl then HAVE_STRERROR_R is defined, as well as one of
 dnl HAVE_GLIBC_STRERROR_R or HAVE_POSIX_STRERROR_R.
 dnl
 dnl glibc-style strerror_r:
@@ -3919,7 +3591,7 @@ AC_DEFUN([CURL_CHECK_FUNC_STRERROR_R], [
         $curl_includes_string
       ]],[[
         char s[1];
-        if(strerror_r(0, s, 0) != 0)
+        if(strerror_r(0, s, 0))
           return 1;
       ]])
     ],[
@@ -3942,7 +3614,7 @@ AC_DEFUN([CURL_CHECK_FUNC_STRERROR_R], [
             char *strerror_r(int errnum, char *workbuf, $arg3 bufsize);
           ]],[[
             char s[1];
-            if(strerror_r(0, s, 0) != 0)
+            if(strerror_r(0, s, 0))
               return 1;
             (void)s;
           ]])
@@ -3965,7 +3637,7 @@ AC_DEFUN([CURL_CHECK_FUNC_STRERROR_R], [
 
   dnl only do runtime verification when not cross-compiling
   if test "$cross_compiling" != "yes" &&
-    test "$tst_glibc_strerror_r" = "yes"; then
+     test "$tst_glibc_strerror_r" = "yes"; then
     AC_MSG_CHECKING([if strerror_r seems to work])
     CURL_RUN_IFELSE([
       AC_LANG_PROGRAM([[
@@ -3994,7 +3666,7 @@ AC_DEFUN([CURL_CHECK_FUNC_STRERROR_R], [
   fi
 
   if test "$tst_compi_strerror_r" = "yes" &&
-    test "$tst_works_glibc_strerror_r" != "yes"; then
+     test "$tst_works_glibc_strerror_r" != "yes"; then
     AC_MSG_CHECKING([if strerror_r is POSIX like])
     tst_posix_strerror_r_type_arg3="unknown"
     for arg3 in 'size_t' 'int' 'unsigned int'; do
@@ -4005,7 +3677,7 @@ AC_DEFUN([CURL_CHECK_FUNC_STRERROR_R], [
             int strerror_r(int errnum, char *resultbuf, $arg3 bufsize);
           ]],[[
             char s[1];
-            if(strerror_r(0, s, 0) != 0)
+            if(strerror_r(0, s, 0))
               return 1;
             (void)s;
           ]])
@@ -4028,7 +3700,7 @@ AC_DEFUN([CURL_CHECK_FUNC_STRERROR_R], [
 
   dnl only do runtime verification when not cross-compiling
   if test "$cross_compiling" != "yes" &&
-    test "$tst_posix_strerror_r" = "yes"; then
+     test "$tst_posix_strerror_r" = "yes"; then
     AC_MSG_CHECKING([if strerror_r seems to work])
     CURL_RUN_IFELSE([
       AC_LANG_PROGRAM([[
@@ -4063,13 +3735,13 @@ AC_DEFUN([CURL_CHECK_FUNC_STRERROR_R], [
     tst_glibc_strerror_r="no"
   fi
   if test "$tst_glibc_strerror_r" = "yes" &&
-    test "$tst_works_glibc_strerror_r" != "no" &&
-    test "$tst_posix_strerror_r" != "yes"; then
+     test "$tst_works_glibc_strerror_r" != "no" &&
+     test "$tst_posix_strerror_r" != "yes"; then
     tst_allow_strerror_r="check"
   fi
   if test "$tst_posix_strerror_r" = "yes" &&
-    test "$tst_works_posix_strerror_r" != "no" &&
-    test "$tst_glibc_strerror_r" != "yes"; then
+     test "$tst_works_posix_strerror_r" != "no" &&
+     test "$tst_glibc_strerror_r" != "yes"; then
     tst_allow_strerror_r="check"
   fi
   if test "$tst_allow_strerror_r" = "check"; then
@@ -4111,7 +3783,6 @@ AC_DEFUN([CURL_CHECK_FUNC_STRERROR_R], [
      test "$tst_allow_strerror_r" = "unknown"; then
     AC_MSG_WARN([cannot determine strerror_r() style: edit lib/curl_config.h manually.])
   fi
-
 ])
 
 
@@ -4121,7 +3792,7 @@ dnl Verify if stricmp is available, prototyped, and
 dnl can be compiled. If all of these are true, and
 dnl usage has not been previously disallowed with
 dnl shell variable curl_disallow_stricmp, then
-dnl HAVE_STRICMP will be defined.
+dnl HAVE_STRICMP is defined.
 
 AC_DEFUN([CURL_CHECK_FUNC_STRICMP], [
   AC_REQUIRE([CURL_INCLUDES_STRING])
@@ -4161,7 +3832,7 @@ AC_DEFUN([CURL_CHECK_FUNC_STRICMP], [
       AC_LANG_PROGRAM([[
         $curl_includes_string
       ]],[[
-        if(stricmp(0, 0) != 0)
+        if(stricmp(0, 0))
           return 1;
       ]])
     ],[
@@ -4196,6 +3867,92 @@ AC_DEFUN([CURL_CHECK_FUNC_STRICMP], [
   else
     AC_MSG_RESULT([no])
     curl_cv_func_stricmp="no"
+  fi
+])
+
+
+dnl CURL_CHECK_FUNC_MEMSET_S
+dnl -------------------------------------------------
+dnl Verify if memset_s is available, prototyped, and
+dnl can be compiled. If all of these are true, and
+dnl usage has not been previously disallowed with
+dnl shell variable curl_disallow_memset_s, then
+dnl HAVE_MEMSET_S is defined.
+
+AC_DEFUN([CURL_CHECK_FUNC_MEMSET_S], [
+  AC_REQUIRE([CURL_INCLUDES_STRING])
+
+  tst_links_memset_s="unknown"
+  tst_proto_memset_s="unknown"
+  tst_compi_memset_s="unknown"
+  tst_allow_memset_s="unknown"
+
+  AC_MSG_CHECKING([if memset_s can be linked])
+  AC_LINK_IFELSE([
+    AC_LANG_FUNC_LINK_TRY([memset_s])
+  ],[
+    AC_MSG_RESULT([yes])
+    tst_links_memset_s="yes"
+  ],[
+    AC_MSG_RESULT([no])
+    tst_links_memset_s="no"
+  ])
+
+  if test "$tst_links_memset_s" = "yes"; then
+    AC_MSG_CHECKING([if memset_s is prototyped])
+    AC_EGREP_CPP([memset_s],[
+      $curl_includes_string
+    ],[
+      AC_MSG_RESULT([yes])
+      tst_proto_memset_s="yes"
+    ],[
+      AC_MSG_RESULT([no])
+      tst_proto_memset_s="no"
+    ])
+  fi
+
+  if test "$tst_proto_memset_s" = "yes"; then
+    AC_MSG_CHECKING([if memset_s is compilable])
+    AC_COMPILE_IFELSE([
+      AC_LANG_PROGRAM([[
+        $curl_includes_string
+      ]],[[
+        char buf[2];
+        if(memset_s(buf, sizeof(buf), 0, sizeof(buf)))
+          return 1;
+      ]])
+    ],[
+      AC_MSG_RESULT([yes])
+      tst_compi_memset_s="yes"
+    ],[
+      AC_MSG_RESULT([no])
+      tst_compi_memset_s="no"
+    ])
+  fi
+
+  if test "$tst_compi_memset_s" = "yes"; then
+    AC_MSG_CHECKING([if memset_s usage allowed])
+    if test "x$curl_disallow_memset_s" != "xyes"; then
+      AC_MSG_RESULT([yes])
+      tst_allow_memset_s="yes"
+    else
+      AC_MSG_RESULT([no])
+      tst_allow_memset_s="no"
+    fi
+  fi
+
+  AC_MSG_CHECKING([if memset_s might be used])
+  if test "$tst_links_memset_s" = "yes" &&
+     test "$tst_proto_memset_s" = "yes" &&
+     test "$tst_compi_memset_s" = "yes" &&
+     test "$tst_allow_memset_s" = "yes"; then
+    AC_MSG_RESULT([yes])
+    AC_DEFINE_UNQUOTED(HAVE_MEMSET_S, 1,
+      [Define to 1 if you have the memset_s function.])
+    curl_cv_func_memset_s="yes"
+  else
+    AC_MSG_RESULT([no])
+    curl_cv_func_memset_s="no"
   fi
 ])
 
@@ -4271,6 +4028,7 @@ dnl CURL_ATOMIC
 dnl -------------------------------------------------------------
 dnl Check if _Atomic works. But only check if stdatomic.h exists.
 dnl
+
 AC_DEFUN([CURL_ATOMIC],[
   AC_CHECK_HEADERS(stdatomic.h, [
     AC_MSG_CHECKING([if _Atomic is available])
@@ -4352,5 +4110,4 @@ AC_DEFUN([CURL_SIZEOF], [
   eval "$tname=$r"
 
   AC_DEFINE_UNQUOTED(TYPE, [$r], [Size of $1 in number of bytes])
-
 ])

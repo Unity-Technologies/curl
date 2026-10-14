@@ -176,7 +176,7 @@ static int setup(struct transfer *t, int num)
     /* HTTP/2 please */
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
 
-#if (CURLPIPE_MULTIPLEX > 0)
+#if CURLPIPE_MULTIPLEX > 0
     /* wait for pipe connection to confirm */
     curl_easy_setopt(curl, CURLOPT_PIPEWAIT, 1L);
 #endif
@@ -187,7 +187,7 @@ static int setup(struct transfer *t, int num)
 /*
  * Download many transfers over HTTP/2, using the same connection!
  */
-int main(int argc, const char **argv)
+int main(int argc, const char *argv[])
 {
   CURLcode result;
   struct transfer *trans;

@@ -164,11 +164,6 @@ CPU cores is a good figure to start with, or 1.3 times if Valgrind is in use,
 or 5 times for torture tests. Enabling parallel tests is not recommended in
 conjunction with the -g option.
 
-## `-k`
-
-Keep output and log files in log/ after a test run, even if no error was
-detected. Useful for debugging.
-
 ## `-L \<file\>`
 
 Load and execute the specified file which should contain perl code. This
@@ -264,6 +259,24 @@ script randomly discards entries to fail until the amount is **num**.
 
 The random seed initially set for this is fixed per month and can be set with
 *--seed*.
+
+## `--subset=<section>/<parts>`
+
+Tell runtests to run a subset of the available tests. The test selection is
+done first based on existing options. The list of selected tests is then
+divided into a number of *parts*. The selected *section* specifier is the
+set of tests this invoke runs. Note that both numbers must be provided and
+*section* is zero indexed so it must be smaller than *parts*.
+
+Using this option you can for example split up an identical test run into
+three separate invokes that combined run all the tests:
+
+     ./runtests.pl --subset=0/3
+     ./runtests.pl --subset=1/3
+     ./runtests.pl --subset=2/3
+
+This option works fine in combination with `-R` but consider also using
+`--seed` for that.
 
 ## `-t[num]`
 

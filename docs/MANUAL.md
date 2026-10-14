@@ -24,7 +24,7 @@ Get a directory listing of an FTP site:
 
     curl ftp://ftp.example.com/
 
-Get the all terms matching curl from a dictionary:
+Get all terms matching curl from a dictionary:
 
     curl dict://dict.example.com/m:curl
 
@@ -57,7 +57,7 @@ Get a file from an SSH server using SCP using a private key
 (password-protected) to authenticate:
 
     curl -u username: --key ~/.ssh/id_rsa --pass private_key_password
-    scp://example.com/~/file.txt
+      scp://example.com/~/file.txt
 
 Get the main page from an IPv6 web server:
 
@@ -99,8 +99,8 @@ or specify them with the `-u` flag like
 It is like FTP, but you may also want to specify and use SSL-specific options
 for certificates etc.
 
-Note that using `FTPS://` as prefix is the *implicit* way as described in the
-standards while the recommended *explicit* way is done by using `FTP://` and
+Note that using `ftps://` as prefix is the *implicit* way as described in the
+standards while the recommended *explicit* way is done by using `ftp://` and
 the `--ssl-reqd` option.
 
 ### SFTP / SCP
@@ -188,13 +188,13 @@ transfers, and curl's `-v` option to see exactly what curl is sending.
 
 ## Piping
 
-Get a key file and add it with `apt-key` (when on a system that uses `apt` for
-package management):
+Get a key file and install it as a trusted one (when on a system that uses
+`apt` for package management):
 
-    curl -L https://apt.example.org/llvm-snapshot.gpg.key | sudo apt-key add -
+    curl -L https://apt.example.org/llvm-snapshot.gpg.key | sudo tee
+      /etc/apt/trusted.gpg.d/llvm-snapshot.asc >/dev/null
 
-The '|' pipes the output to STDIN. `-` tells `apt-key` that the key file
-should be read from STDIN.
+The '|' pipes the output to stdin. `tee` reads from stdin.
 
 ## Ranges
 

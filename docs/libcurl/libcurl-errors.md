@@ -219,7 +219,7 @@ file boundary.
 
 ## CURLE_FILE_COULDNT_READ_FILE (37)
 
-A file given with FILE:// could not be opened. Most likely because the file
+A file given with `file://` could not be opened. Most likely because the file
 path does not identify an existing file. Did you check file permissions?
 
 ## CURLE_LDAP_CANNOT_BIND (38)
@@ -674,7 +674,7 @@ There is no zone id set in the URL.
 
 ## CURLUE_BAD_FILE_URL (19)
 
-The file:// URL is invalid.
+The `file://` URL is invalid.
 
 ## CURLUE_BAD_FRAGMENT (20)
 
@@ -723,6 +723,11 @@ libcurl lacks IDN support.
 ## CURLUE_TOO_LARGE (31)
 
 A value or data field is larger than allowed.
+
+## CURLUE_BACKSLASH (32)
+
+Found a backslash character where a forward slash was expected. URL separators
+are forward slashes (`/`), not backslashes (`\`).
 
 # CURLHcode
 

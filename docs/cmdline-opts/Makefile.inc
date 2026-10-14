@@ -134,6 +134,10 @@ DPAGES = \
   http2.md \
   http3.md \
   http3-only.md \
+  httpsig-algo.md \
+  httpsig-headers.md \
+  httpsig-key.md \
+  httpsig-keyid.md \
   ignore-content-length.md \
   insecure.md \
   interface.md \
@@ -212,6 +216,7 @@ DPAGES = \
   proxy-digest.md \
   proxy-header.md \
   proxy-http2.md \
+  proxy-http3.md \
   proxy-insecure.md \
   proxy-key-type.md \
   proxy-key.md \

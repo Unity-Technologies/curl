@@ -30,14 +30,14 @@
 use strict;
 use warnings;
 
-my $manpage=$ARGV[0];
-my $header=$ARGV[1];
-my $source=$ARGV[2];
+my $manpage = $ARGV[0];
+my $header = $ARGV[1];
+my $source = $ARGV[2];
 my %manversion;
 my %headerversion;
 my %manname;
 my %sourcename;
-my $error=0;
+my $error = 0;
 
 open(my $m, "<", $manpage);
 while(<$m>) {
@@ -66,6 +66,7 @@ while(<$s>) {
 }
 close($s);
 $sourcename{'NTLM_WB'}++; # deprecated, fake its presence in code
+$sourcename{'TLS-SRP'}++; # deprecated, fake its presence in code
 
 for my $h (keys %headerversion) {
     if(!$manversion{$h}) {

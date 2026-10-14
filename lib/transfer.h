@@ -31,8 +31,6 @@ char *Curl_checkheaders(const struct Curl_easy *data,
 
 void Curl_init_CONNECT(struct Curl_easy *data);
 
-CURLcode Curl_reset_userpwd(struct Curl_easy *data);
-CURLcode Curl_reset_proxypwd(struct Curl_easy *data);
 CURLcode Curl_pretransfer(struct Curl_easy *data);
 
 CURLcode Curl_sendrecv(struct Curl_easy *data);
@@ -71,12 +69,12 @@ void Curl_xfer_setup_nop(struct Curl_easy *data);
 
 /* The transfer sends data on the given socket index */
 void Curl_xfer_setup_send(struct Curl_easy *data,
-                          int sockindex);
+                          int8_t sockindex);
 
 /* The transfer receives data on the given socket index, the
  * amount to receive (or -1 if unknown). */
 void Curl_xfer_setup_recv(struct Curl_easy *data,
-                          int sockindex,
+                          int8_t sockindex,
                           curl_off_t recv_size);
 
 /* *After* Curl_xfer_setup_xxx(), tell the transfer to shutdown the
@@ -91,7 +89,7 @@ void Curl_xfer_set_shutdown(struct Curl_easy *data,
  * the amount to receive or -1 if unknown.
  */
 void Curl_xfer_setup_sendrecv(struct Curl_easy *data,
-                              int sockindex,
+                              int8_t sockindex,
                               curl_off_t recv_size);
 
 /**
@@ -145,8 +143,12 @@ bool Curl_xfer_recv_is_paused(struct Curl_easy *data);
 CURLcode Curl_xfer_pause_send(struct Curl_easy *data, bool enable);
 CURLcode Curl_xfer_pause_recv(struct Curl_easy *data, bool enable);
 
-/* TRUE if the transfer is secure (e.g. TLS) from libcurl to the
- * URL's host. */
+/* TRUE if the transfer is secure, e.g. uses TLS and does not
+ * use a forward proxy. */
 bool Curl_xfer_is_secure(struct Curl_easy *data);
+
+/* Internal variant of the API function */
+CURLcode Curl_easy_recv(struct Curl_easy *data,
+                        void *buffer, size_t buflen, size_t *n);
 
 #endif /* HEADER_CURL_TRANSFER_H */

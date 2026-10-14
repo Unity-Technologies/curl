@@ -5,7 +5,7 @@ Long: show-headers
 Short: i
 Help: Show response headers in output
 Protocols: HTTP FTP
-Category: important verbose output
+Category: important verbose output http ftp
 Added: 4.8
 Multi: boolean
 See-also:
@@ -23,6 +23,12 @@ non-HTTP protocols, the "headers" are other server communication.
 
 This option makes the response headers get saved in the same stream/output as
 the data. --dump-header exists to save headers in a separate stream.
+
+When HTTP headers are output to a tty, curl may use escape codes to make the
+header field names appear in bold and URLs in `Location:` headers be
+especially marked as such. Disable the use of terminal escape codes with
+--no-styled-output. (This means using the --styled-output option with a
+`--no-` prefix to disable it.)
 
 To view the request headers, consider the --verbose option.
 

@@ -5,7 +5,7 @@ Long: ssl
 Help: Try enabling TLS
 Protocols: FTP IMAP POP3 SMTP LDAP
 Added: 7.20.0
-Category: tls imap pop3 smtp ldap
+Category: tls imap pop3 smtp ldap ftp
 Multi: boolean
 See-also:
   - ssl-reqd
@@ -29,6 +29,8 @@ This option is handled in LDAP (added in 7.81.0). It is fully supported by the
 OpenLDAP backend and ignored by the generic ldap backend.
 
 Please note that a server may close the connection if the negotiation fails.
+
+If set, this option overrides --ftp-ssl-control.
 
 This option was formerly known as --ftp-ssl (added in 7.11.0). That option
 name can still be used but might be removed in a future version.

@@ -14,13 +14,27 @@ run-time:runtime
 set-up:setup
 tool chain:toolchain
 tool-chain:toolchain
+well known:well-known
 wild-card:wildcard
 wild card:wildcard
+threadsafe:thread-safe
 thread safe:thread-safe
+thread safety:thread-safety
 thread unsafe:thread-unsafe
 multi thread:multi-thread
+nul terminate:null-terminate
+null terminate:null-terminate
+zero terminate:null-terminate
+nul terminated:null-terminated
 null terminated:null-terminated
+NULL-terminated=null-terminated
 zero terminated:null-terminated
+zero-terminated:null-terminated
+nul terminator:null-terminator
+null terminator:null-terminator
+zero terminator:null-terminator
+work-around:workaround or work around
+work-arounds:workarounds or works around
 it's:it is
 aren't:are not
 can't:cannot
@@ -31,12 +45,12 @@ doesn't:does not
 don't:do not
 haven't:have not
 i'd:I would
-i'll:I will
+i'll:avoid contraction and rewrite to present tense
 i'm:I am
 i've:I have
 isn't:is not
 it'd:it would
-it'll:it will
+it'll:avoid contraction and rewrite to present tense
 might've:might have
 needn't:need not
 should've:should have
@@ -44,21 +58,21 @@ shouldn't:should not
 that's:that is
 there's:there is
 they'd:They would
-they'll:They will
+they'll:avoid contraction and rewrite to present tense
 they're:They are
 they've:They have
-this'll:this will
+this'll:avoid contraction and rewrite to present tense
 wasn't:was not
 we'd:we would
-we'll:we will
+we'll:avoid contraction and rewrite to present tense
 we're:we are
 we've:we have
 weren't:were not
-won't:will not
+won't:avoid contraction and rewrite to present tense
 would've:would have
 wouldn't:would not
 you'd:you would
-you'll:you will
+you'll:avoid contraction and rewrite to present tense
 you're:you are
 you've:you have
 a html:an html
@@ -92,10 +106,13 @@ will:rewrite to present tense
 63 bit:63-bit
 64 bit:64-bit
 128 bit:128-bit
+256 bit:256-bit
 8-bits:8 bits
 16-bits:16 bits
 32-bits:32 bits
 64-bits:64 bits
+initialise:initialize
+initialising:initializing
 very:rephrase using an alternative word
 just:rephrase using an alternative word
 simply:rephrase using an alternative word
@@ -115,3 +132,4 @@ with with:with
 ---Curl Corporation
 ---:lib/:will
 ---:src/:will
+---:tests/data/:file name

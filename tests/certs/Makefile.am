@@ -23,19 +23,19 @@
 ###########################################################################
 AUTOMAKE_OPTIONS = foreign
 
-# Get CERTCONFIG_CA, CERTCONFIGS, GENERATEDCERTS, SRPFILES variables
+# Get CERTCONFIG_CA, CERTCONFIGS, GENERATEDCERTS variables
 include Makefile.inc
 
-EXTRA_DIST = $(CERTCONFIG_CA) $(CERTCONFIGS) $(SRPFILES) CMakeLists.txt \
+EXTRA_DIST = $(CERTCONFIG_CA) $(CERTCONFIGS) CMakeLists.txt \
   genserv.pl
 
-DISTCLEANFILES = $(GENERATEDCERTS)
+CLEANFILES = $(GENERATEDCERTS)
 
 all-am: test-ca.cacert
 
 # Rebuild the certificates
 
-# Generate all certs in a single shot, but declare just a single target file
+# Generate all certs in a single shot, but declare only a single target file
 # to support GNU Make <4.3 without the "grouped explicit targets" feature.
 test-ca.cacert: $(CERTCONFIG_CA) $(CERTCONFIGS) genserv.pl
 	@PERL@ $(srcdir)/genserv.pl test $(CERTCONFIGS)

@@ -51,6 +51,7 @@ struct easy_pollset;
 #define PORT_SMTPS  465 /* sometimes called SSMTP */
 #define PORT_RTSP   554
 #define PORT_GOPHER 70
+#define PORT_SOCKS  1080
 #define PORT_MQTT   1883
 #define PORT_MQTTS  8883
 
@@ -62,6 +63,7 @@ struct easy_pollset;
 #define CURLPROTO_WS     (1L << 30)
 #define CURLPROTO_WSS    ((curl_prot_t)1 << 31)
 #define CURLPROTO_MQTTS  (1LL << 32)
+#define CURLPROTO_SOCKS  (1LL << 33)
 
 #define CURLPROTO_64ALL ((uint64_t)0xffffffffffffffff)
 
@@ -103,6 +105,12 @@ typedef enum {
   FOLLOW_REDIR /* a full true redirect */
 } followtype;
 
+typedef enum {
+  DOMORE_GOBACK = -1,
+  DOMORE_INCOMPLETE = 0,
+  DOMORE_DONE = 1
+} domore;
+
 /*
  * Specific protocol handler, an implementation of one or more URI schemes.
  */
@@ -118,9 +126,13 @@ struct Curl_protocol {
 
   /* If the curl_do() function is better made in two halves, this
    * curl_do_more() function will be called afterwards, if set. For example
-   * for doing the FTP stuff after the PASV/PORT command.
+   * for doing the FTP stuff after the PASV/PORT command. The second
+   * argument is an output parameter that MUST be set to one of the
+   * DOMORE_* values: DOMORE_INCOMPLETE if more do_more work remains,
+   * DOMORE_DONE when the second phase is complete, or DOMORE_GOBACK
+   * to return to the regular DO/DOING handling.
    */
-  CURLcode (*do_more)(struct Curl_easy *, int *);
+  CURLcode (*do_more)(struct Curl_easy *, domore *);
 
   /* This function *MAY* be set to a protocol-dependent function that is run
    * after the connect() and everything is done, as a step in the connection.
@@ -197,8 +209,7 @@ struct Curl_protocol {
 #define PROTOPT_CLOSEACTION (1 << 2) /* need action before socket close */
 /* some protocols will have to call the underlying functions without regard to
    what exact state the socket signals. IE even if the socket says "readable",
-   the send function might need to be called while uploading, or vice versa.
-*/
+   the send function might need to be called while uploading, or vice versa. */
 #define PROTOPT_DIRLOCK (1 << 3)
 #define PROTOPT_NONETWORK (1 << 4) /* protocol does not use the network! */
 #define PROTOPT_NEEDSPWD (1 << 5)  /* needs a password, and if none is set it
@@ -224,6 +235,9 @@ struct Curl_protocol {
                                          SSL connection in the same family
                                          without having PROTOPT_SSL. */
 #define PROTOPT_CONN_REUSE (1 << 16)  /* this protocol can reuse connections */
+#define PROTOPT_NO_TRANSFER (1 << 17) /* this protocol is not for transfers */
+#define PROTOPT_HTTP_PROXY_TUNNEL (1 << 18) /* Using this protocol with a
+                                             * HTTP proxy requires tunneling */
 
 /* Everything about a URI scheme. */
 struct Curl_scheme {
@@ -268,6 +282,11 @@ extern const struct Curl_scheme Curl_scheme_smb;
 extern const struct Curl_scheme Curl_scheme_smbs;
 extern const struct Curl_scheme Curl_scheme_smtp;
 extern const struct Curl_scheme Curl_scheme_smtps;
+extern const struct Curl_scheme Curl_scheme_socks;
+extern const struct Curl_scheme Curl_scheme_socks4;
+extern const struct Curl_scheme Curl_scheme_socks4a;
+extern const struct Curl_scheme Curl_scheme_socks5;
+extern const struct Curl_scheme Curl_scheme_socks5h;
 extern const struct Curl_scheme Curl_scheme_telnet;
 extern const struct Curl_scheme Curl_scheme_tftp;
 extern const struct Curl_scheme Curl_scheme_ws;

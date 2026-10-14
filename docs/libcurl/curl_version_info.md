@@ -232,6 +232,13 @@ HTTP/3 and QUIC support are built-in (Added in 7.66.0)
 
 libcurl was built with support for HTTPS-proxy.
 
+## `HTTPSIG`
+
+*features* mask bit: non-existent
+
+libcurl was built with support for RFC 9421 HTTP Message Signatures (Added in
+8.22.0)
+
 ## `HTTPSRR`
 
 *features* mask bit: non-existent
@@ -297,6 +304,13 @@ supports HTTP NTLM
 
 libcurl was built with support for NTLM delegation to a winbind helper. This
 feature was removed from curl in 8.8.0.
+
+## `proxy-HTTP3`
+
+*features* mask bit: non-existent
+
+libcurl was built with EXPERIMENTAL support for HTTP/3 proxy tunneling
+(Added in 8.21.0)
 
 ## `PSL`
 

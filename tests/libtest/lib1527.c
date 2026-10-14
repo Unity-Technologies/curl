@@ -23,14 +23,14 @@
  ***************************************************************************/
 
 /*
- * This unit test PUT http data over proxy. Same  http header will be generated
+ * This unit test PUT http data over proxy. Same http header is generated
  * for server and proxy
  */
 
 #include "first.h"
 
 static const char t1527_data[] = "Hello Cloud!\n";
-static size_t const t1527_datalen = sizeof(t1527_data) - 1;
+static const size_t t1527_datalen = CURL_CSTRLEN(t1527_data);
 
 static size_t t1527_read_cb(char *ptr, size_t size, size_t nmemb, void *stream)
 {
@@ -72,19 +72,19 @@ static CURLcode test_lib1527(const char *URL)
   }
   hhl = tmp;
 
-  test_setopt(curl, CURLOPT_URL, URL);
-  test_setopt(curl, CURLOPT_PROXY, libtest_arg2);
-  test_setopt(curl, CURLOPT_HTTPHEADER, hhl);
-  test_setopt(curl, CURLOPT_POST, 0L);
-  test_setopt(curl, CURLOPT_UPLOAD, 1L);
-  test_setopt(curl, CURLOPT_VERBOSE, 1L);
-  test_setopt(curl, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
-  test_setopt(curl, CURLOPT_HEADER, 1L);
-  test_setopt(curl, CURLOPT_WRITEFUNCTION, fwrite);
-  test_setopt(curl, CURLOPT_READFUNCTION, t1527_read_cb);
-  test_setopt(curl, CURLOPT_HTTPPROXYTUNNEL, 1L);
-  test_setopt(curl, CURLOPT_INFILESIZE, (long)t1527_datalen);
-  test_setopt(curl, CURLOPT_HEADEROPT, CURLHEADER_UNIFIED);
+  easy_setopt(curl, CURLOPT_URL, URL);
+  easy_setopt(curl, CURLOPT_PROXY, libtest_arg2);
+  easy_setopt(curl, CURLOPT_HTTPHEADER, hhl);
+  easy_setopt(curl, CURLOPT_POST, 0L);
+  easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+  easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+  easy_setopt(curl, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
+  easy_setopt(curl, CURLOPT_HEADER, 1L);
+  easy_setopt(curl, CURLOPT_WRITEFUNCTION, fwrite);
+  easy_setopt(curl, CURLOPT_READFUNCTION, t1527_read_cb);
+  easy_setopt(curl, CURLOPT_HTTPPROXYTUNNEL, 1L);
+  easy_setopt(curl, CURLOPT_INFILESIZE, (long)t1527_datalen);
+  easy_setopt(curl, CURLOPT_HEADEROPT, CURLHEADER_UNIFIED);
 
   result = curl_easy_perform(curl);
 

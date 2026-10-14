@@ -23,17 +23,9 @@
  ***************************************************************************/
 #include "first.h"
 
-static size_t t1940_write_cb(char *data, size_t n, size_t l, void *userp)
-{
-  /* take care of the data here, ignored in this example */
-  (void)data;
-  (void)userp;
-  return n * l;
-}
-
 static void t1940_showem(CURL *curl, int header_request, unsigned int type)
 {
-  static const char *testdata[] = {
+  static const char * const testdata[] = {
     "daTE",
     "Server",
     "content-type",
@@ -76,6 +68,45 @@ static void t1940_showem(CURL *curl, int header_request, unsigned int type)
   }
 }
 
+static CURLHcode t1940_negative(CURL *curl, int req_index)
+{
+  struct curl_header *hd1, *hd2;
+  CURLHcode result;
+
+  result = curl_easy_header(NULL, "x", 0, CURLH_HEADER, -1, &hd1);
+  if(result != CURLHE_BAD_ARGUMENT)
+    return result;
+
+  result = curl_easy_header(curl, NULL, 0, CURLH_HEADER, -1, &hd1);
+  if(result != CURLHE_BAD_ARGUMENT)
+    return result;
+
+  result = curl_easy_header(curl, "x", 0, CURLH_HEADER, -1, NULL);
+  if(result != CURLHE_BAD_ARGUMENT)
+    return result;
+
+  result = curl_easy_header(curl, "x", 0, 0, -1, &hd1);
+  if(result != CURLHE_BAD_ARGUMENT)
+    return result;
+
+  result = curl_easy_header(curl, "date", 0, CURLH_HEADER, req_index, &hd1);
+  if(result != CURLHE_OK)
+    return result;
+  if(!hd1)
+    return CURLHE_NOHEADERS;
+
+  /* Should give the first header */
+  hd2 = curl_easy_nextheader(curl, CURLH_HEADER, -1, NULL);
+  if(!hd2)
+    return CURLHE_BADINDEX;
+
+  hd2 = curl_easy_nextheader(NULL, CURLH_HEADER, -1, hd1);
+  if(hd2) /* should not work */
+    return CURLHE_BADINDEX;
+
+  return CURLHE_OK;
+}
+
 static CURLcode test_lib1940(const char *URL)
 {
   CURL *curl = NULL;
@@ -89,13 +120,13 @@ static CURLcode test_lib1940(const char *URL)
     header_request = -1;
   }
 
-  global_init(CURL_GLOBAL_DEFAULT);
+  global_init(CURL_GLOBAL_ALL);
   easy_init(curl);
   easy_setopt(curl, CURLOPT_URL, URL);
   easy_setopt(curl, CURLOPT_VERBOSE, 1L);
   easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
   /* ignores any content */
-  easy_setopt(curl, CURLOPT_WRITEFUNCTION, t1940_write_cb);
+  easy_setopt(curl, CURLOPT_WRITEFUNCTION, tutil_throwaway_cb);
 
   /* if there is a proxy set, use it */
   if(libtest_arg2 && *libtest_arg2) {
@@ -113,6 +144,8 @@ static CURLcode test_lib1940(const char *URL)
   }
   t1940_showem(curl, header_request, CURLH_1XX);
   t1940_showem(curl, header_request, CURLH_TRAILER);
+
+  result = (CURLcode)t1940_negative(curl, header_request);
 
 test_cleanup:
   curl_easy_cleanup(curl);

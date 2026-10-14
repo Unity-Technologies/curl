@@ -64,7 +64,7 @@ struct pingpong {
   CURLcode (*statemachine)(struct Curl_easy *data, struct connectdata *conn);
   bool (*endofresp)(struct Curl_easy *data, struct connectdata *conn,
                     const char *ptr, size_t len, int *code);
-  BIT(initialised);
+  BIT(initialized);
   BIT(pending_resp);  /* set TRUE when a server response is pending or in
                          progress, and is cleared once the last response is
                          read */
@@ -132,7 +132,7 @@ CURLcode Curl_pp_vsendf(struct Curl_easy *data,
  * Reads a piece of a server response.
  */
 CURLcode Curl_pp_readresp(struct Curl_easy *data,
-                          int sockindex,
+                          int8_t sockindex,
                           struct pingpong *pp,
                           int *code, /* return the server code if done */
                           size_t *size); /* size of the response */

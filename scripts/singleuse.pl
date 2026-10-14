@@ -167,7 +167,7 @@ my %api = (
 
 sub doublecheck {
     my ($f, $used) = @_;
-    open(F, '-|', 'git', 'grep', '-Fwle', $f, '--', 'lib', @unittests, 'projects');
+    open(F, '-|', 'git', 'grep', '-Fwl', '--end-of-options', $f, '--', 'lib', @unittests, 'projects');
     my @also;
     while(<F>) {
         my $e = $_;
@@ -182,7 +182,7 @@ sub doublecheck {
     return @also;
 }
 
-open(N, '-|', 'nm', $file) || die;
+open(N, '-|', 'nm', $file) or die;
 
 my %exist;
 my %uses;
@@ -198,13 +198,13 @@ while(<N>) {
         $file = $1;
     }
     if($l =~ /^([0-9a-f]+) T _?(.*)/) {
-        my ($name)=($2);
+        my ($name) = ($2);
         #print "Define $name in $file\n";
         $file =~ s/^libcurl_la-//;
         $exist{$name} = $file;
     }
     elsif($l =~ /^                 U _?(.*)/) {
-        my ($name)=($1);
+        my ($name) = ($1);
         #print "Uses $name in $file\n";
         $uses{$name} .= "$file, ";
     }

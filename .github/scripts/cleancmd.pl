@@ -15,8 +15,8 @@ use warnings;
 
 my @asyms;
 
-open(S, "<./docs/libcurl/symbols-in-versions")
-    || die "cannot find symbols-in-versions";
+open(S, "<", './docs/libcurl/symbols-in-versions')
+    or die "cannot find symbols-in-versions";
 while(<S>) {
     if(/^([^ ]*) /) {
         push @asyms, $1;
@@ -29,8 +29,8 @@ my @aopts = (
     '--ftp-ssl-reqd', # old alias
     );
 
-open(O, "<./docs/options-in-versions")
-    || die "cannot find options-in-versions";
+open(O, "<", './docs/options-in-versions')
+    or die "cannot find options-in-versions";
 while(<O>) {
     chomp;
     if(/^([^ ]+)/) {
@@ -49,8 +49,8 @@ while(<O>) {
 }
 close(O);
 
-open(C, "<./.github/scripts/spellcheck.curl")
-    || die "cannot find spellcheck.curl";
+open(C, "<", './.github/scripts/spellcheck.curl')
+    or die "cannot find spellcheck.curl";
 while(<C>) {
     if(/^\#/) {
         next;
@@ -75,7 +75,7 @@ sub process {
     my $sepcount = 0;
     my $out;
     my $line = 0;
-    open(F, "<$f") or die;
+    open(F, "<", $f) or die;
 
     while(<F>) {
         $line++;
@@ -115,14 +115,14 @@ sub process {
     map { $out =~ s/\b$_\b//g; } (@syms);
 
     if(!$ignore) {
-        open(O, ">$f") or die;
+        open(O, ">", $f) or die;
         print O $out;
         close(O);
     }
 }
 
 my @filemasks = @ARGV;
-open(my $git_ls_files, '-|', 'git', 'ls-files', '--', @filemasks) or die "Failed running git ls-files: $!";
+open(my $git_ls_files, '-|', 'git', 'ls-files', '--end-of-options', @filemasks) or die "Failed running git ls-files: $!";
 while(my $f = <$git_ls_files>) {
     chomp $f;
     process($f);

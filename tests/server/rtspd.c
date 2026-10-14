@@ -76,7 +76,7 @@ struct rtspd_httprequest {
                      - skip bytes. */
   int rcmd;       /* doing a special command, see defines above */
   reqprot_t protocol; /* request protocol, HTTP or RTSP */
-  int prot_version;   /* HTTP or RTSP version (major*10 + minor) */
+  int prot_version;   /* HTTP or RTSP version (major * 10 + minor) */
   bool pipelining;    /* true if request is pipelined */
   char *rtp_buffer;
   size_t rtp_buffersize;
@@ -96,8 +96,8 @@ struct rtspd_httprequest {
 
 #define CMD_AUTH_REQUIRED "auth_required"
 
-/* 'idle' means that it will accept the request fine but never respond
-   any data. Just keep the connection alive. */
+/* 'idle' means that it accepts the request fine but never responds
+   any data. Keep the connection alive. */
 #define CMD_IDLE "idle"
 
 /* 'stream' means to send a never-ending stream of data */
@@ -106,18 +106,18 @@ struct rtspd_httprequest {
 #define END_OF_HEADERS "\r\n\r\n"
 
 /* sent as reply to a QUIT */
-static const char *docquit_rtsp = "HTTP/1.1 200 Goodbye" END_OF_HEADERS;
+static const char docquit_rtsp[] = "HTTP/1.1 200 Goodbye" END_OF_HEADERS;
 
 /* sent as reply to a CONNECT */
-static const char *docconnect =
+static const char docconnect[] =
   "HTTP/1.1 200 Mighty fine indeed" END_OF_HEADERS;
 
 /* sent as reply to a "bad" CONNECT */
-static const char *docbadconnect =
+static const char docbadconnect[] =
   "HTTP/1.1 501 Forbidden you fool" END_OF_HEADERS;
 
 /* send back this on HTTP 404 file not found */
-static const char *doc404_HTTP =
+static const char doc404_HTTP[] =
   "HTTP/1.1 404 Not Found\r\n"
   "Server: " RTSPDVERSION "\r\n"
   "Connection: close\r\n"
@@ -133,13 +133,13 @@ static const char *doc404_HTTP =
   "</BODY></HTML>\n";
 
 /* send back this on RTSP 404 file not found */
-static const char *doc404_RTSP = "RTSP/1.0 404 Not Found\r\n"
+static const char doc404_RTSP[] = "RTSP/1.0 404 Not Found\r\n"
   "Server: " RTSPDVERSION
   END_OF_HEADERS;
 
 /* Default size to send away fake RTP data */
 #define RTP_DATA_SIZE 12
-static const char *RTP_DATA = "$_1234\n\0Rsdf";
+static const char RTP_DATA[] = "$_1234\n\0Rsdf";
 
 static int rtspd_ProcessRequest(struct rtspd_httprequest *req)
 {
@@ -267,16 +267,17 @@ static int rtspd_ProcessRequest(struct rtspd_httprequest *req)
           logmsg("Found a reply-servercmd section!");
           do {
             rtp_size_err = 0;
-            if(!strncmp(CMD_AUTH_REQUIRED, ptr, strlen(CMD_AUTH_REQUIRED))) {
+            if(!strncmp(CMD_AUTH_REQUIRED, ptr,
+                        CURL_CSTRLEN(CMD_AUTH_REQUIRED))) {
               logmsg("instructed to require authorization header");
               req->auth_req = TRUE;
             }
-            else if(!strncmp(CMD_IDLE, ptr, strlen(CMD_IDLE))) {
+            else if(!strncmp(CMD_IDLE, ptr, CURL_CSTRLEN(CMD_IDLE))) {
               logmsg("instructed to idle");
               req->rcmd = RCMD_IDLE;
               req->open = TRUE;
             }
-            else if(!strncmp(CMD_STREAM, ptr, strlen(CMD_STREAM))) {
+            else if(!strncmp(CMD_STREAM, ptr, CURL_CSTRLEN(CMD_STREAM))) {
               logmsg("instructed to stream");
               req->rcmd = RCMD_STREAM;
             }
@@ -372,7 +373,7 @@ static int rtspd_ProcessRequest(struct rtspd_httprequest *req)
           req->testno = DOCNUMBER_BADCONNECT;
         else if(!strncmp(doc, "test", 4)) {
           /* if the hostname starts with test, the port number used in the
-             CONNECT line will be used as test number! */
+             CONNECT line is used as test number! */
           const char *portp = strchr(doc, ':');
           if(portp && (*(portp + 1) != '\0') && ISDIGIT(*(portp + 1))) {
             pval = portp + 1;
@@ -404,7 +405,7 @@ static int rtspd_ProcessRequest(struct rtspd_httprequest *req)
   if(req->pipe)
     /* we do have a full set, advance the checkindex to after the end of the
        headers, for the pipelining case mostly */
-    req->checkindex += (end - line) + strlen(END_OF_HEADERS);
+    req->checkindex += (end - line) + CURL_CSTRLEN(END_OF_HEADERS);
 
   /* **** Persistence ****
    *
@@ -424,10 +425,10 @@ static int rtspd_ProcessRequest(struct rtspd_httprequest *req)
     if((req->cl == 0) && !CURL_STRNICMP("Content-Length:", line, 15)) {
       /* If we do not ignore content-length, we read it and we read the whole
          request including the body before we return. If we have been told to
-         ignore the content-length, we will return as soon as all headers
+         ignore the content-length, we return as soon as all headers
          have been received */
       curl_off_t clen;
-      const char *p = line + strlen("Content-Length:");
+      const char *p = line + CURL_CSTRLEN("Content-Length:");
       if(curlx_str_numblanks(&p, &clen)) {
         /* this assumes that a zero Content-Length is valid */
         logmsg("Found invalid '%s' in the request", line);
@@ -438,11 +439,11 @@ static int rtspd_ProcessRequest(struct rtspd_httprequest *req)
 
       logmsg("Found Content-Length: %zu in the request", (size_t)clen);
       if(req->skip)
-        logmsg("... but will abort after %zu bytes", req->cl);
+        logmsg("... but going to abort after %zu bytes", req->cl);
       break;
     }
     else if(!CURL_STRNICMP("Transfer-Encoding: chunked", line,
-                           strlen("Transfer-Encoding: chunked"))) {
+                           CURL_CSTRLEN("Transfer-Encoding: chunked"))) {
       /* chunked data coming in */
       chunked = TRUE;
     }
@@ -506,12 +507,12 @@ static int rtspd_ProcessRequest(struct rtspd_httprequest *req)
   if(!req->pipe &&
      req->open &&
      req->prot_version >= 11 &&
-     req->reqbuf + req->offset > end + strlen(END_OF_HEADERS) &&
-     (!strncmp(req->reqbuf, "GET", strlen("GET")) ||
-      !strncmp(req->reqbuf, "HEAD", strlen("HEAD")))) {
+     req->reqbuf + req->offset > end + CURL_CSTRLEN(END_OF_HEADERS) &&
+     (!strncmp(req->reqbuf, "GET", CURL_CSTRLEN("GET")) ||
+      !strncmp(req->reqbuf, "HEAD", CURL_CSTRLEN("HEAD")))) {
     /* If we have a persistent connection, HTTP version >= 1.1
        and GET/HEAD request, enable pipelining. */
-    req->checkindex = (end - req->reqbuf) + strlen(END_OF_HEADERS);
+    req->checkindex = (end - req->reqbuf) + CURL_CSTRLEN(END_OF_HEADERS);
     req->pipelining = TRUE;
   }
 
@@ -523,7 +524,7 @@ static int rtspd_ProcessRequest(struct rtspd_httprequest *req)
     end = strstr(line, END_OF_HEADERS);
     if(!end)
       break;
-    req->checkindex += (end - line) + strlen(END_OF_HEADERS);
+    req->checkindex += (end - line) + CURL_CSTRLEN(END_OF_HEADERS);
     req->pipe--;
   }
 
@@ -535,7 +536,8 @@ static int rtspd_ProcessRequest(struct rtspd_httprequest *req)
     return 1; /* done */
 
   if(req->cl > 0) {
-    if(req->cl <= req->offset - (end - req->reqbuf) - strlen(END_OF_HEADERS))
+    if(req->cl <= req->offset - (end - req->reqbuf) -
+                  CURL_CSTRLEN(END_OF_HEADERS))
       return 1; /* done */
     else
       return 0; /* not complete yet */
@@ -544,67 +546,10 @@ static int rtspd_ProcessRequest(struct rtspd_httprequest *req)
   return 1; /* done */
 }
 
-/* store the entire request in a file */
-static void rtspd_storerequest(const char *reqbuf, size_t totalsize)
-{
-  int res;
-  int error = 0;
-  char errbuf[STRERROR_LEN];
-  size_t written;
-  size_t writeleft;
-  FILE *dump;
-  char dumpfile[256];
-
-  snprintf(dumpfile, sizeof(dumpfile), "%s/%s", logdir, REQUEST_DUMP);
-
-  if(!reqbuf)
-    return;
-  if(totalsize == 0)
-    return;
-
-  do {
-    dump = curlx_fopen(dumpfile, "ab");
-    /* !checksrc! disable ERRNOVAR 1 */
-  } while(!dump && ((error = errno) == EINTR));
-  if(!dump) {
-    logmsg("Error opening file %s error (%d) %s", dumpfile,
-           error, curlx_strerror(error, errbuf, sizeof(errbuf)));
-    logmsg("Failed to write request input to %s", dumpfile);
-    return;
-  }
-
-  writeleft = totalsize;
-  do {
-    written = fwrite(&reqbuf[totalsize - writeleft], 1, writeleft, dump);
-    if(got_exit_signal)
-      goto storerequest_cleanup;
-    if(written > 0)
-      writeleft -= written;
-    error = errno;
-    /* !checksrc! disable ERRNOVAR 1 */
-  } while((writeleft > 0) && (error == EINTR));
-
-  if(writeleft == 0)
-    logmsg("Wrote request (%zu bytes) input to %s", totalsize, dumpfile);
-  else if(writeleft > 0) {
-    logmsg("Error writing file %s error (%d) %s", dumpfile,
-           error, curlx_strerror(error, errbuf, sizeof(errbuf)));
-    logmsg("Wrote only (%zu bytes) of (%zu bytes) request input to %s",
-           totalsize - writeleft, totalsize, dumpfile);
-  }
-
-storerequest_cleanup:
-
-  res = curlx_fclose(dump);
-  if(res)
-    logmsg("Error closing file %s error (%d) %s", dumpfile,
-           errno, curlx_strerror(errno, errbuf, sizeof(errbuf)));
-}
-
 /* return 0 on success, non-zero on failure */
 static int rtspd_get_request(curl_socket_t sock, struct rtspd_httprequest *req)
 {
-  int error;
+  int sockerr;
   char errbuf[STRERROR_LEN];
   int fail = 0;
   int done_processing = 0;
@@ -665,15 +610,15 @@ static int rtspd_get_request(curl_socket_t sock, struct rtspd_httprequest *req)
       fail = 1;
     }
     else if(got < 0) {
-      error = SOCKERRNO;
+      sockerr = SOCKERRNO;
       logmsg("recv() returned error (%d) %s",
-             error, curlx_strerror(error, errbuf, sizeof(errbuf)));
+             sockerr, curlx_strerror(sockerr, errbuf, sizeof(errbuf)));
       fail = 1;
     }
     if(fail) {
       /* dump the request received so far to the external file */
       reqbuf[req->offset] = '\0';
-      rtspd_storerequest(reqbuf, req->offset);
+      storerequest(reqbuf, req->offset, REQUEST_DUMP);
       return 1;
     }
 
@@ -708,7 +653,8 @@ static int rtspd_get_request(curl_socket_t sock, struct rtspd_httprequest *req)
     reqbuf[req->offset] = '\0';
 
   /* dump the request to an external file */
-  rtspd_storerequest(reqbuf, req->pipelining ? req->checkindex : req->offset);
+  storerequest(reqbuf, req->pipelining ? req->checkindex : req->offset,
+               REQUEST_DUMP);
   if(got_exit_signal)
     return 1;
 
@@ -730,7 +676,6 @@ static int rtspd_send_doc(curl_socket_t sock, struct rtspd_httprequest *req)
   size_t responsesize;
   int error = 0;
   char errbuf[STRERROR_LEN];
-  int res;
   static char weare[256];
   char responsedump[256];
 
@@ -745,10 +690,10 @@ static int rtspd_send_doc(curl_socket_t sock, struct rtspd_httprequest *req)
   case RCMD_STREAM: {
     static const char streamthis[] = "a string to stream 01234567890\n";
     for(;;) {
-      written = swrite(sock, streamthis, sizeof(streamthis) - 1);
+      written = swrite(sock, streamthis, CURL_CSTRLEN(streamthis));
       if(got_exit_signal)
         return -1;
-      if(written != (ssize_t)(sizeof(streamthis) - 1)) {
+      if(written != (ssize_t)CURL_CSTRLEN(streamthis)) {
         logmsg("Stopped streaming");
         break;
       }
@@ -795,7 +740,7 @@ static int rtspd_send_doc(curl_socket_t sock, struct rtspd_httprequest *req)
       break;
     case DOCNUMBER_404:
     default:
-      logmsg("Replying to with a 404");
+      logmsg("Replying with a 404");
       if(req->protocol == RPROT_HTTP) {
         buffer = doc404_HTTP;
       }
@@ -863,7 +808,7 @@ static int rtspd_send_doc(curl_socket_t sock, struct rtspd_httprequest *req)
   }
 
   /* If the word 'swsclose' is present anywhere in the reply chunk, the
-     connection will be closed after the data has been sent to the requesting
+     connection is closed after the data has been sent to the requesting
      client... */
   if(strstr(buffer, "swsclose") || !count) {
     persistent = FALSE;
@@ -890,8 +835,8 @@ static int rtspd_send_doc(curl_socket_t sock, struct rtspd_httprequest *req)
 
   responsesize = count;
   do {
-    /* Ok, we send no more than 200 bytes at a time, just to make sure that
-       larger chunks are split up so that the client will need to do multiple
+    /* Ok, we send no more than 200 bytes at a time, to make sure that
+       larger chunks are split up so that the client needs to do multiple
        recv() calls to get it and thus we exercise that code better */
     size_t num = count;
     if(num > 200)
@@ -934,8 +879,7 @@ static int rtspd_send_doc(curl_socket_t sock, struct rtspd_httprequest *req)
     req->rtp_buffersize = 0;
   }
 
-  res = curlx_fclose(dump);
-  if(res)
+  if(curlx_fclose(dump))
     logmsg("Error closing file %s error (%d) %s", responsedump,
            errno, curlx_strerror(errno, errbuf, sizeof(errbuf)));
 
@@ -968,16 +912,13 @@ static int rtspd_send_doc(curl_socket_t sock, struct rtspd_httprequest *req)
         if(!strcmp("wait", command)) {
           logmsg("Told to sleep for %d seconds", num);
           quarters = num * 4;
-          while(quarters > 0) {
+          while((quarters > 0) && !got_exit_signal) {
             quarters--;
-            res = curlx_wait_ms(250);
-            if(got_exit_signal)
-              break;
-            if(res) {
+            if(curlx_wait_ms(250)) {
               /* should not happen */
-              error = SOCKERRNO;
+              int sockerr = SOCKERRNO;
               logmsg("curlx_wait_ms() failed with error (%d) %s",
-                     error, curlx_strerror(error, errbuf, sizeof(errbuf)));
+                     sockerr, curlx_strerror(sockerr, errbuf, sizeof(errbuf)));
               break;
             }
           }
@@ -1011,10 +952,9 @@ static int test_rtspd(int argc, const char *argv[])
   int wrotepidfile = 0;
   int wroteportfile = 0;
   int flag;
-  unsigned short port = 8999;
   struct rtspd_httprequest req;
   int rc;
-  int error;
+  int sockerr;
   char errbuf[STRERROR_LEN];
   int arg = 1;
 
@@ -1023,6 +963,7 @@ static int test_rtspd(int argc, const char *argv[])
   pidname = ".rtsp.pid";
   serverlogfile = "log/rtspd.log";
   serverlogslocked = 0;
+  server_port = 8999;
 
   while(argc > arg) {
     const char *opt;
@@ -1059,16 +1000,14 @@ static int test_rtspd(int argc, const char *argv[])
         logdir = argv[arg++];
     }
     else if(!strcmp("--ipv4", argv[arg])) {
-#ifdef USE_IPV6
-      ipv_inuse = "IPv4";
-      use_ipv6 = FALSE;
-#endif
+      socket_type = "IPv4";
+      socket_domain = AF_INET;
       arg++;
     }
     else if(!strcmp("--ipv6", argv[arg])) {
 #ifdef USE_IPV6
-      ipv_inuse = "IPv6";
-      use_ipv6 = TRUE;
+      socket_type = "IPv6";
+      socket_domain = AF_INET6;
 #endif
       arg++;
     }
@@ -1077,7 +1016,7 @@ static int test_rtspd(int argc, const char *argv[])
       if(argc > arg) {
         opt = argv[arg];
         if(!curlx_str_number(&opt, &num, 0xffff))
-          port = (unsigned short)num;
+          server_port = (uint16_t)num;
         arg++;
       }
     }
@@ -1104,93 +1043,88 @@ static int test_rtspd(int argc, const char *argv[])
   }
 
   snprintf(loglockfile, sizeof(loglockfile), "%s/%s/rtsp-%s.lock",
-           logdir, SERVERLOGS_LOCKDIR, ipv_inuse);
+           logdir, SERVERLOGS_LOCKDIR, socket_type);
 
-  install_signal_handlers(false);
+  install_signal_handlers(FALSE);
 
 #ifdef USE_IPV6
-  if(!use_ipv6)
+  if(socket_domain == AF_INET6)
+    sock = socket(AF_INET6, SOCK_STREAM, 0);
+  else
 #endif
     sock = socket(AF_INET, SOCK_STREAM, 0);
-#ifdef USE_IPV6
-  else
-    sock = socket(AF_INET6, SOCK_STREAM, 0);
-#endif
 
   if(sock == CURL_SOCKET_BAD) {
-    error = SOCKERRNO;
+    sockerr = SOCKERRNO;
     logmsg("Error creating socket (%d) %s",
-           error, curlx_strerror(error, errbuf, sizeof(errbuf)));
+           sockerr, curlx_strerror(sockerr, errbuf, sizeof(errbuf)));
     goto server_cleanup;
   }
 
   flag = 1;
   if(setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void *)&flag, sizeof(flag))) {
-    error = SOCKERRNO;
+    sockerr = SOCKERRNO;
     logmsg("setsockopt(SO_REUSEADDR) failed with error (%d) %s",
-           error, curlx_strerror(error, errbuf, sizeof(errbuf)));
+           sockerr, curlx_strerror(sockerr, errbuf, sizeof(errbuf)));
     goto server_cleanup;
   }
 
 #ifdef USE_IPV6
-  if(!use_ipv6) {
-#endif
-    memset(&me.sa4, 0, sizeof(me.sa4));
-    me.sa4.sin_family = AF_INET;
-    me.sa4.sin_addr.s_addr = INADDR_ANY;
-    me.sa4.sin_port = htons(port);
-    rc = bind(sock, &me.sa, sizeof(me.sa4));
-#ifdef USE_IPV6
-  }
-  else {
+  if(socket_domain == AF_INET6) {
     memset(&me.sa6, 0, sizeof(me.sa6));
     me.sa6.sin6_family = AF_INET6;
     me.sa6.sin6_addr = in6addr_any;
-    me.sa6.sin6_port = htons(port);
+    me.sa6.sin6_port = htons(server_port);
     rc = bind(sock, &me.sa, sizeof(me.sa6));
   }
-#endif /* USE_IPV6 */
+  else
+#endif
+  {
+    memset(&me.sa4, 0, sizeof(me.sa4));
+    me.sa4.sin_family = AF_INET;
+    me.sa4.sin_addr.s_addr = INADDR_ANY;
+    me.sa4.sin_port = htons(server_port);
+    rc = bind(sock, &me.sa, sizeof(me.sa4));
+  }
   if(rc) {
-    error = SOCKERRNO;
-    logmsg("Error binding socket on port %hu (%d) %s", port,
-           error, curlx_strerror(error, errbuf, sizeof(errbuf)));
+    sockerr = SOCKERRNO;
+    logmsg("Error binding socket on port %hu (%d) %s", server_port,
+           sockerr, curlx_strerror(sockerr, errbuf, sizeof(errbuf)));
     goto server_cleanup;
   }
 
-  if(!port) {
+  if(!server_port) {
     /* The system was supposed to choose a port number, figure out which
        port we actually got and update the listener port value with it. */
     curl_socklen_t la_size;
     srvr_sockaddr_union_t localaddr;
     memset(&localaddr, 0, sizeof(localaddr));
 #ifdef USE_IPV6
-    if(!use_ipv6)
+    if(socket_domain == AF_INET6)
+      la_size = sizeof(localaddr.sa6);
+    else
 #endif
       la_size = sizeof(localaddr.sa4);
-#ifdef USE_IPV6
-    else
-      la_size = sizeof(localaddr.sa6);
-#endif
     if(getsockname(sock, &localaddr.sa, &la_size) < 0) {
-      error = SOCKERRNO;
+      sockerr = SOCKERRNO;
       logmsg("getsockname() failed with error (%d) %s",
-             error, curlx_strerror(error, errbuf, sizeof(errbuf)));
+             sockerr, curlx_strerror(sockerr, errbuf, sizeof(errbuf)));
       sclose(sock);
       goto server_cleanup;
     }
     switch(localaddr.sa.sa_family) {
     case AF_INET:
-      port = ntohs(localaddr.sa4.sin_port);
+      server_port = ntohs(localaddr.sa4.sin_port);
       break;
 #ifdef USE_IPV6
     case AF_INET6:
-      port = ntohs(localaddr.sa6.sin6_port);
+      server_port = ntohs(localaddr.sa6.sin6_port);
       break;
 #endif
     default:
       break;
     }
-    if(!port) {
+    if(!server_port) {
       /* Real failure, listener port shall not be zero beyond this point. */
       logmsg("Apparently getsockname() succeeded, with listener port zero.");
       logmsg("A valid reason for this failure is a binary built without");
@@ -1200,20 +1134,19 @@ static int test_rtspd(int argc, const char *argv[])
       goto server_cleanup;
     }
   }
-  logmsg("Running %s version on port %d", ipv_inuse, (int)port);
+  logmsg("Running %s version on port %d", socket_type, (int)server_port);
 
   /* start accepting connections */
-  rc = listen(sock, 5);
-  if(rc) {
-    error = SOCKERRNO;
+  if(listen(sock, 5)) {
+    sockerr = SOCKERRNO;
     logmsg("listen() failed with error (%d) %s",
-           error, curlx_strerror(error, errbuf, sizeof(errbuf)));
+           sockerr, curlx_strerror(sockerr, errbuf, sizeof(errbuf)));
     goto server_cleanup;
   }
 
   /*
-   * As soon as this server writes its pid file the test harness will
-   * attempt to connect to this server and initiate its verification.
+   * As soon as this server writes its pid file the test harness attempts
+   * to connect to this server and initiate its verification.
    */
 
   wrotepidfile = write_pidfile(pidname);
@@ -1221,7 +1154,7 @@ static int test_rtspd(int argc, const char *argv[])
     goto server_cleanup;
 
   if(portname) {
-    wroteportfile = write_portfile(portname, port);
+    wroteportfile = write_portfile(portname, server_port);
     if(!wroteportfile)
       goto server_cleanup;
   }
@@ -1232,9 +1165,9 @@ static int test_rtspd(int argc, const char *argv[])
     if(got_exit_signal)
       break;
     if(msgsock == CURL_SOCKET_BAD) {
-      error = SOCKERRNO;
+      sockerr = SOCKERRNO;
       logmsg("MAJOR ERROR, accept() failed with error (%d) %s",
-             error, curlx_strerror(error, errbuf, sizeof(errbuf)));
+             sockerr, curlx_strerror(sockerr, errbuf, sizeof(errbuf)));
       break;
     }
 
@@ -1343,19 +1276,7 @@ server_cleanup:
     clear_advisor_read_lock(loglockfile);
   }
 
-  restore_signal_handlers(false);
+  restore_signal_handlers(FALSE);
 
-  if(got_exit_signal) {
-    logmsg("========> %s rtspd (port: %d pid: %ld) exits with signal (%d)",
-           ipv_inuse, (int)port, (long)our_getpid(), exit_signal);
-    /*
-     * To properly set the return status of the process we
-     * must raise the same signal SIGINT or SIGTERM that we
-     * caught and let the old handler take care of it.
-     */
-    raise(exit_signal);
-  }
-
-  logmsg("========> rtspd quits");
   return 0;
 }

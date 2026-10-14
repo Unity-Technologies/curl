@@ -32,7 +32,7 @@ use IPC::Open3;
 use Symbol 'gensym';
 
 sub opensslfail {
-    die "Missing or broken 'openssl' tool. openssl 1.0.2+ is required. ".
+    die "Missing or unsupported 'openssl' tool. openssl 1.0.2+ required. ".
         "Without it, this script cannot generate the necessary certificates ".
         "the curl test suite needs for all its TLS related tests.";
 }
@@ -52,7 +52,7 @@ my $PREFIX;
 sub redir {
     my $outfn = shift if($_[0] =~ /^>/);
     my $hideerr = shift if($_[0] =~ /^2>/);
-    open(my $outfd, $outfn) || die if($outfn);
+    open(my $outfd, $outfn) or die if($outfn);
     my $pid = open3(my $in, my $out, my $err = gensym, @_);
     if(!$hideerr) { while(<$err>) { print STDERR $_; }; }
     if($outfn) { while(<$out>) { print $outfd $_; }; close($outfd); }
@@ -79,6 +79,7 @@ if(!$CAPREFIX) {
             }
         }
         if(!$found) {
+            printf "PATH used: %s\n", join(', ', File::Spec->path());
             opensslfail();
         }
     }

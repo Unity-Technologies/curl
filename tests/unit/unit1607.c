@@ -23,7 +23,6 @@
  ***************************************************************************/
 #include "unitcheck.h"
 #include "urldata.h"
-#include "connect.h"
 #include "curl_addrinfo.h"
 
 static CURLcode t1607_setup(void)
@@ -52,7 +51,7 @@ static CURLcode test_unit1607(const char *arg)
 
     /* lowercase host and port to retrieve the addresses from hostcache */
     const char *host;
-    int port;
+    uint16_t port;
 
     /* whether we expect a permanent or non-permanent cache entry */
     bool permanent;
@@ -110,10 +109,11 @@ static CURLcode test_unit1607(const char *arg)
     struct Curl_addrinfo *addr;
     struct Curl_dns_entry *dns;
     void *entry_id;
-    bool problem = false;
+    bool problem = FALSE;
     easy = curl_easy_init();
     if(!easy)
       goto error;
+    curl_easy_setopt(easy, CURLOPT_VERBOSE, 1L);
 
     /* create a multi handle and add the easy handle to it so that the
        hostcache is setup */
@@ -127,13 +127,13 @@ static CURLcode test_unit1607(const char *arg)
 
     Curl_loadhostpairs(easy);
 
-    entry_id = (void *)curl_maprintf("%s:%d", tests[i].host, tests[i].port);
+    entry_id = (void *)curl_maprintf("%c%s:%u", CURL_DNST_ADDR,
+                                     tests[i].host, tests[i].port);
     if(!entry_id)
       goto error;
     dns = Curl_hash_pick(&multi->dnscache.entries,
                          entry_id, strlen(entry_id) + 1);
-    curlx_free(entry_id);
-    entry_id = NULL;
+    curlx_safefree(entry_id);
 
     addr = dns ? dns->addr : NULL;
 
@@ -147,12 +147,12 @@ static CURLcode test_unit1607(const char *arg)
       if(tests[i].address[j] == &skip)
         continue;
 
-      if(addr && !Curl_addr2string(addr->ai_addr, addr->ai_addrlen,
-                                   ipaddress, &port)) {
+      if(addr && sockaddr2string(addr->ai_addr, addr->ai_addrlen,
+                                 ipaddress, &port)) {
         curl_mfprintf(stderr, "%s:%d tests[%zu] failed. "
                       "getaddressinfo failed.\n",
                       __FILE__, __LINE__, i);
-        problem = true;
+        problem = TRUE;
         break;
       }
 
@@ -160,7 +160,7 @@ static CURLcode test_unit1607(const char *arg)
         curl_mfprintf(stderr, "%s:%d tests[%zu] failed. the retrieved addr "
                       "is %s but tests[%zu].address[%zu] is NULL.\n",
                       __FILE__, __LINE__, i, ipaddress, i, j);
-        problem = true;
+        problem = TRUE;
         break;
       }
 
@@ -168,7 +168,7 @@ static CURLcode test_unit1607(const char *arg)
         curl_mfprintf(stderr, "%s:%d tests[%zu] failed. the retrieved addr "
                       "is NULL but tests[%zu].address[%zu] is %s.\n",
                       __FILE__, __LINE__, i, i, j, tests[i].address[j]);
-        problem = true;
+        problem = TRUE;
         break;
       }
 
@@ -177,7 +177,7 @@ static CURLcode test_unit1607(const char *arg)
                       "%s is not equal to tests[%zu].address[%zu] %s.\n",
                       __FILE__, __LINE__, i, ipaddress, i, j,
                       tests[i].address[j]);
-        problem = true;
+        problem = TRUE;
         break;
       }
 
@@ -186,7 +186,7 @@ static CURLcode test_unit1607(const char *arg)
                       "for tests[%zu].address[%zu] is %d "
                       "but tests[%zu].port is %d.\n",
                       __FILE__, __LINE__, i, i, j, port, i, tests[i].port);
-        problem = true;
+        problem = TRUE;
         break;
       }
 
@@ -195,7 +195,7 @@ static CURLcode test_unit1607(const char *arg)
                       "%s:%d tests[%zu] failed. the timestamp is not zero "
                       "but tests[%zu].permanent is TRUE\n",
                       __FILE__, __LINE__, i, i);
-        problem = true;
+        problem = TRUE;
         break;
       }
 
@@ -203,7 +203,7 @@ static CURLcode test_unit1607(const char *arg)
         curl_mfprintf(stderr, "%s:%d tests[%zu] failed. the timestamp is zero "
                       "but tests[%zu].permanent is FALSE\n",
                       __FILE__, __LINE__, i, i);
-        problem = true;
+        problem = TRUE;
         break;
       }
 

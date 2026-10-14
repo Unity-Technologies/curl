@@ -47,9 +47,8 @@ static int loadfile(const char *filename, void **filedata, size_t *filesize)
         continue_reading = FALSE;
       curlx_fclose(fInCert);
       if(!continue_reading) {
-        curlx_free(data);
+        curlx_safefree(data);
         datasize = 0;
-        data = NULL;
       }
     }
   }
@@ -94,10 +93,10 @@ static CURLcode test_cert_blob(const char *url, const char *cafile)
 static CURLcode test_lib678(const char *URL)
 {
   CURLcode result = CURLE_OK;
-  curl_global_init(CURL_GLOBAL_DEFAULT);
+  curl_global_init(CURL_GLOBAL_ALL);
   if(!strcmp("check", URL)) {
     CURLcode w = CURLE_OK;
-    struct curl_blob blob = { 0 };
+    struct curl_blob blob = { CURL_UNCONST("silly"), 5, 0 };
     CURL *curl = curl_easy_init();
     if(curl) {
       w = curl_easy_setopt(curl, CURLOPT_CAINFO_BLOB, &blob);

@@ -44,7 +44,7 @@ else {
 }
 
 # first run the help command
-my @curlout; open(O, '-|', $curl, '-h', $opt) || die; push @curlout, <O>; close(O);
+my @curlout; open(O, '-|', $curl, '-h', $opt) or die; push @curlout, <O>; close(O);
 
 # figure out the short+long option combo using -h all*/
 open(C, '-|', $curl, '-h', 'all');
@@ -77,7 +77,7 @@ else {
     $fullopt = $longopt;
 }
 
-open(R, "<$txt");
+open(R, "<", $txt);
 my $show = 0;
 my @txtout;
 while(<R>) {
