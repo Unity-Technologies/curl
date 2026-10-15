@@ -525,22 +525,40 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
     backend->pk = NULL;
   }
 
-  unitytls_tlsctx_protocolrange protocol_range;
+  unitytls_tlsctx_protocolrange protocol_range = unitytls->UNITYTLS_TLSCTX_PROTOCOLRANGE_DEFAULT;
 
-  /* Create and configure context */
   switch(conn_config->version) {
     case CURL_SSLVERSION_DEFAULT:
-      protocol_range = unitytls->UNITYTLS_TLSCTX_PROTOCOLRANGE_DEFAULT;
       break;
     case CURL_SSLVERSION_TLSv1_2:
-      protocol_range.max = protocol_range.min = UNITYTLS_PROTOCOL_TLS_1_2;
+      protocol_range.min = UNITYTLS_PROTOCOL_TLS_1_2;
       break;
     case CURL_SSLVERSION_TLSv1_3:
-      protocol_range.max = protocol_range.min = UNITYTLS_PROTOCOL_TLS_1_3;
+      protocol_range.min = UNITYTLS_PROTOCOL_TLS_1_3;
       break;
     default:
       failf(data, "Unrecognized/unsupported parameter passed via CURLOPT_SSLVERSION");
       return CURLE_SSL_CONNECT_ERROR;
+  }
+
+  switch(conn_config->version_max) {
+    case CURL_SSLVERSION_MAX_NONE:
+    case CURL_SSLVERSION_MAX_DEFAULT:
+      break;
+    case CURL_SSLVERSION_MAX_TLSv1_2:
+      protocol_range.max = UNITYTLS_PROTOCOL_TLS_1_2;
+      break;
+    case CURL_SSLVERSION_MAX_TLSv1_3:
+      protocol_range.max = UNITYTLS_PROTOCOL_TLS_1_3;
+      break;
+    default:
+      failf(data, "UnityTLS only supports TLS 1.2-1.3");
+      return CURLE_SSL_CONNECT_ERROR;
+  }
+
+  if(protocol_range.min > protocol_range.max) {
+    failf(data, "Unsupported TLS version range requested via CURLOPT_SSLVERSION");
+    return CURLE_SSL_CONNECT_ERROR;
   }
 
   backend->ctx = unitytls->unitytls_tlsctx_create_client(protocol_range, callbacks, hostname, strlen(hostname), &err);
