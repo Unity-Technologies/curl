@@ -285,12 +285,14 @@
 #  define USE_RESOLV_THREADED 1
 #endif
 
+#ifndef CURL_WINDOWS_UWP
 #define HAVE_LDAP_SSL 1
 #define USE_WIN32_LDAP 1
-/* CryptoAPI hashing is desktop-only, UWP uses the built-in MD5/SHA-256 */
-#ifndef CURL_WINDOWS_UWP
+
+/* Define to use the Windows crypto library. */
 #define USE_WIN32_CRYPTO 1
-#endif
+#endif /* CURL_WINDOWS_UWP */
+
 #define USE_UNIX_SOCKETS 1
 
 #ifndef CURL_OS
