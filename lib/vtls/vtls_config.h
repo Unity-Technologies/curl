@@ -53,8 +53,8 @@ struct ssl_filter_config {
   struct curl_blob *key_blob;
   char *curves;          /* list of curves to use */
 #if UNITY_CERTVERIFY
-  /* Unity: peer verification callback and its userdata. These live in the
-     primary config rather than in ssl_config_data so that they take part in
+  /* Unity: peer verification callback and its userdata, copied from
+     ssl_easy_config. They live in the filter config so that they take part in
      the connection reuse check, i.e. a connection verified by one callback is
      never reused by a transfer carrying a different one. */
   curl_unity_certverify_callback unity_certverify;
