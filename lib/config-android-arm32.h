@@ -17,7 +17,7 @@
 #define CURL_DISABLE_VERBOSE_STRINGS 1
 #define CURL_EXTERN_SYMBOL __attribute__ ((__visibility__ ("default")))
 #define CURL_SA_FAMILY_T sa_family_t
-#define ENABLE_IPV6 1
+#define USE_IPV6 1
 #define GETHOSTNAME_TYPE_ARG2 unsigned int
 #define HAVE_ALARM 1
 #define HAVE_ALLOCA_H 1
