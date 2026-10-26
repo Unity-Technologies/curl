@@ -284,7 +284,7 @@ static unitytls_x509verify_result unitytls_on_verify(void* userData, unitytls_x5
   struct Curl_cfilter *cf = (struct Curl_cfilter*)userData;
   struct ssl_connect_data *connssl = cf->ctx;
   struct ssl_backend_data* backend = connssl->backend;
-  struct ssl_primary_config *conn_config = Curl_ssl_cf_get_primary_config(cf);
+  struct ssl_filter_config *conn_config = Curl_ssl_cf_get_filter_config(cf);
   const bool verifypeer = conn_config->verifypeer;
   const bool verifyhost = conn_config->verifyhost;
   const char* const hostname = connssl->peer.origin->hostname;
@@ -432,15 +432,14 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
 {
   struct ssl_connect_data *connssl = cf->ctx;
   struct ssl_backend_data *backend = connssl->backend;
-  struct ssl_primary_config *conn_config = Curl_ssl_cf_get_primary_config(cf);
+  struct ssl_filter_config *conn_config = Curl_ssl_cf_get_filter_config(cf);
   const struct curl_blob *ca_info_blob = conn_config->ca_info_blob;
-  struct ssl_config_data *ssl_config = Curl_ssl_cf_get_config(cf, data);
   const char* const ssl_cafile = (ca_info_blob ? NULL : conn_config->CAfile);
   const bool verifypeer = conn_config->verifypeer;
   const char* const ssl_capath = conn_config->CApath;
-  char* const ssl_cert = ssl_config->primary.clientcert;
-  const struct curl_blob *ssl_cert_blob = ssl_config->primary.cert_blob;
-  const struct curl_blob *ssl_key_blob = ssl_config->primary.key_blob;
+  char* const ssl_cert = conn_config->clientcert;
+  const struct curl_blob *ssl_cert_blob = conn_config->cert_blob;
+  const struct curl_blob *ssl_key_blob = conn_config->key_blob;
   const char* const hostname = connssl->peer.origin->hostname;
 
   unitytls_errorstate err = unitytls->unitytls_errorstate_create();
@@ -507,15 +506,15 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
   }
 
   /* Load the client private key */
-  if(ssl_config->primary.key) {
-    backend->pk = unitytls_key_parse_pem_from_file(ssl_config->primary.key, ssl_config->primary.key_passwd, &err);
+  if(conn_config->key) {
+    backend->pk = unitytls_key_parse_pem_from_file(conn_config->key, conn_config->key_passwd, &err);
     if(!backend->pk || err.code != UNITYTLS_SUCCESS) {
-      failf(data, "Error reading private key %s", ssl_config->primary.key);
+      failf(data, "Error reading private key %s", conn_config->key);
       return CURLE_SSL_CERTPROBLEM;
     }
   }
   else if(ssl_key_blob) {
-    backend->pk = unitytls_key_parse_pem_from_blob(ssl_key_blob, ssl_config->primary.key_passwd, &err);
+    backend->pk = unitytls_key_parse_pem_from_blob(ssl_key_blob, conn_config->key_passwd, &err);
     if(!backend->pk || err.code != UNITYTLS_SUCCESS) {
       failf(data, "Error parsing private key blob");
       return CURLE_SSL_CERTPROBLEM;
@@ -590,8 +589,8 @@ static CURLcode unitytls_connect_step1(struct Curl_cfilter *cf, struct Curl_easy
 #endif
 
   /* give application a chance to interfere with SSL set up. */
-  if(data->set.ssl.fsslctx) {
-    CURLcode result = (*data->set.ssl.fsslctx)(data, backend->ctx, data->set.ssl.fsslctxp);
+  if(data->set.ssl_fsslctx) {
+    CURLcode result = (*data->set.ssl_fsslctx)(data, backend->ctx, data->set.ssl_fsslctxp);
     if(result != CURLE_OK) {
       failf(data, "error signaled by ssl ctx callback");
       return result;
